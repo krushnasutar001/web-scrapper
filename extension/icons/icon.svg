@@ -1,0 +1,38 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="#0077B5" stroke="#005885" stroke-width="2"/>
+  
+  <!-- LinkedIn-style icon -->
+  <rect x="20" y="45" width="12" height="38" fill="white" rx="2"/>
+  <circle cx="26" cy="32" r="7" fill="white"/>
+  
+  <!-- Second person -->
+  <rect x="40" y="55" width="12" height="28" fill="white" rx="2"/>
+  <path d="M46 45 C46 40, 52 40, 52 45 C52 50, 58 50, 58 55 L58 65 L52 65 L52 55 C52 52, 49 52, 46 55 Z" fill="white"/>
+  
+  <!-- Automation gear -->
+  <g transform="translate(75, 35)">
+    <circle cx="0" cy="0" r="18" fill="none" stroke="white" stroke-width="3"/>
+    <circle cx="0" cy="0" r="8" fill="white"/>
+    <circle cx="0" cy="-15" r="3" fill="white"/>
+    <circle cx="13" cy="-7.5" r="3" fill="white"/>
+    <circle cx="13" cy="7.5" r="3" fill="white"/>
+    <circle cx="0" cy="15" r="3" fill="white"/>
+    <circle cx="-13" cy="7.5" r="3" fill="white"/>
+    <circle cx="-13" cy="-7.5" r="3" fill="white"/>
+  </g>
+  
+  <!-- Cookie/data flow -->
+  <g transform="translate(30, 90)">
+    <circle cx="0" cy="0" r="4" fill="#FFD700"/>
+    <circle cx="15" cy="-5" r="3" fill="#FFD700"/>
+    <circle cx="30" cy="0" r="4" fill="#FFD700"/>
+    <circle cx="45" cy="-5" r="3" fill="#FFD700"/>
+    <path d="M4 0 Q10 -8, 15 -5 Q20 -2, 30 0 Q35 -8, 45 -5" 
+          stroke="#FFD700" stroke-width="2" fill="none" opacity="0.7"/>
+  </g>
+  
+  <!-- Extension indicator -->
+  <rect x="95" y="95" width="25" height="25" fill="#10B981" rx="4"/>
+  <text x="107.5" y="110" text-anchor="middle" fill="white" font-family="Arial" font-size="14" font-weight="bold">E</text>
+</svg>

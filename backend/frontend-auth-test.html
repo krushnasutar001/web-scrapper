@@ -1,0 +1,255 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend Authentication Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1> Frontend Authentication Test</h1>
+    
+    <div class="test-section">
+        <h2>Current Status</h2>
+        <div id="currentStatus"></div>
+        <button onclick="checkCurrentAuth()">Check Current Auth</button>
+        <button onclick="clearAuth()">Clear Auth Data</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Login Test</h2>
+        <div id="loginStatus"></div>
+        <button onclick="testLogin()">Test Login</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>API Tests</h2>
+        <div id="apiStatus"></div>
+        <button onclick="testLinkedInAccounts()">Test LinkedIn Accounts</button>
+        <button onclick="testJobCreation()">Test Job Creation</button>
+        <button onclick="testJobsList()">Test Jobs List</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Debug Info</h2>
+        <div id="debugInfo"></div>
+        <button onclick="showDebugInfo()">Show Debug Info</button>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin.replace(':3000', ':3001');
+        
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = `${new Date().toLocaleTimeString()}: ${message}`;
+            element.appendChild(div);
+            console.log(message);
+        }
+        
+        function checkCurrentAuth() {
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            if (token && user) {
+                try {
+                    const userData = JSON.parse(user);
+                    log('currentStatus', `✅ Authenticated as: ${userData.email}`, 'success');
+                    log('currentStatus', `Token length: ${token.length}`, 'info');
+                } catch (e) {
+                    log('currentStatus', '❌ Invalid user data in localStorage', 'error');
+                }
+            } else {
+                log('currentStatus', '⚠️ Not authenticated', 'info');
+            }
+        }
+        
+        function clearAuth() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            log('currentStatus', ' Authentication data cleared', 'info');
+        }
+        
+        async function testLogin() {
+            try {
+                log('loginStatus', ' Testing login...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'test@example.com',
+                        password: 'password123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.data.token) {
+                    localStorage.setItem('token', data.data.token);
+                    localStorage.setItem('user', JSON.stringify(data.data.user));
+                    
+                    log('loginStatus', ' Login successful!', 'success');
+                    log('loginStatus', `User: ${data.data.user.email}`, 'success');
+                    log('loginStatus', `Token: ${data.data.token.substring(0, 20)}...`, 'success');
+                } else {
+                    log('loginStatus', ` Login failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                log('loginStatus', `❌ Login error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testLinkedInAccounts() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                log('apiStatus', '❌ No token available. Please login first.', 'error');
+                return;
+            }
+            
+            try {
+                log('apiStatus', ' Testing LinkedIn accounts...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/linkedin-accounts/available`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('apiStatus', ` LinkedIn accounts: ${data.count} available`, 'success');
+                    if (data.data && data.data.length > 0) {
+                        data.data.forEach(account => {
+                            log('apiStatus', `  - ${account.account_name}: ${account.validation_status}`, 'info');
+                        });
+                    }
+                } else {
+                    log('apiStatus', `❌ LinkedIn accounts failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                log('apiStatus', `❌ LinkedIn accounts error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testJobCreation() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                log('apiStatus', ' No token available. Please login first.', 'error');
+                return;
+            }
+            
+            try {
+                log('apiStatus', ' Testing job creation...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/jobs`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        jobName: 'Frontend Test Job',
+                        jobType: 'profiles',
+                        urls: ['https://www.linkedin.com/in/test-profile'],
+                        accountSelectionMode: 'rotation'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('apiStatus', ` Job created successfully! ID: ${data.jobId}`, 'success');
+                } else {
+                    log('apiStatus', ` Job creation failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                log('apiStatus', ` Job creation error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testJobsList() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                log('apiStatus', ' No token available. Please login first.', 'error');
+                return;
+            }
+            
+            try {
+                log('apiStatus', ' Testing jobs list...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/jobs`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('apiStatus', ` Jobs list: ${data.jobs ? data.jobs.length : 0} jobs found`, 'success');
+                } else {
+                    log('apiStatus', ` Jobs list failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                log('apiStatus', ` Jobs list error: ${error.message}`, 'error');
+            }
+        }
+        
+        function showDebugInfo() {
+            const debugDiv = document.getElementById('debugInfo');
+            debugDiv.innerHTML = '';
+            
+            log('debugInfo', `Current URL: ${window.location.href}`, 'info');
+            log('debugInfo', `API Base: ${API_BASE}`, 'info');
+            log('debugInfo', `Token exists: ${!!localStorage.getItem('token')}`, 'info');
+            log('debugInfo', `User exists: ${!!localStorage.getItem('user')}`, 'info');
+            
+            const token = localStorage.getItem('token');
+            if (token) {
+                log('debugInfo', `Token preview: ${token.substring(0, 30)}...`, 'info');
+            }
+            
+            const user = localStorage.getItem('user');
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    log('debugInfo', `User email: ${userData.email}`, 'info');
+                } catch (e) {
+                    log('debugInfo', 'Invalid user data format', 'error');
+                }
+            }
+        }
+        
+        // Auto-check auth on page load
+        window.onload = () => {
+            checkCurrentAuth();
+            showDebugInfo();
+        };
+    </script>
+</body>
+</html>

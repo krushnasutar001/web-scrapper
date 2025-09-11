@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Authentication Debug Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover { background-color: #0056b3; }
+        .step {
+            background-color: #e9ecef;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .code {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Frontend Authentication Debug Tool</h1>
+        
+        <div class="error">
+            <strong>Issue:</strong> "No LinkedIn accounts available" in Add Job section despite having valid accounts
+        </div>
+        
+        <div id="authStatus" class="status info">Click "Check Authentication" to diagnose the issue</div>
+        
+        <div class="grid">
+            <div>
+                <h3>🔍 Diagnostic Tests</h3>
+                <button onclick="checkAuthentication()">Check Authentication</button>
+                <button onclick="testBackendAPI()">Test Backend API</button>
+                <button onclick="clearAuthData()">Clear Auth Data</button>
+                <button onclick="autoLogin()">Auto Login</button>
+            </div>
+            <div>
+                <h3>🛠️ Quick Fixes</h3>
+                <button onclick="openFrontend()">Open Frontend</button>
+                <button onclick="clearBrowserCache()">Clear Cache Guide</button>
+                <button onclick="showLoginSteps()">Login Steps</button>
+                <button onclick="testAccountsAPI()">Test Accounts API</button>
+            </div>
+        </div>
+        
+        <div id="results"></div>
+        
+        <h2>📋 Step-by-Step Solution</h2>
+        
+        <div class="step">
+            <h3>Step 1: Verify Backend Status</h3>
+            <p><strong>Backend Status:</strong> ✅ Working (2 accounts available)</p>
+            <div class="code">
+                Backend: http://localhost:3001<br>
+                Accounts: mahesh manesad (ACTIVE), mahesh manecc (INVALID)
+            </div>
+        </div>
+        
+        <div class="step">
+            <h3>Step 2: Check Frontend Authentication</h3>
+            <p>The issue is that you're <strong>NOT logged in</strong> to the frontend.</p>
+            <button onclick="checkFrontendAuth()">Check Frontend Auth Status</button>
+        </div>
+        
+        <div class="step">
+            <h3>Step 3: Login to Frontend</h3>
+            <p><strong>URL:</strong> <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></p>
+            <p><strong>Credentials:</strong></p>
+            <div class="code">
+                Email: test@example.com<br>
+                Password: password123
+            </div>
+        </div>
+        
+        <div class="step">
+            <h3>Step 4: Clear Browser Cache</h3>
+            <p>Press <strong>Ctrl + Shift + Delete</strong> and clear:</p>
+            <ul>
+                <li>Cookies and other site data</li>
+                <li>Cached images and files</li>
+                <li>Local storage</li>
+            </ul>
+        </div>
+        
+        <div class="step">
+            <h3>Step 5: Test Account Selection</h3>
+            <p>After login, go to <strong>Jobs → New Job</strong> and verify you see:</p>
+            <ul>
+                <li>Account Selection Mode (Auto Rotation / Specific Account)</li>
+                <li>Available accounts list</li>
+                <li>Account status indicators</li>
+            </ul>
+        </div>
+        
+        <h2>🔧 Advanced Debugging</h2>
+        
+        <div class="step">
+            <h3>Browser Console Debug</h3>
+            <p>Open browser console (F12) and run:</p>
+            <div class="code">
+                // Check if logged in<br>
+                console.log('Token:', localStorage.getItem('token'));<br>
+                console.log('User:', localStorage.getItem('user'));<br><br>
+                // Test accounts API<br>
+                fetch('/api/linkedin-accounts/available', {<br>
+                &nbsp;&nbsp;headers: {<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;'Authorization': `Bearer ${localStorage.getItem('token')}`,<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;'Content-Type': 'application/json'<br>
+                &nbsp;&nbsp;}<br>
+                }).then(r => r.json()).then(console.log);
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('authStatus');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+        }
+        
+        function addResult(title, content, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `status ${type}`;
+            resultDiv.innerHTML = `<strong>${title}:</strong><br>${content}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function checkAuthentication() {
+            clearResults();
+            updateStatus('🔍 Checking authentication status...', 'info');
+            
+            // Check localStorage
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            if (!token || !user) {
+                updateStatus('❌ NOT AUTHENTICATED - Please log in to frontend!', 'error');
+                addResult('Authentication Status', '❌ No token or user found in localStorage<br><strong>SOLUTION: Log in to http://localhost:3000</strong>', 'error');
+                return;
+            }
+            
+            updateStatus('✅ Frontend authentication detected', 'success');
+            addResult('Authentication Status', `✅ Token found: ${token}<br>✅ User found: ${user}`, 'success');
+            
+            // Test API call
+            try {
+                const response = await fetch('/api/linkedin-accounts/available', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.count > 0) {
+                    addResult('Accounts API Test', `✅ ${data.count} accounts available<br>Accounts: ${data.data.map(acc => acc.account_name).join(', ')}`, 'success');
+                    updateStatus('✅ System working correctly - Check if you\'re on the right page', 'success');
+                } else {
+                    addResult('Accounts API Test', '❌ No accounts returned from API', 'error');
+                }
+            } catch (error) {
+                addResult('Accounts API Test', `❌ API call failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testBackendAPI() {
+            clearResults();
+            updateStatus('🔍 Testing backend API...', 'info');
+            
+            try {
+                // Test login
+                const loginResponse = await fetch('http://localhost:3001/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'test@example.com',
+                        password: 'password123'
+                    })
+                });
+                
+                const loginData = await loginResponse.json();
+                
+                if (loginData.success) {
+                    addResult('Backend Login', `✅ Backend login successful<br>Token: ${loginData.data.token}`, 'success');
+                    
+                    // Test accounts API
+                    const accountsResponse = await fetch('http://localhost:3001/api/linkedin-accounts/available', {
+                        headers: {
+                            'Authorization': `Bearer ${loginData.data.token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    const accountsData = await accountsResponse.json();
+                    
+                    if (accountsData.success) {
+                        addResult('Backend Accounts', `✅ ${accountsData.count} accounts available<br>Backend is working correctly!`, 'success');
+                        updateStatus('✅ Backend working - Issue is frontend authentication', 'warning');
+                    } else {
+                        addResult('Backend Accounts', '❌ Backend accounts API failed', 'error');
+                    }
+                } else {
+                    addResult('Backend Login', '❌ Backend login failed', 'error');
+                }
+            } catch (error) {
+                addResult('Backend Test', `❌ Backend connection failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function clearAuthData() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            sessionStorage.clear();
+            addResult('Clear Auth Data', '✅ Authentication data cleared<br>Please log in again', 'success');
+            updateStatus('🔄 Authentication data cleared - Please log in', 'warning');
+        }
+        
+        function autoLogin() {
+            window.open('http://localhost:3000', '_blank');
+            addResult('Auto Login', '✅ Frontend opened in new tab<br>Please log in with: test@example.com / password123', 'info');
+        }
+        
+        function openFrontend() {
+            window.open('http://localhost:3000', '_blank');
+        }
+        
+        function clearBrowserCache() {
+            addResult('Clear Cache Guide', '1. Press Ctrl + Shift + Delete<br>2. Select "All time"<br>3. Check: Cookies, Cache, Local Storage<br>4. Click "Clear data"<br>5. Refresh and log in again', 'info');
+        }
+        
+        function showLoginSteps() {
+            addResult('Login Steps', '1. Go to http://localhost:3000<br>2. Click "Login" or go to login page<br>3. Enter: test@example.com<br>4. Enter: password123<br>5. Click "Login"<br>6. Go to Jobs → New Job<br>7. Check LinkedIn Accounts section', 'info');
+        }
+        
+        async function testAccountsAPI() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                addResult('Accounts API Test', '❌ No token found - Please log in first', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/linkedin-accounts/available', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                addResult('Accounts API Test', `Response: ${JSON.stringify(data, null, 2)}`, data.success ? 'success' : 'error');
+            } catch (error) {
+                addResult('Accounts API Test', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function checkFrontendAuth() {
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            if (token && user) {
+                addResult('Frontend Auth Check', `✅ Authenticated<br>Token: ${token}<br>User: ${user}`, 'success');
+            } else {
+                addResult('Frontend Auth Check', '❌ NOT AUTHENTICATED<br><strong>SOLUTION: Log in to http://localhost:3000</strong>', 'error');
+            }
+        }
+        
+        // Auto-check on page load
+        window.onload = function() {
+            setTimeout(checkAuthentication, 1000);
+        };
+    </script>
+</body>
+</html>

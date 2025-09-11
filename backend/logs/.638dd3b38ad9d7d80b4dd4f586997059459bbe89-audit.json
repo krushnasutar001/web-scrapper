@@ -1,0 +1,20 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\logs\\.638dd3b38ad9d7d80b4dd4f586997059459bbe89-audit.json",
+    "files": [
+        {
+            "date": 1756821147284,
+            "name": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\logs\\combined-2025-09-02.log",
+            "hash": "e42a94ace1673895730900d7e410bbe92eb54b7bcaf7ff168d867102fabea233"
+        },
+        {
+            "date": 1756890400286,
+            "name": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\logs\\combined-2025-09-03.log",
+            "hash": "736c8d46554b3d2546a52f2212b539b3e09fdc69e627a794f250188f468c4128"
+        }
+    ],
+    "hashType": "sha256"
+}

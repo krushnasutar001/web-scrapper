@@ -1,0 +1,105 @@
+2025-09-03 14:39:58:3958 [DEBUG]: Executing (default): SELECT 1+1 AS result
+2025-09-03 14:39:58:3958 [DEBUG]: Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'users' AND TABLE_SCHEMA = 'linkedin_automation'
+2025-09-03 14:39:58:3958 [DEBUG]: Executing (default): SHOW INDEX FROM `users`
+2025-09-03 14:39:58:3958 [DEBUG]: Executing (default): ALTER TABLE `users` ADD UNIQUE INDEX `users_email` (`email`)
+2025-09-03 14:39:59:3959 [DEBUG]: Executing (default): ALTER TABLE `users` ADD INDEX `users_is_active` (`isActive`)
+2025-09-03 14:43:04:434 [DEBUG]: Executing (default): SELECT 1+1 AS result
+2025-09-03 14:43:04:434 [DEBUG]: Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'users' AND TABLE_SCHEMA = 'linkedin_automation'
+2025-09-03 14:43:04:434 [DEBUG]: Executing (default): CREATE TABLE IF NOT EXISTS `users` (`id` CHAR(36) BINARY NOT NULL , `email` VARCHAR(255) NOT NULL UNIQUE, `password_hash` VARCHAR(255) NOT NULL, `first_name` VARCHAR(255), `last_name` VARCHAR(255), `is_active` TINYINT(1) NOT NULL DEFAULT true, `last_login_at` DATETIME, `email_verified_at` DATETIME, `reset_password_token` VARCHAR(255), `reset_password_expires_at` DATETIME, `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL, PRIMARY KEY (`id`)) ENGINE=InnoDB;
+2025-09-03 14:43:05:435 [DEBUG]: Executing (default): SHOW INDEX FROM `users`
+2025-09-03 14:43:05:435 [DEBUG]: Executing (default): ALTER TABLE `users` ADD UNIQUE INDEX `users_email` (`email`)
+2025-09-03 14:43:06:436 [DEBUG]: Executing (default): ALTER TABLE `users` ADD INDEX `users_is_active` (`isActive`)
+2025-09-03 14:46:24:4624 [DEBUG]: Executing (default): SELECT 1+1 AS result
+2025-09-03 14:46:24:4624 [DEBUG]: Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'users' AND TABLE_SCHEMA = 'linkedin_automation'
+2025-09-03 14:46:25:4625 [DEBUG]: Executing (default): SHOW INDEX FROM `users`
+2025-09-03 14:46:25:4625 [DEBUG]: Executing (default): ALTER TABLE `users` ADD INDEX `users_is_active` (`is_active`)
+2025-09-03 14:46:25:4625 [DEBUG]: Executing (default): ALTER TABLE `users` ADD INDEX `users_created_at` (`createdAt`)
+2025-09-03 14:47:59:4759 [DEBUG]: Executing (default): SELECT 1+1 AS result
+2025-09-03 14:47:59:4759 [DEBUG]: Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'users' AND TABLE_SCHEMA = 'linkedin_automation'
+2025-09-03 14:47:59:4759 [DEBUG]: Executing (default): SHOW INDEX FROM `users`
+2025-09-03 14:48:00:480 [DEBUG]: Executing (default): ALTER TABLE `users` ADD INDEX `users_created_at` (`created_at`)
+2025-09-03 14:48:00:480 [DEBUG]: Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'jobs' AND TABLE_SCHEMA = 'linkedin_automation'
+2025-09-03 14:48:00:480 [DEBUG]: Executing (default): CREATE TABLE IF NOT EXISTS `jobs` (`id` CHAR(36) BINARY NOT NULL , `user_id` CHAR(36) BINARY NOT NULL, `type` ENUM('profile', 'company', 'search', 'jobPosting') NOT NULL, `query` TEXT NOT NULL, `status` ENUM('queued', 'running', 'completed', 'failed', 'cancelled') NOT NULL DEFAULT 'queued', `progress` INTEGER NOT NULL DEFAULT 0, `total_results` INTEGER NOT NULL DEFAULT 0, `processed_results` INTEGER NOT NULL DEFAULT 0, `error_message` TEXT, `started_at` DATETIME, `completed_at` DATETIME, `scheduled_for` DATETIME, `cron_expression` VARCHAR(255), `is_recurring` TINYINT(1) NOT NULL DEFAULT false, `max_results` INTEGER NOT NULL DEFAULT 100, `retry_count` INTEGER NOT NULL DEFAULT 0, `configuration` JSON COMMENT 'Additional job configuration like filters, sorting, etc.', `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL, PRIMARY KEY (`id`), FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;
+2025-09-03 14:48:00:480 [DEBUG]: Executing (default): SHOW INDEX FROM `jobs`
+2025-09-03 14:48:00:480 [DEBUG]: Executing (default): ALTER TABLE `jobs` ADD INDEX `jobs_user_id` (`user_id`)
+2025-09-03 14:48:00:480 [DEBUG]: Executing (default): ALTER TABLE `jobs` ADD INDEX `jobs_status` (`status`)
+2025-09-03 14:48:00:480 [DEBUG]: Executing (default): ALTER TABLE `jobs` ADD INDEX `jobs_type` (`type`)
+2025-09-03 14:48:00:480 [DEBUG]: Executing (default): ALTER TABLE `jobs` ADD INDEX `jobs_created_at` (`created_at`)
+2025-09-03 14:48:00:480 [DEBUG]: Executing (default): ALTER TABLE `jobs` ADD INDEX `jobs_scheduled_for` (`scheduled_for`)
+2025-09-03 14:48:00:480 [DEBUG]: Executing (default): ALTER TABLE `jobs` ADD INDEX `jobs_is_recurring` (`is_recurring`)
+2025-09-03 14:48:00:480 [DEBUG]: Executing (default): ALTER TABLE `jobs` ADD INDEX `jobs_user_id_status` (`userId`, `status`)
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): SELECT 1+1 AS result
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'users' AND TABLE_SCHEMA = 'linkedin_automation'
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): SHOW INDEX FROM `users`
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'jobs' AND TABLE_SCHEMA = 'linkedin_automation'
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): SHOW INDEX FROM `jobs`
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): ALTER TABLE `jobs` ADD INDEX `jobs_user_id_status` (`user_id`, `status`)
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'results' AND TABLE_SCHEMA = 'linkedin_automation'
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): CREATE TABLE IF NOT EXISTS `results` (`id` CHAR(36) BINARY NOT NULL , `job_id` CHAR(36) BINARY NOT NULL, `data` JSON NOT NULL, `unique_key` VARCHAR(255) COMMENT 'Unique identifier for deduplication (e.g., LinkedIn profile URL)', `source` ENUM('linkedin', 'api', 'manual') NOT NULL DEFAULT 'linkedin', `quality` ENUM('high', 'medium', 'low') NOT NULL DEFAULT 'medium' COMMENT 'Data quality score based on completeness and accuracy', `is_processed` TINYINT(1) NOT NULL DEFAULT false COMMENT 'Whether this result has been processed/enriched', `processing_notes` TEXT COMMENT 'Notes about data processing, validation, or enrichment', `scraped_at` DATETIME NOT NULL, `last_validated_at` DATETIME, `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL, PRIMARY KEY (`id`), FOREIGN KEY (`job_id`) REFERENCES `jobs` (`id`) ON DELETE CASCADE ON UPDATE CASCADE) ENGINE=InnoDB;
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): SHOW INDEX FROM `results`
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): ALTER TABLE `results` ADD INDEX `results_job_id` (`job_id`)
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): ALTER TABLE `results` ADD INDEX `results_unique_key` (`unique_key`)
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): ALTER TABLE `results` ADD INDEX `results_source` (`source`)
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): ALTER TABLE `results` ADD INDEX `results_quality` (`quality`)
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): ALTER TABLE `results` ADD INDEX `results_is_processed` (`is_processed`)
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): ALTER TABLE `results` ADD INDEX `results_scraped_at` (`scraped_at`)
+2025-09-03 14:48:38:4838 [DEBUG]: Executing (default): ALTER TABLE `results` ADD INDEX `results_created_at` (`created_at`)
+2025-09-03 14:48:39:4839 [DEBUG]: Executing (default): ALTER TABLE `results` ADD UNIQUE INDEX `unique_job_result` (`jobId`, `uniqueKey`)
+2025-09-03 14:49:20:4920 [DEBUG]: Executing (default): SELECT 1+1 AS result
+2025-09-03 14:49:20:4920 [DEBUG]: Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'users' AND TABLE_SCHEMA = 'linkedin_automation'
+2025-09-03 14:49:20:4920 [DEBUG]: Executing (default): SHOW INDEX FROM `users`
+2025-09-03 14:49:20:4920 [DEBUG]: Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'jobs' AND TABLE_SCHEMA = 'linkedin_automation'
+2025-09-03 14:49:20:4920 [DEBUG]: Executing (default): SHOW INDEX FROM `jobs`
+2025-09-03 14:49:20:4920 [DEBUG]: Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'results' AND TABLE_SCHEMA = 'linkedin_automation'
+2025-09-03 14:49:20:4920 [DEBUG]: Executing (default): SHOW INDEX FROM `results`
+2025-09-03 14:49:20:4920 [DEBUG]: Executing (default): ALTER TABLE `results` ADD UNIQUE INDEX `unique_job_result` (`job_id`, `unique_key`)
+2025-09-03 15:09:42:942 [DEBUG]: Executing (default): SELECT 1+1 AS result
+2025-09-03 15:11:16:1116 [ERROR]: Uncaught Exception: Route.post() requires a callback function but got a [object Undefined]
+Error: Route.post() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as post] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as post] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:177:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+2025-09-03 15:14:52:1452 [ERROR]: Uncaught Exception: Route.get() requires a callback function but got a [object Undefined]
+Error: Route.get() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:309:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+2025-09-03 15:15:39:1539 [ERROR]: Uncaught Exception: Route.get() requires a callback function but got a [object Undefined]
+Error: Route.get() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:365:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+2025-09-03 15:21:33:2133 [ERROR]: Uncaught Exception: Route.get() requires a callback function but got a [object Undefined]
+Error: Route.get() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:365:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+2025-09-03 15:22:18:2218 [DEBUG]: Executing (default): SELECT 1+1 AS result

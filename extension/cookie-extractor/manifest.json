@@ -1,0 +1,58 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn Multi-Account Manager",
+  "version": "2.0.0",
+  "description": "Multi-account LinkedIn cookie management with validation and backend sync",
+  
+  "permissions": [
+    "cookies",
+    "activeTab",
+    "storage",
+    "scripting",
+    "alarms",
+    "notifications"
+  ],
+  
+  "host_permissions": [
+    "*://*.linkedin.com/*",
+    "http://localhost:5000/*",
+    "https://localhost:5000/*"
+  ],
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["*://*.linkedin.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Extract LinkedIn Cookies",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js"],
+      "matches": ["*://*.linkedin.com/*"]
+    }
+  ]
+}

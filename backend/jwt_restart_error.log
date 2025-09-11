@@ -1,0 +1,22 @@
+❌ Failed to initialize scraping schema: Duplicate column name 'last_used_at'
+❌ Failed to create job: Error: Unknown column 'user_id' in 'field list'
+    at PromiseConnection.execute (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\mysql2\lib\promise\connection.js:47:22)
+    at JobManager.createJob (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\services\job-manager.js:46:21)
+    at C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\linkedin-account-manager.js:2295:42
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ER_BAD_FIELD_ERROR',
+  errno: 1054,
+  sql: '\n' +
+    '        INSERT INTO scraping_jobs (\n' +
+    '          id, user_id, job_name, job_type, status, \n' +
+    '          account_selection_mode, selected_account_ids,\n' +
+    '          search_query, created_at, updated_at\n' +
+    "        ) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)\n" +
+    '      ',
+  sqlState: '42S22',
+  sqlMessage: "Unknown column 'user_id' in 'field list'"
+}
+❌ Failed to create job: Error: Failed to create job: Unknown column 'user_id' in 'field list'
+    at JobManager.createJob (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\services\job-manager.js:87:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\linkedin-account-manager.js:2295:25

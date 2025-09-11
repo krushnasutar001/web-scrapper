@@ -1,0 +1,48 @@
+2025-09-03 15:11:16:1116 [ERROR]: Uncaught Exception: Route.post() requires a callback function but got a [object Undefined]
+Error: Route.post() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as post] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as post] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:177:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+2025-09-03 15:14:52:1452 [ERROR]: Uncaught Exception: Route.get() requires a callback function but got a [object Undefined]
+Error: Route.get() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:309:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+2025-09-03 15:15:39:1539 [ERROR]: Uncaught Exception: Route.get() requires a callback function but got a [object Undefined]
+Error: Route.get() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:365:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+2025-09-03 15:21:33:2133 [ERROR]: Uncaught Exception: Route.get() requires a callback function but got a [object Undefined]
+Error: Route.get() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:365:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)

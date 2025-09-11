@@ -1,0 +1,181 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct Job Creation Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        textarea { width: 100%; height: 100px; }
+    </style>
+</head>
+<body>
+    <h1> Direct Job Creation Test</h1>
+    
+    <div>
+        <h2>Step 1: Login</h2>
+        <button onclick="testLogin()">Test Login</button>
+        <div id="loginResult"></div>
+    </div>
+    
+    <div>
+        <h2>Step 2: Create Job</h2>
+        <button onclick="testJobCreation()">Test Job Creation</button>
+        <div id="jobResult"></div>
+    </div>
+    
+    <div>
+        <h2>Step 3: Upload CSV</h2>
+        <input type="file" id="csvFile" accept=".csv">
+        <button onclick="testCsvUpload()">Test CSV Upload</button>
+        <div id="csvResult"></div>
+    </div>
+    
+    <div>
+        <h2>Debug Info</h2>
+        <textarea id="debugInfo" readonly></textarea>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        let authToken = null;
+        
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const div = document.createElement('div');
+            div.className = esult ;
+            div.innerHTML = ${new Date().toLocaleTimeString()}: ;
+            element.appendChild(div);
+            
+            const debugInfo = document.getElementById('debugInfo');
+            debugInfo.value += ${new Date().toLocaleTimeString()}: \n;
+            debugInfo.scrollTop = debugInfo.scrollHeight;
+        }
+        
+        async function testLogin() {
+            try {
+                log('loginResult', ' Testing login...', 'info');
+                
+                const response = await fetch(${API_BASE}/api/auth/login, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'test@example.com',
+                        password: 'password123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.data.token) {
+                    authToken = data.data.token;
+                    log('loginResult', ✅ Login successful! Token: ..., 'success');
+                } else {
+                    log('loginResult',  Login failed: , 'error');
+                }
+            } catch (error) {
+                log('loginResult',  Login error: , 'error');
+            }
+        }
+        
+        async function testJobCreation() {
+            if (!authToken) {
+                log('jobResult', ' Please login first', 'error');
+                return;
+            }
+            
+            try {
+                log('jobResult', ' Testing job creation...', 'info');
+                
+                const response = await fetch(${API_BASE}/api/jobs, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': Bearer 
+                    },
+                    body: JSON.stringify({
+                        jobName: 'Direct Test Job',
+                        jobType: 'profiles',
+                        urls: ['https://www.linkedin.com/in/test-direct'],
+                        accountSelectionMode: 'rotation'
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(HTTP : );
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('jobResult',  Job created successfully! ID: , 'success');
+                } else {
+                    log('jobResult',  Job creation failed: , 'error');
+                }
+            } catch (error) {
+                log('jobResult',  Job creation error: , 'error');
+                
+                if (error.message.includes('token') || error.message.includes('401') || error.message.includes('403')) {
+                    log('jobResult', ' This is the token error!', 'error');
+                }
+            }
+        }
+        
+        async function testCsvUpload() {
+            if (!authToken) {
+                log('csvResult', ' Please login first', 'error');
+                return;
+            }
+            
+            const fileInput = document.getElementById('csvFile');
+            if (!fileInput.files[0]) {
+                log('csvResult', ' Please select a CSV file', 'error');
+                return;
+            }
+            
+            try {
+                log('csvResult', ' Testing CSV upload...', 'info');
+                
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('jobName', 'CSV Upload Test');
+                formData.append('jobType', 'profiles');
+                formData.append('accountSelectionMode', 'rotation');
+                
+                const response = await fetch(${API_BASE}/api/jobs, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': Bearer 
+                    },
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(HTTP : );
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('csvResult',  CSV upload successful! ID: , 'success');
+                } else {
+                    log('csvResult',  CSV upload failed: , 'error');
+                }
+            } catch (error) {
+                log('csvResult',  CSV upload error: , 'error');
+                
+                if (error.message.includes('token') || error.message.includes('401') || error.message.includes('403')) {
+                    log('csvResult', ' This is the token error in CSV upload!', 'error');
+                }
+            }
+        }
+    </script>
+</body>
+</html>

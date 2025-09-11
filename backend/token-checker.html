@@ -1,0 +1,196 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend Token Checker</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .token-display { word-break: break-all; font-family: monospace; background: #f8f9fa; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1> Frontend Token Checker</h1>
+    
+    <div>
+        <h2>Current Token Status</h2>
+        <button onclick="checkCurrentToken()">Check Current Token</button>
+        <button onclick="clearTokens()">Clear All Tokens</button>
+        <button onclick="setFreshToken()">Set Fresh Token</button>
+        <div id="tokenStatus"></div>
+    </div>
+    
+    <div>
+        <h2>API Tests</h2>
+        <button onclick="testJobsAPI()">Test /api/jobs</button>
+        <button onclick="testAccountsAPI()">Test /api/linkedin-accounts/available</button>
+        <div id="apiResults"></div>
+    </div>
+    
+    <div>
+        <h2>Login Test</h2>
+        <button onclick="doFreshLogin()">Fresh Login</button>
+        <div id="loginResults"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        const FRESH_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjBlNTcxOWU1LTAwOWMtNGU5OS1iNTBjLWIyNzMwZjY1OWQ1NSIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsIm5hbWUiOiJ0ZXN0Iiwicm9sZSI6InVzZXIiLCJpYXQiOjE3NTc1OTY3NDQsImV4cCI6MTc1NzY4MzE0NH0.NKr5Uw-maF7hw6uZFPlURs4zT2dEEpoiD4Y4d92sQ8Y';
+        
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const div = document.createElement('div');
+            div.className = esult ;
+            div.innerHTML = `: ;
+            element.appendChild(div);
+        }
+        
+        function checkCurrentToken() {
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            const statusDiv = document.getElementById('tokenStatus');
+            statusDiv.innerHTML = '';
+            
+            if (token) {
+                log('tokenStatus', Token exists (length: ), 'success');
+                log('tokenStatus', <div class="token-display">Token: ...</div>, 'info');
+                
+                // Check if it matches fresh token
+                if (token === FRESH_TOKEN) {
+                    log('tokenStatus', 'Token matches fresh backend token ✅', 'success');
+                } else {
+                    log('tokenStatus', 'Token DOES NOT match fresh backend token ❌', 'error');
+                    log('tokenStatus', 'This explains the 403 errors!', 'error');
+                }
+            } else {
+                log('tokenStatus', 'No token in localStorage ', 'error');
+            }
+            
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    log('tokenStatus', User: , 'info');
+                } catch (e) {
+                    log('tokenStatus', 'Invalid user data in localStorage ❌', 'error');
+                }
+            } else {
+                log('tokenStatus', 'No user data in localStorage ', 'error');
+            }
+        }
+        
+        function clearTokens() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            log('tokenStatus', 'All tokens cleared ', 'info');
+        }
+        
+        function setFreshToken() {
+            // This would normally come from login, but for testing:
+            localStorage.setItem('token', FRESH_TOKEN);
+            log('tokenStatus', 'Fresh token set ', 'success');
+        }
+        
+        async function testJobsAPI() {
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                log('apiResults', 'No token available for API test ❌', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(/api/jobs, {
+                    headers: {
+                        'Authorization': Bearer ,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('apiResults', /api/jobs: SUCCESS  (Status: ), 'success');
+                } else {
+                    log('apiResults', /api/jobs: FAILED  (Status: ), 'error');
+                    const errorText = await response.text();
+                    log('apiResults', Error: , 'error');
+                }
+            } catch (error) {
+                log('apiResults', /api/jobs: ERROR  - , 'error');
+            }
+        }
+        
+        async function testAccountsAPI() {
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                log('apiResults', 'No token available for API test ', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(/api/linkedin-accounts/available, {
+                    headers: {
+                        'Authorization': Bearer ,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('apiResults', /api/linkedin-accounts/available: SUCCESS  (Count: ), 'success');
+                } else {
+                    log('apiResults', /api/linkedin-accounts/available: FAILED  (Status: ), 'error');
+                    const errorText = await response.text();
+                    log('apiResults', Error: , 'error');
+                }
+            } catch (error) {
+                log('apiResults', /api/linkedin-accounts/available: ERROR  - , 'error');
+            }
+        }
+        
+        async function doFreshLogin() {
+            try {
+                const response = await fetch(/api/auth/login, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'test@example.com',
+                        password: 'password123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.data.token) {
+                    localStorage.setItem('token', data.data.token);
+                    localStorage.setItem('user', JSON.stringify(data.data.user));
+                    
+                    log('loginResults', 'Fresh login successful ', 'success');
+                    log('loginResults', New token: ..., 'info');
+                    
+                    // Test the new token immediately
+                    setTimeout(() => {
+                        testJobsAPI();
+                        testAccountsAPI();
+                    }, 500);
+                } else {
+                    log('loginResults', Login failed: , 'error');
+                }
+            } catch (error) {
+                log('loginResults', Login error: , 'error');
+            }
+        }
+        
+        // Auto-check on page load
+        window.onload = () => {
+            checkCurrentToken();
+        };
+    </script>
+</body>
+</html>

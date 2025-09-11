@@ -1,0 +1,80 @@
+❌ Failed to initialize scraping schema: Duplicate column name 'last_used_at'
+
+❌ === UNHANDLED ERROR ===
+Request URL: /api/jobs
+Request method: POST
+Request headers: {
+  "content-type": "application/json",
+  "authorization": "Bearer demo-token-1757520897724",
+  "user-agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.4768",
+  "host": "localhost:3001",
+  "content-length": "473"
+}
+Request body: {
+  "jobType": "profiles",
+  "accountSelectionMode": "rotation",
+  "urls": [
+    "https://www.linkedin.com/in/shweta-biradar-1b5001257/",
+    "https://www.linkedin.com/in/varshapawar1907/",
+    "https://www.linkedin.com/in/ACwAAAIp9HgBuMQ-FJ1IJooutz3ikr--XWyUi24",
+    "https://www.linkedin.com/in/ACwAAAEbwmcBIO2wI41NvGE_aExKGFSJgWpckWE"
+  ],
+  "jobName": "Authentication Fix Test Job"
+}
+Error name: ReferenceError
+Error message: jwt is not defined
+Error code: undefined
+Error errno: undefined
+Error sqlState: undefined
+Error sqlMessage: undefined
+Error stack: ReferenceError: jwt is not defined
+    at authenticateToken (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\linkedin-account-manager.js:43:3)
+    at Layer.handle [as handle_request] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\layer.js:95:5)
+    at C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:280:10)
+    at urlencodedParser (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\body-parser\lib\types\urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\layer.js:95:5)
+=========================
+
+
+❌ === UNHANDLED ERROR ===
+Request URL: /api/jobs
+Request method: POST
+Request headers: {
+  "content-type": "application/json",
+  "authorization": "Bearer demo-token-1757521160123",
+  "user-agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.4768",
+  "host": "localhost:3001",
+  "content-length": "216"
+}
+Request body: {
+  "jobType": "profiles",
+  "accountSelectionMode": "rotation",
+  "urls": [
+    "https://www.linkedin.com/in/shweta-biradar-1b5001257/"
+  ],
+  "jobName": "Quick Test Job"
+}
+Error name: ReferenceError
+Error message: jwt is not defined
+Error code: undefined
+Error errno: undefined
+Error sqlState: undefined
+Error sqlMessage: undefined
+Error stack: ReferenceError: jwt is not defined
+    at authenticateToken (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\linkedin-account-manager.js:43:3)
+    at Layer.handle [as handle_request] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\layer.js:95:5)
+    at C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:280:10)
+    at urlencodedParser (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\body-parser\lib\types\urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\layer.js:95:5)
+=========================
+

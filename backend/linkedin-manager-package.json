@@ -1,0 +1,37 @@
+{
+  "name": "linkedin-account-manager",
+  "version": "1.0.0",
+  "description": "LinkedIn Account Manager with Playwright validation",
+  "main": "linkedin-account-manager.js",
+  "scripts": {
+    "start": "node linkedin-account-manager.js",
+    "dev": "nodemon linkedin-account-manager.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "setup-db": "mysql -u root -p < linkedin-account-manager-schema.sql"
+  },
+  "keywords": [
+    "linkedin",
+    "automation",
+    "account-manager",
+    "playwright",
+    "validation"
+  ],
+  "author": "LinkedIn Account Manager",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.6.5",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "playwright": "^1.40.1",
+    "node-cron": "^3.0.3",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

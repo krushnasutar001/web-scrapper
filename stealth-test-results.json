@@ -1,0 +1,87 @@
+{
+  "loginTest": {
+    "success": false,
+    "error": "Request failed with status code 400"
+  },
+  "accountVisibility": {
+    "success": true,
+    "data": [],
+    "count": 0
+  },
+  "profileScraping": {
+    "success": true,
+    "results": [],
+    "count": 0,
+    "message": "Successfully scraped 0 profiles"
+  },
+  "apiTests": [
+    {
+      "name": "Add/Update Account API",
+      "success": true,
+      "status": 200,
+      "data": {
+        "success": true,
+        "account_id": "10af952c-783f-4fd0-8318-2e1aac81623e",
+        "message": "Account added/updated successfully"
+      }
+    },
+    {
+      "name": "Validate Account API",
+      "success": true,
+      "status": 200,
+      "data": {
+        "success": true,
+        "data": [],
+        "count": 0
+      }
+    },
+    {
+      "name": "Get Profiles API",
+      "success": true,
+      "status": 200,
+      "data": {
+        "success": true,
+        "profiles": [],
+        "count": 0
+      }
+    },
+    {
+      "name": "Get Companies API",
+      "success": true,
+      "status": 200,
+      "data": {
+        "success": true,
+        "companies": [],
+        "count": 0
+      }
+    },
+    {
+      "name": "Health Check API",
+      "success": true,
+      "status": 200,
+      "data": {
+        "status": "OK",
+        "timestamp": "2025-09-09T15:37:55.121Z",
+        "service": "LinkedIn Account Manager Enhanced",
+        "services": {
+          "twoStageScraper": "running",
+          "accountValidator": "running",
+          "bulkScrapingService": "running",
+          "stealthScraper": "running"
+        }
+      }
+    }
+  ],
+  "databaseTests": {
+    "profiles": {
+      "success": true,
+      "profiles": [],
+      "count": 0
+    },
+    "companies": {
+      "success": true,
+      "companies": [],
+      "count": 0
+    }
+  }
+}

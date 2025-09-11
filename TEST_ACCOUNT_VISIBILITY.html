@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Visibility Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover { background-color: #0056b3; }
+        .account-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            background: #f9f9f9;
+        }
+        .account-name { font-weight: bold; color: #333; }
+        .account-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-active { background: #d4edda; color: #155724; }
+        .status-invalid { background: #f8d7da; color: #721c24; }
+        .status-pending { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Account Visibility Test</h1>
+        <p><strong>Purpose:</strong> Test if LinkedIn accounts appear correctly in the Jobs section</p>
+        
+        <div class="status info">
+            <strong>Instructions:</strong><br>
+            1. Make sure you're logged in to the frontend<br>
+            2. Click "Test Account Visibility" below<br>
+            3. Check if accounts appear as expected
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <button onclick="testAccountVisibility()">🔍 Test Account Visibility</button>
+            <button onclick="simulateJobsModal()">🎭 Simulate Jobs Modal</button>
+            <button onclick="clearResults()">🧹 Clear Results</button>
+        </div>
+        
+        <div id="results"></div>
+        
+        <div id="accountsList"></div>
+    </div>
+
+    <script>
+        function addResult(title, content, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `status ${type}`;
+            resultDiv.innerHTML = `<strong>${title}:</strong><br>${content}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('accountsList').innerHTML = '';
+        }
+        
+        function displayAccounts(accounts) {
+            const accountsDiv = document.getElementById('accountsList');
+            accountsDiv.innerHTML = '<h3>📋 Available Accounts:</h3>';
+            
+            if (accounts.length === 0) {
+                accountsDiv.innerHTML += '<div class="status error">No accounts found</div>';
+                return;
+            }
+            
+            accounts.forEach((account, index) => {
+                const statusClass = account.validation_status === 'ACTIVE' ? 'status-active' : 
+                                  account.validation_status === 'INVALID' ? 'status-invalid' : 'status-pending';
+                
+                const accountCard = document.createElement('div');
+                accountCard.className = 'account-card';
+                accountCard.innerHTML = `
+                    <div class="account-name">${index + 1}. ${account.account_name}</div>
+                    <div style="margin-top: 5px;">
+                        <span class="account-status ${statusClass}">${account.validation_status}</span>
+                        <span style="margin-left: 10px; color: #666; font-size: 12px;">
+                            ID: ${account.id.substring(0, 8)}...
+                        </span>
+                    </div>
+                    <div style="margin-top: 5px; font-size: 12px; color: #666;">
+                        Last validated: ${new Date(account.last_validated_at).toLocaleString()}
+                    </div>
+                `;
+                accountsDiv.appendChild(accountCard);
+            });
+        }
+        
+        async function testAccountVisibility() {
+            clearResults();
+            addResult('Test Started', 'Testing account visibility...', 'info');
+            
+            // Step 1: Check authentication
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            if (!token || !user) {
+                addResult('Authentication Check', '❌ Not logged in! Please log in first.', 'error');
+                return;
+            }
+            
+            addResult('Authentication Check', `✅ Logged in as: ${JSON.parse(user).email}`, 'success');
+            
+            // Step 2: Test API call
+            try {
+                const response = await fetch('/api/linkedin-accounts/available', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const accounts = data.data || [];
+                    const activeAccounts = accounts.filter(acc => acc.validation_status === 'ACTIVE');
+                    const pendingAccounts = accounts.filter(acc => acc.validation_status === 'PENDING');
+                    
+                    addResult('API Response', `
+                        ✅ API call successful<br>
+                        📊 Total accounts: ${accounts.length}<br>
+                        🟢 Active accounts: ${activeAccounts.length}<br>
+                        🟡 Pending accounts: ${pendingAccounts.length}
+                    `, 'success');
+                    
+                    if (accounts.length > 0) {
+                        displayAccounts(accounts);
+                        
+                        addResult('Jobs Modal Prediction', `
+                            🎯 <strong>Jobs Modal Should Show:</strong><br>
+                            ✅ Account selection interface<br>
+                            ✅ ${activeAccounts.length + pendingAccounts.length} selectable accounts<br>
+                            ✅ Account dropdown with names<br>
+                            ❌ NO "No LinkedIn accounts available" message
+                        `, 'success');
+                    } else {
+                        addResult('Jobs Modal Prediction', `
+                            🚨 <strong>Jobs Modal Will Show:</strong><br>
+                            ❌ "No LinkedIn accounts available" message<br>
+                            💡 <strong>Solution:</strong> Add accounts in LinkedIn Accounts section
+                        `, 'error');
+                    }
+                } else {
+                    addResult('API Response', `❌ API returned error: ${data.message || 'Unknown error'}`, 'error');
+                }
+                
+            } catch (error) {
+                addResult('API Error', `❌ Failed to fetch accounts: ${error.message}`, 'error');
+            }
+        }
+        
+        async function simulateJobsModal() {
+            addResult('Jobs Modal Simulation', 'Simulating exact Jobs modal behavior...', 'info');
+            
+            // This simulates the exact fetchAvailableAccounts function from NewJobModal.js
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    addResult('Modal Simulation', '❌ No authentication token found', 'error');
+                    return;
+                }
+                
+                const response = await fetch('/api/linkedin-accounts/available', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data && data.success && Array.isArray(data.data)) {
+                    const accounts = data.data.filter(account => 
+                        account.validation_status === 'ACTIVE' || 
+                        account.validation_status === 'PENDING'
+                    );
+                    
+                    if (accounts.length === 0) {
+                        addResult('Modal Simulation Result', `
+                            🚨 <strong>Modal will show:</strong><br>
+                            "No LinkedIn accounts available. Please add accounts first in the LinkedIn Accounts section."
+                        `, 'error');
+                    } else {
+                        addResult('Modal Simulation Result', `
+                            ✅ <strong>Modal will show:</strong><br>
+                            Account selection interface with ${accounts.length} accounts<br>
+                            Available accounts: ${accounts.map(acc => acc.account_name).join(', ')}
+                        `, 'success');
+                    }
+                } else {
+                    addResult('Modal Simulation Result', '❌ Invalid response format', 'error');
+                }
+                
+            } catch (error) {
+                addResult('Modal Simulation Error', `❌ ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-run test on page load
+        window.onload = function() {
+            setTimeout(testAccountVisibility, 1000);
+        };
+        
+        console.log('🔍 Account Visibility Test Tool Loaded');
+        console.log('Available functions: testAccountVisibility(), simulateJobsModal(), clearResults()');
+    </script>
+</body>
+</html>

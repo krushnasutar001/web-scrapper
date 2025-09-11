@@ -1,0 +1,41 @@
+✅ Database connected successfully
+📋 Initializing scraping database schema...
+🚀 Bulk scraping service initialized
+🚀 Two-Stage Scraper Service Started
+🚀 Two-stage scraper service initialized
+🕵️ Stealth LinkedIn Scraper Service Started
+✅ Database tables initialized successfully
+🕵️ Stealth LinkedIn scraper initialized
+🔍 Account Validator Service Started
+🚀 Account validator service initialized
+🚀 LinkedIn Account Manager Server Started
+📡 Server running on port 3001
+🔗 Health check: http://localhost:3001/health
+📋 API endpoints:
+   GET    /api/accounts - List accounts
+   POST   /api/accounts - Add account
+   GET    /api/accounts/:id - Get account
+   DELETE /api/accounts/:id - Delete account
+   POST   /api/accounts/:id/validate - Validate account
+   GET    /api/stats - Get statistics
+⏰ Validation worker: Every 30 minutes
+✅ All accounts are up to date
+🔄 Running validation worker...
+ℹ️  No pending accounts to validate
+🎯 Creating new scraping job: {
+  jobType: 'profiles',
+  urlCount: 1,
+  searchQuery: undefined,
+  jobName: 'JWT Fix Verification Test',
+  accountSelectionMode: 'rotation',
+  selectedAccounts: 0
+}
+✅ Found 1 active accounts for job
+🔧 Using account: ladh
+📊 URL Validation Results:
+   ✅ Valid URLs: 1
+   ❌ Invalid URLs: 0
+🌐 Processing 1 URLs...
+📝 Creating new job: JWT Fix Verification Test
+📋 Fetching available LinkedIn accounts for job creation...
+✅ Found 1 usable LinkedIn accounts (1 active, 0 pending, 0 recently added)

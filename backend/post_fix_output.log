@@ -1,0 +1,110 @@
+✅ Database connected successfully
+📋 Initializing scraping database schema...
+🚀 Bulk scraping service initialized
+🚀 Two-Stage Scraper Service Started
+🚀 Two-stage scraper service initialized
+🕵️ Stealth LinkedIn Scraper Service Started
+✅ Database tables initialized successfully
+🕵️ Stealth LinkedIn scraper initialized
+🔍 Account Validator Service Started
+🚀 Account validator service initialized
+🚀 LinkedIn Account Manager Server Started
+📡 Server running on port 3001
+🔗 Health check: http://localhost:3001/health
+📋 API endpoints:
+   GET    /api/accounts - List accounts
+   POST   /api/accounts - Add account
+   GET    /api/accounts/:id - Get account
+   DELETE /api/accounts/:id - Delete account
+   POST   /api/accounts/:id/validate - Validate account
+   GET    /api/stats - Get statistics
+⏰ Validation worker: Every 30 minutes
+✅ All accounts are up to date
+🔄 Running validation worker...
+ℹ️  No pending accounts to validate
+🎯 Creating new scraping job: {
+  jobType: 'profiles',
+  urlCount: 2,
+  searchQuery: undefined,
+  jobName: 'Database Fix Test Job',
+  accountSelectionMode: 'rotation',
+  selectedAccounts: 0
+}
+✅ Found 1 active accounts for job
+🔧 Using account: sss
+📊 URL Validation Results:
+   ✅ Valid URLs: 2
+   ❌ Invalid URLs: 0
+🌐 Processing 2 URLs...
+📝 Creating new job: Database Fix Test Job
+🎯 Creating new scraping job: {
+  jobType: 'profiles',
+  urlCount: 4,
+  searchQuery: undefined,
+  jobName: 'Profile Scraping Job - 2025-09-11 16:48',
+  accountSelectionMode: 'rotation',
+  selectedAccounts: 0
+}
+✅ Found 1 active accounts for job
+🔧 Using account: sss
+📊 URL Validation Results:
+   ✅ Valid URLs: 4
+   ❌ Invalid URLs: 0
+🌐 Processing 4 URLs...
+📝 Creating new job: Profile Scraping Job - 2025-09-11 16:48
+🎯 Creating new scraping job: {
+  jobType: 'companies',
+  urlCount: 4,
+  searchQuery: undefined,
+  jobName: 'Company Scraping Job - 2025-09-11 16:48',
+  accountSelectionMode: 'rotation',
+  selectedAccounts: 0
+}
+✅ Found 1 active accounts for job
+🔧 Using account: sss
+📊 URL Validation Results:
+   ✅ Valid URLs: 4
+   ❌ Invalid URLs: 0
+🌐 Processing 4 URLs...
+📝 Creating new job: Company Scraping Job - 2025-09-11 16:48
+📋 Fetching available LinkedIn accounts for job creation...
+✅ Found 1 usable LinkedIn accounts (1 active, 0 pending, 0 recently added)
+🎯 Creating new scraping job: {
+  jobType: 'profiles',
+  urlCount: 2,
+  searchQuery: undefined,
+  jobName: 'Test Job - 16:50:18',
+  accountSelectionMode: 'rotation',
+  selectedAccounts: 0
+}
+✅ Found 1 active accounts for job
+🔧 Using account: sss
+📊 URL Validation Results:
+   ✅ Valid URLs: 0
+   ❌ Invalid URLs: 2
+   Invalid URLs: [
+  {
+    url: {
+      value: 'https://www.linkedin.com/in/shweta-biradar-1b5001257/',
+      PSPath: 'C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\profile-scraping-template (1).csv',
+      PSParentPath: 'C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas',
+      PSChildName: 'profile-scraping-template (1).csv',
+      PSDrive: [Object],
+      PSProvider: [Object],
+      ReadCount: 2
+    },
+    reason: 'Invalid URL format'
+  },
+  {
+    url: {
+      value: 'https://www.linkedin.com/in/varshapawar1907/',
+      PSPath: 'C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\profile-scraping-template (1).csv',
+      PSParentPath: 'C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas',
+      PSChildName: 'profile-scraping-template (1).csv',
+      PSDrive: [Object],
+      PSProvider: [Object],
+      ReadCount: 3
+    },
+    reason: 'Invalid URL format'
+  }
+]

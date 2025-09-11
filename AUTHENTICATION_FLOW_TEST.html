@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Flow Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f0f2f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover { background-color: #0056b3; }
+        .code {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        h1 { color: #333; text-align: center; }
+        h2 { color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Authentication Flow Test</h1>
+        <p><strong>Purpose:</strong> Test the complete authentication flow to identify why accounts don't show after login</p>
+        
+        <div class="test-section">
+            <h2>📋 Test Results</h2>
+            <div id="results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔧 Manual Tests</h2>
+            <button onclick="testLocalStorage()">1. Check LocalStorage</button>
+            <button onclick="testDirectAPI()">2. Test API Direct</button>
+            <button onclick="testWithLogin()">3. Test Full Login Flow</button>
+            <button onclick="clearAndTest()">4. Clear & Retest</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎯 Quick Fixes</h2>
+            <button onclick="forceLogin()">Force Login</button>
+            <button onclick="clearAuth()">Clear Auth Data</button>
+            <button onclick="refreshTokens()">Refresh Tokens</button>
+        </div>
+    </div>
+
+    <script>
+        function addResult(title, content, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `status ${type}`;
+            resultDiv.innerHTML = `<strong>${title}:</strong><br>${content}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        function testLocalStorage() {
+            clearResults();
+            
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            addResult('LocalStorage Check', `
+                Token: ${token ? '✅ Present' : '❌ Missing'}
+                User: ${user ? '✅ Present' : '❌ Missing'}
+                
+                ${token ? `Token Preview: ${token.substring(0, 20)}...` : ''}
+                ${user ? `User Data: ${user}` : ''}
+            `, token && user ? 'success' : 'error');
+            
+            if (!token || !user) {
+                addResult('Solution', 'You need to log in first! Go to http://localhost:3000 and login with test@example.com / password123', 'warning');
+            }
+        }
+        
+        async function testDirectAPI() {
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                addResult('API Test', 'No token found. Please login first.', 'error');
+                return;
+            }
+            
+            try {
+                addResult('API Test', 'Testing direct API call...', 'info');
+                
+                const response = await fetch('/api/linkedin-accounts/available', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                addResult('API Response', `
+                    Status: ${response.status}
+                    Success: ${data.success}
+                    Count: ${data.count}
+                    Data: ${JSON.stringify(data, null, 2)}
+                `, data.success ? 'success' : 'error');
+                
+                if (data.success && data.count > 0) {
+                    addResult('Accounts Found', `
+                        Found ${data.count} accounts:
+                        ${data.data.map(acc => `- ${acc.account_name} (${acc.validation_status})`).join('\n')}
+                    `, 'success');
+                } else if (data.success && data.count === 0) {
+                    addResult('No Accounts', 'API works but returns 0 accounts. Check if accounts exist in database.', 'warning');
+                }
+                
+            } catch (error) {
+                addResult('API Error', `Failed to call API: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testWithLogin() {
+            try {
+                addResult('Login Test', 'Testing login flow...', 'info');
+                
+                // Test login
+                const loginResponse = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'test@example.com',
+                        password: 'password123'
+                    })
+                });
+                
+                const loginData = await loginResponse.json();
+                
+                if (loginData.success) {
+                    // Store tokens
+                    localStorage.setItem('token', loginData.data.token);
+                    localStorage.setItem('user', JSON.stringify(loginData.data.user));
+                    
+                    addResult('Login Success', `
+                        ✅ Login successful!
+                        Token: ${loginData.data.token.substring(0, 20)}...
+                        User: ${loginData.data.user.email}
+                    `, 'success');
+                    
+                    // Now test accounts API
+                    setTimeout(testDirectAPI, 1000);
+                    
+                } else {
+                    addResult('Login Failed', `Login failed: ${loginData.message}`, 'error');
+                }
+                
+            } catch (error) {
+                addResult('Login Error', `Login error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function clearAndTest() {
+            // Clear all auth data
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            sessionStorage.clear();
+            
+            addResult('Clear Complete', 'Cleared all authentication data', 'info');
+            
+            // Wait and test login
+            setTimeout(testWithLogin, 1000);
+        }
+        
+        function forceLogin() {
+            window.open('http://localhost:3000', '_blank');
+            addResult('Force Login', 'Opened login page. Please login and come back to test.', 'info');
+        }
+        
+        function clearAuth() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            sessionStorage.clear();
+            
+            // Clear any cached data
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.includes('auth') || key.includes('user') || key.includes('token'))) {
+                    keysToRemove.push(key);
+                }
+            }
+            
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+            
+            addResult('Auth Cleared', 'All authentication data cleared. Please login again.', 'warning');
+        }
+        
+        async function refreshTokens() {
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                addResult('Refresh Failed', 'No token to refresh. Please login first.', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/auth/refresh', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.data.token) {
+                    localStorage.setItem('token', data.data.token);
+                    addResult('Token Refreshed', 'Token refreshed successfully', 'success');
+                } else {
+                    addResult('Refresh Failed', 'Token refresh failed. Please login again.', 'error');
+                }
+                
+            } catch (error) {
+                addResult('Refresh Error', `Token refresh error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-run initial test
+        window.onload = function() {
+            setTimeout(testLocalStorage, 500);
+        };
+        
+        // Add console helpers
+        console.log('🔍 AUTHENTICATION FLOW TEST LOADED');
+        console.log('Available functions: testLocalStorage(), testDirectAPI(), testWithLogin(), clearAndTest()');
+    </script>
+</body>
+</html>

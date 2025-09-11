@@ -1,0 +1,2 @@
+❌ Failed to initialize scraping schema: Duplicate column name 'last_used_at'
+❌ Error adding cookies for john doe: browserContext.addCookies: cookies[0].sameSite: expected one of (Strict|Lax|None)

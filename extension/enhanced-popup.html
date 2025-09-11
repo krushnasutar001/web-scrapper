@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Automation - Cookie Manager</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 420px;
+      min-height: 600px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #333;
+    }
+    
+    .container {
+      background: white;
+      margin: 0;
+      min-height: 600px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #0077b5 0%, #005885 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+    
+    .header p {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    
+    .content {
+      flex: 1;
+      padding: 20px;
+    }
+    
+    .status-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
+    }
+    
+    .status-dot.connected {
+      background: #10b981;
+    }
+    
+    .status-dot.warning {
+      background: #f59e0b;
+    }
+    
+    .status-text {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .status-details {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+    
+    .login-section {
+      display: none;
+    }
+    
+    .login-section.active {
+      display: block;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    
+    .form-input, .form-select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+      background: white;
+    }
+    
+    .form-input:focus, .form-select:focus {
+      outline: none;
+      border-color: #0077b5;
+      box-shadow: 0 0 0 3px rgba(0, 119, 181, 0.1);
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .btn-primary {
+      background: #0077b5;
+      color: white;
+    }
+    
+    .btn-primary:hover:not(:disabled) {
+      background: #005885;
+    }
+    
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+    }
+    
+    .btn-secondary:hover:not(:disabled) {
+      background: #e2e8f0;
+    }
+    
+    .btn-success {
+      background: #10b981;
+      color: white;
+    }
+    
+    .btn-success:hover:not(:disabled) {
+      background: #059669;
+    }
+    
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+    
+    .btn-danger:hover:not(:disabled) {
+      background: #dc2626;
+    }
+    
+    .btn-full {
+      width: 100%;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    
+    .btn-group .btn {
+      flex: 1;
+    }
+    
+    .identity-section {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    
+    .identity-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    
+    .identity-title {
+      font-weight: 600;
+      color: #0c4a6e;
+      font-size: 14px;
+    }
+    
+    .identity-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    
+    .identity-status {
+      font-size: 12px;
+      color: #0369a1;
+      margin-bottom: 4px;
+    }
+    
+    .cookie-status {
+      font-size: 12px;
+      color: #0369a1;
+    }
+    
+    .actions-section {
+      border-top: 1px solid #e2e8f0;
+      padding-top: 16px;
+      margin-top: 16px;
+    }
+    
+    .action-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    
+    .action-item:last-child {
+      border-bottom: none;
+    }
+    
+    .action-info {
+      flex: 1;
+    }
+    
+    .action-title {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+    
+    .action-desc {
+      font-size: 12px;
+      color: #64748b;
+    }
+    
+    .loading {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #e2e8f0;
+      border-top: 2px solid #0077b5;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .error-message {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-bottom: 16px;
+    }
+    
+    .success-message {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-bottom: 16px;
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+    
+    .footer {
+      padding: 16px 20px;
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      text-align: center;
+    }
+    
+    .footer-text {
+      font-size: 11px;
+      color: #64748b;
+    }
+    
+    .integration-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: #e0f2fe;
+      color: #0c4a6e;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🍪 Cookie Manager</h1>
+      <p>Multi-Identity Session Management</p>
+    </div>
+    
+    <div class="content">
+      <!-- Connection Status -->
+      <div class="status-card">
+        <div class="status-indicator">
+          <div class="status-dot" id="connectionStatus"></div>
+          <span class="status-text" id="connectionText">Checking connection...</span>
+        </div>
+        <div class="status-details" id="connectionDetails">Connecting to backend server...</div>
+      </div>
+      
+      <!-- Error/Success Messages -->
+      <div id="errorMessage" class="error-message hidden"></div>
+      <div id="successMessage" class="success-message hidden"></div>
+      
+      <!-- Login Section -->
+      <div id="loginSection" class="login-section">
+        <h3 style="margin-bottom: 16px; font-size: 16px;">Login to Backend</h3>
+        <form id="loginForm">
+          <div class="form-group">
+            <label class="form-label" for="email">Email</label>
+            <input type="email" id="email" class="form-input" placeholder="Enter your email" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="password">Password</label>
+            <input type="password" id="password" class="form-input" placeholder="Enter your password" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full" id="loginBtn">
+            <span id="loginBtnText">Login</span>
+            <div class="spinner hidden" id="loginSpinner"></div>
+          </button>
+        </form>
+      </div>
+      
+      <!-- Main Section (shown when logged in) -->
+      <div id="mainSection" class="hidden">
+        <!-- Identity Management -->
+        <div class="identity-section">
+          <div class="identity-header">
+            <div class="identity-title">Identity & Integration</div>
+            <button class="btn btn-secondary" id="createIdentityBtn" style="padding: 6px 12px; font-size: 12px;">+ New</button>
+          </div>
+          
+          <div class="identity-controls">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="identitySelect">Identity</label>
+              <select id="identitySelect" class="form-select">
+                <option value="">Select Identity...</option>
+              </select>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="integrationSelect">Integration</label>
+              <select id="integrationSelect" class="form-select">
+                <option value="linkedin">💼 LinkedIn</option>
+                <option value="salesnav">📊 Sales Navigator</option>
+                <option value="twitter">🐦 Twitter/X</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="identity-status" id="identityStatus">No identity selected</div>
+          <div class="cookie-status" id="cookieStatus">Select an identity to view cookie status</div>
+        </div>
+        
+        <!-- Cookie Actions -->
+        <div class="actions-section">
+          <div class="action-item">
+            <div class="action-info">
+              <div class="action-title">Update Cookies</div>
+              <div class="action-desc">Capture cookies from current browser session</div>
+            </div>
+            <button class="btn btn-success" id="updateCookiesBtn">
+              <span>Update</span>
+              <div class="spinner hidden"></div>
+            </button>
+          </div>
+          
+          <div class="action-item">
+            <div class="action-info">
+              <div class="action-title">Refresh All</div>
+              <div class="action-desc">Update cookies for all identities (2-hour cycle)</div>
+            </div>
+            <button class="btn btn-primary" id="refreshAllBtn">
+              <span>Refresh</span>
+              <div class="spinner hidden"></div>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="btn-group" style="margin-top: 24px;">
+          <button class="btn btn-secondary" onclick="chrome.tabs.create({url: 'http://localhost:3000'})">
+            📊 Dashboard
+          </button>
+          <button class="btn btn-danger" id="logoutBtn">
+            🚪 Logout
+          </button>
+        </div>
+        
+        <!-- Integration Status -->
+        <div style="margin-top: 16px; padding: 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+          <div style="font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 8px;">Supported Integrations</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <div class="integration-badge">💼 LinkedIn</div>
+            <div class="integration-badge">📊 Sales Navigator</div>
+            <div class="integration-badge">🐦 Twitter/X</div>
+          </div>
+          <div style="font-size: 11px; color: #64748b; margin-top: 8px;">Cookies auto-refresh every 2 hours</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <div class="footer-text">Enhanced Cookie Manager v2.0.0</div>
+    </div>
+  </div>
+  
+  <script src="enhanced-popup.js"></script>
+</body>
+</html>

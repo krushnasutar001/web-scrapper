@@ -1,0 +1,301 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900 font-sans;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  /* Button Components */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary-100 text-secondary-900 hover:bg-secondary-200 focus:ring-secondary-500;
+  }
+  
+  .btn-success {
+    @apply bg-success-600 text-white hover:bg-success-700 focus:ring-success-500;
+  }
+  
+  .btn-warning {
+    @apply bg-warning-600 text-white hover:bg-warning-700 focus:ring-warning-500;
+  }
+  
+  .btn-error {
+    @apply bg-error-600 text-white hover:bg-error-700 focus:ring-error-500;
+  }
+  
+  .btn-outline {
+    @apply border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-primary-500;
+  }
+  
+  .btn-ghost {
+    @apply text-gray-700 hover:bg-gray-100 focus:ring-primary-500;
+  }
+  
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+  
+  /* Input Components */
+  .input {
+    @apply block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500;
+  }
+  
+  .input-error {
+    @apply border-error-300 focus:border-error-500 focus:ring-error-500;
+  }
+  
+  /* Card Components */
+  .card {
+    @apply rounded-xl bg-white p-6 shadow-soft;
+  }
+  
+  .card-hover {
+    @apply transition-shadow hover:shadow-medium;
+  }
+  
+  /* Badge Components */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  
+  .badge-primary {
+    @apply bg-primary-100 text-primary-800;
+  }
+  
+  .badge-secondary {
+    @apply bg-secondary-100 text-secondary-800;
+  }
+  
+  .badge-success {
+    @apply bg-success-100 text-success-800;
+  }
+  
+  .badge-warning {
+    @apply bg-warning-100 text-warning-800;
+  }
+  
+  .badge-error {
+    @apply bg-error-100 text-error-800;
+  }
+  
+  /* Status Badges */
+  .status-queued {
+    @apply badge badge-secondary;
+  }
+  
+  .status-running {
+    @apply badge bg-blue-100 text-blue-800;
+  }
+  
+  .status-completed {
+    @apply badge badge-success;
+  }
+  
+  .status-failed {
+    @apply badge badge-error;
+  }
+  
+  .status-cancelled {
+    @apply badge bg-gray-100 text-gray-800;
+  }
+  
+  /* Quality Badges */
+  .quality-high {
+    @apply badge badge-success;
+  }
+  
+  .quality-medium {
+    @apply badge badge-warning;
+  }
+  
+  .quality-low {
+    @apply badge bg-orange-100 text-orange-800;
+  }
+  
+  /* Loading Components */
+  .loading-spinner {
+    @apply animate-spin rounded-full border-2 border-gray-300 border-t-primary-600;
+  }
+  
+  .loading-dots {
+    @apply flex space-x-1;
+  }
+  
+  .loading-dots > div {
+    @apply h-2 w-2 animate-pulse rounded-full bg-primary-600;
+  }
+  
+  .loading-dots > div:nth-child(2) {
+    animation-delay: 0.1s;
+  }
+  
+  .loading-dots > div:nth-child(3) {
+    animation-delay: 0.2s;
+  }
+  
+  /* Table Components */
+  .table {
+    @apply min-w-full divide-y divide-gray-200;
+  }
+  
+  .table thead {
+    @apply bg-gray-50;
+  }
+  
+  .table th {
+    @apply px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500;
+  }
+  
+  .table td {
+    @apply whitespace-nowrap px-6 py-4 text-sm text-gray-900;
+  }
+  
+  .table tbody tr {
+    @apply hover:bg-gray-50;
+  }
+  
+  /* Navigation Components */
+  .nav-link {
+    @apply flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors;
+  }
+  
+  .nav-link-active {
+    @apply bg-primary-100 text-primary-700;
+  }
+  
+  .nav-link-inactive {
+    @apply text-gray-600 hover:bg-gray-100 hover:text-gray-900;
+  }
+  
+  /* Form Components */
+  .form-group {
+    @apply space-y-1;
+  }
+  
+  .form-label {
+    @apply block text-sm font-medium text-gray-700;
+  }
+  
+  .form-error {
+    @apply text-sm text-error-600;
+  }
+  
+  .form-help {
+    @apply text-sm text-gray-500;
+  }
+  
+  /* Progress Components */
+  .progress {
+    @apply h-2 w-full overflow-hidden rounded-full bg-gray-200;
+  }
+  
+  .progress-bar {
+    @apply h-full transition-all duration-300 ease-out;
+  }
+  
+  .progress-primary {
+    @apply bg-primary-600;
+  }
+  
+  .progress-success {
+    @apply bg-success-600;
+  }
+  
+  .progress-warning {
+    @apply bg-warning-600;
+  }
+  
+  .progress-error {
+    @apply bg-error-600;
+  }
+}
+
+@layer utilities {
+  /* Custom utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Focus styles */
+.focus-visible {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Dark mode support (future enhancement) */
+@media (prefers-color-scheme: dark) {
+  /* Dark mode styles can be added here */
+}

@@ -1,0 +1,68 @@
+❌ Failed to initialize scraping schema: Duplicate column name 'last_used_at'
+❌ Failed to create job: Error: Unknown column 'account_selection_mode' in 'field list'
+    at PromiseConnection.execute (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\mysql2\lib\promise\connection.js:47:22)
+    at JobManager.createJob (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\services\job-manager.js:46:21)
+    at C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\linkedin-account-manager.js:2431:42
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ER_BAD_FIELD_ERROR',
+  errno: 1054,
+  sql: '\n' +
+    '        INSERT INTO scraping_jobs (\n' +
+    '          id, user_id, job_name, job_type, status, \n' +
+    '          account_selection_mode, selected_account_ids,\n' +
+    '          search_query, created_at, updated_at\n' +
+    "        ) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)\n" +
+    '      ',
+  sqlState: '42S22',
+  sqlMessage: "Unknown column 'account_selection_mode' in 'field list'"
+}
+❌ Failed to create job: Error: Failed to create job: Unknown column 'account_selection_mode' in 'field list'
+    at JobManager.createJob (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\services\job-manager.js:87:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\linkedin-account-manager.js:2431:25
+❌ Failed to create job: Error: Unknown column 'account_selection_mode' in 'field list'
+    at PromiseConnection.execute (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\mysql2\lib\promise\connection.js:47:22)
+    at JobManager.createJob (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\services\job-manager.js:46:21)
+    at C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\linkedin-account-manager.js:2431:42
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ER_BAD_FIELD_ERROR',
+  errno: 1054,
+  sql: '\n' +
+    '        INSERT INTO scraping_jobs (\n' +
+    '          id, user_id, job_name, job_type, status, \n' +
+    '          account_selection_mode, selected_account_ids,\n' +
+    '          search_query, created_at, updated_at\n' +
+    "        ) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)\n" +
+    '      ',
+  sqlState: '42S22',
+  sqlMessage: "Unknown column 'account_selection_mode' in 'field list'"
+}
+❌ Failed to create job: Error: Failed to create job: Unknown column 'account_selection_mode' in 'field list'
+    at JobManager.createJob (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\services\job-manager.js:87:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\linkedin-account-manager.js:2431:25
+❌ Failed to get jobs: Error: Unknown column 'total_urls' in 'field list'
+    at PromiseConnection.execute (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\mysql2\lib\promise\connection.js:47:22)
+    at C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\linkedin-account-manager.js:380:29
+    at Layer.handle [as handle_request] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\linkedin-account-manager.js:49:5
+    at C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\jsonwebtoken\verify.js:261:12
+    at getSecret (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\jsonwebtoken\verify.js:97:14)
+    at module.exports [as verify] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\jsonwebtoken\verify.js:101:10)
+    at authenticateToken (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\linkedin-account-manager.js:44:7)
+    at Layer.handle [as handle_request] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\layer.js:95:5) {
+  code: 'ER_BAD_FIELD_ERROR',
+  errno: 1054,
+  sql: '\n' +
+    '      SELECT \n' +
+    '        id, job_name, job_type, status, created_at, started_at, \n' +
+    '        completed_at, total_urls, success_count, failure_count\n' +
+    '      FROM scraping_jobs \n' +
+    '      WHERE user_id = ?\n' +
+    '      ORDER BY created_at DESC \n' +
+    '      LIMIT ? OFFSET ?\n' +
+    '    ',
+  sqlState: '42S22',
+  sqlMessage: "Unknown column 'total_urls' in 'field list'"
+}

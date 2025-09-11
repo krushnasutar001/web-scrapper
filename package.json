@@ -1,0 +1,26 @@
+{
+  "name": "scraze",
+  "version": "1.0.0",
+  "description": "Scraze - Scrap with Craze - LinkedIn Automation Made Easy",
+  "main": "scraze-launcher.js",
+  "scripts": {
+    "start": "node scraze-launcher.js",
+    "launch": "node scraze-launcher.js",
+    "scraze": "node scraze-launcher.js",
+    "backend": "cd backend && node linkedin-account-manager.js",
+    "frontend": "cd frontend && npm start",
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "keywords": [
+    "linkedin",
+    "automation",
+    "scraping",
+    "scraze",
+    "data-extraction"
+  ],
+  "author": "Scraze Team",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.11.0"
+  }
+}

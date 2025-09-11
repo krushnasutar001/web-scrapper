@@ -1,0 +1,89 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend API Test</title>
+</head>
+<body>
+    <h1>Frontend API Authentication Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        const results = document.getElementById('results');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.style.color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
+            div.textContent = message;
+            results.appendChild(div);
+            console.log(message);
+        }
+        
+        async function testAuthentication() {
+            try {
+                log('Testing frontend authentication...');
+                
+                // Step 1: Login
+                const loginResponse = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'test@example.com',
+                        password: 'password123'
+                    })
+                });
+                
+                if (!loginResponse.ok) {
+                    throw new Error(`Login failed: ${loginResponse.status}`);
+                }
+                
+                const loginData = await loginResponse.json();
+                
+                if (loginData.success && loginData.data.token) {
+                    log(' Login successful', 'success');
+                    log(`Token received: ${loginData.data.token.substring(0, 20)}...`, 'success');
+                    
+                    // Step 2: Test job creation
+                    const jobResponse = await fetch(`${API_BASE}/api/jobs`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${loginData.data.token}`
+                        },
+                        body: JSON.stringify({
+                            jobName: 'Frontend Test Job',
+                            jobType: 'profiles',
+                            urls: ['https://www.linkedin.com/in/test-frontend'],
+                            accountSelectionMode: 'rotation'
+                        })
+                    });
+                    
+                    if (!jobResponse.ok) {
+                        throw new Error(`Job creation failed: ${jobResponse.status} - ${await jobResponse.text()}`);
+                    }
+                    
+                    const jobData = await jobResponse.json();
+                    
+                    if (jobData.success) {
+                        log(' Job creation successful!', 'success');
+                        log(`Job ID: ${jobData.jobId}`, 'success');
+                    } else {
+                        log(` Job creation failed: ${jobData.error}`, 'error');
+                    }
+                    
+                } else {
+                    log(' Login failed: No token received', 'error');
+                }
+                
+            } catch (error) {
+                log(` Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Run test when page loads
+        window.onload = testAuthentication;
+    </script>
+</body>
+</html>

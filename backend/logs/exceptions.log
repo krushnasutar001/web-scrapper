@@ -1,0 +1,1781 @@
+2025-09-02 19:22:27:2227 [ERROR]: uncaughtException: N:M associations are not supported with hasMany. Use belongsToMany instead
+Error: N:M associations are not supported with hasMany. Use belongsToMany instead
+    at new HasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\has-many.js:35:13)
+    at User.hasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\mixin.js:22:25)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\models\index.js:41:6)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Error: N:M associations are not supported with hasMany. Use belongsToMany instead
+    at new HasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\has-many.js:35:13)
+    at User.hasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\mixin.js:22:25)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\models\index.js:41:6)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Metadata: {
+  "error": {},
+  "exception": true,
+  "date": "Tue Sep 02 2025 19:22:27 GMT+0530 (India Standard Time)",
+  "process": {
+    "pid": 27020,
+    "uid": null,
+    "gid": null,
+    "cwd": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend",
+    "execPath": "C:\\Program Files\\nodejs\\node.exe",
+    "version": "v22.19.0",
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\app.js"
+    ],
+    "memoryUsage": {
+      "rss": 75898880,
+      "heapTotal": 38772736,
+      "heapUsed": 26225048,
+      "external": 2352377,
+      "arrayBuffers": 19186
+    }
+  },
+  "os": {
+    "loadavg": [
+      0,
+      0,
+      0
+    ],
+    "uptime": 243920.859
+  },
+  "trace": [
+    {
+      "column": 13,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\sequelize\\lib\\associations\\has-many.js",
+      "function": "new HasMany",
+      "line": 35,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 25,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\sequelize\\lib\\associations\\mixin.js",
+      "function": "User.hasMany",
+      "line": 22,
+      "method": "hasMany",
+      "native": false
+    },
+    {
+      "column": 6,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\models\\index.js",
+      "function": null,
+      "line": 41,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1706,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Object..js",
+      "line": 1839,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1441,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Function._load",
+      "line": 1263,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:diagnostics_channel",
+      "function": "TracingChannel.traceSync",
+      "line": 322,
+      "method": "traceSync",
+      "native": false
+    },
+    {
+      "column": 24,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "wrapModuleLoad",
+      "line": 237,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.require",
+      "line": 1463,
+      "method": "require",
+      "native": false
+    }
+  ]
+}
+2025-09-02 19:22:52:2252 [ERROR]: uncaughtException: N:M associations are not supported with hasMany. Use belongsToMany instead
+Error: N:M associations are not supported with hasMany. Use belongsToMany instead
+    at new HasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\has-many.js:35:13)
+    at User.hasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\mixin.js:22:25)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\models\index.js:41:6)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Error: N:M associations are not supported with hasMany. Use belongsToMany instead
+    at new HasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\has-many.js:35:13)
+    at User.hasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\mixin.js:22:25)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\models\index.js:41:6)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Metadata: {
+  "error": {},
+  "exception": true,
+  "date": "Tue Sep 02 2025 19:22:52 GMT+0530 (India Standard Time)",
+  "process": {
+    "pid": 9324,
+    "uid": null,
+    "gid": null,
+    "cwd": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend",
+    "execPath": "C:\\Program Files\\nodejs\\node.exe",
+    "version": "v22.19.0",
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\app.js"
+    ],
+    "memoryUsage": {
+      "rss": 74104832,
+      "heapTotal": 38772736,
+      "heapUsed": 27376800,
+      "external": 2352377,
+      "arrayBuffers": 19186
+    }
+  },
+  "os": {
+    "loadavg": [
+      0,
+      0,
+      0
+    ],
+    "uptime": 243945.781
+  },
+  "trace": [
+    {
+      "column": 13,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\sequelize\\lib\\associations\\has-many.js",
+      "function": "new HasMany",
+      "line": 35,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 25,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\sequelize\\lib\\associations\\mixin.js",
+      "function": "User.hasMany",
+      "line": 22,
+      "method": "hasMany",
+      "native": false
+    },
+    {
+      "column": 6,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\models\\index.js",
+      "function": null,
+      "line": 41,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1706,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Object..js",
+      "line": 1839,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1441,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Function._load",
+      "line": 1263,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:diagnostics_channel",
+      "function": "TracingChannel.traceSync",
+      "line": 322,
+      "method": "traceSync",
+      "native": false
+    },
+    {
+      "column": 24,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "wrapModuleLoad",
+      "line": 237,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.require",
+      "line": 1463,
+      "method": "require",
+      "native": false
+    }
+  ]
+}
+2025-09-02 19:23:32:2332 [ERROR]: uncaughtException: N:M associations are not supported with hasMany. Use belongsToMany instead
+Error: N:M associations are not supported with hasMany. Use belongsToMany instead
+    at new HasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\has-many.js:35:13)
+    at User.hasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\mixin.js:22:25)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\models\index.js:41:6)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Error: N:M associations are not supported with hasMany. Use belongsToMany instead
+    at new HasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\has-many.js:35:13)
+    at User.hasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\mixin.js:22:25)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\models\index.js:41:6)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Metadata: {
+  "error": {},
+  "exception": true,
+  "date": "Tue Sep 02 2025 19:23:32 GMT+0530 (India Standard Time)",
+  "process": {
+    "pid": 23544,
+    "uid": null,
+    "gid": null,
+    "cwd": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend",
+    "execPath": "C:\\Program Files\\nodejs\\node.exe",
+    "version": "v22.19.0",
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\app.js"
+    ],
+    "memoryUsage": {
+      "rss": 74248192,
+      "heapTotal": 39034880,
+      "heapUsed": 25872576,
+      "external": 2352091,
+      "arrayBuffers": 18900
+    }
+  },
+  "os": {
+    "loadavg": [
+      0,
+      0,
+      0
+    ],
+    "uptime": 243985.906
+  },
+  "trace": [
+    {
+      "column": 13,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\sequelize\\lib\\associations\\has-many.js",
+      "function": "new HasMany",
+      "line": 35,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 25,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\sequelize\\lib\\associations\\mixin.js",
+      "function": "User.hasMany",
+      "line": 22,
+      "method": "hasMany",
+      "native": false
+    },
+    {
+      "column": 6,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\models\\index.js",
+      "function": null,
+      "line": 41,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1706,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Object..js",
+      "line": 1839,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1441,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Function._load",
+      "line": 1263,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:diagnostics_channel",
+      "function": "TracingChannel.traceSync",
+      "line": 322,
+      "method": "traceSync",
+      "native": false
+    },
+    {
+      "column": 24,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "wrapModuleLoad",
+      "line": 237,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.require",
+      "line": 1463,
+      "method": "require",
+      "native": false
+    }
+  ]
+}
+2025-09-02 19:23:47:2347 [ERROR]: uncaughtException: N:M associations are not supported with hasMany. Use belongsToMany instead
+Error: N:M associations are not supported with hasMany. Use belongsToMany instead
+    at new HasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\has-many.js:35:13)
+    at User.hasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\mixin.js:22:25)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\models\index.js:41:6)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Error: N:M associations are not supported with hasMany. Use belongsToMany instead
+    at new HasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\has-many.js:35:13)
+    at User.hasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\mixin.js:22:25)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\models\index.js:41:6)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Metadata: {
+  "error": {},
+  "exception": true,
+  "date": "Tue Sep 02 2025 19:23:47 GMT+0530 (India Standard Time)",
+  "process": {
+    "pid": 17944,
+    "uid": null,
+    "gid": null,
+    "cwd": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend",
+    "execPath": "C:\\Program Files\\nodejs\\node.exe",
+    "version": "v22.19.0",
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\app.js"
+    ],
+    "memoryUsage": {
+      "rss": 74330112,
+      "heapTotal": 38772736,
+      "heapUsed": 26168168,
+      "external": 2352377,
+      "arrayBuffers": 19186
+    }
+  },
+  "os": {
+    "loadavg": [
+      0,
+      0,
+      0
+    ],
+    "uptime": 244000.234
+  },
+  "trace": [
+    {
+      "column": 13,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\sequelize\\lib\\associations\\has-many.js",
+      "function": "new HasMany",
+      "line": 35,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 25,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\sequelize\\lib\\associations\\mixin.js",
+      "function": "User.hasMany",
+      "line": 22,
+      "method": "hasMany",
+      "native": false
+    },
+    {
+      "column": 6,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\models\\index.js",
+      "function": null,
+      "line": 41,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1706,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Object..js",
+      "line": 1839,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1441,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Function._load",
+      "line": 1263,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:diagnostics_channel",
+      "function": "TracingChannel.traceSync",
+      "line": 322,
+      "method": "traceSync",
+      "native": false
+    },
+    {
+      "column": 24,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "wrapModuleLoad",
+      "line": 237,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.require",
+      "line": 1463,
+      "method": "require",
+      "native": false
+    }
+  ]
+}
+2025-09-03 14:36:40:3640 [ERROR]: uncaughtException: N:M associations are not supported with hasMany. Use belongsToMany instead
+Error: N:M associations are not supported with hasMany. Use belongsToMany instead
+    at new HasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\has-many.js:35:13)
+    at User.hasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\mixin.js:22:25)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\models\index.js:41:6)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Error: N:M associations are not supported with hasMany. Use belongsToMany instead
+    at new HasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\has-many.js:35:13)
+    at User.hasMany (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\associations\mixin.js:22:25)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\models\index.js:41:6)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Metadata: {
+  "error": {},
+  "exception": true,
+  "date": "Wed Sep 03 2025 14:36:40 GMT+0530 (India Standard Time)",
+  "process": {
+    "pid": 12904,
+    "uid": null,
+    "gid": null,
+    "cwd": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend",
+    "execPath": "C:\\Program Files\\nodejs\\node.exe",
+    "version": "v22.19.0",
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\app.js"
+    ],
+    "memoryUsage": {
+      "rss": 73801728,
+      "heapTotal": 39034880,
+      "heapUsed": 26478720,
+      "external": 2352377,
+      "arrayBuffers": 19186
+    }
+  },
+  "os": {
+    "loadavg": [
+      0,
+      0,
+      0
+    ],
+    "uptime": 2343.718
+  },
+  "trace": [
+    {
+      "column": 13,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\sequelize\\lib\\associations\\has-many.js",
+      "function": "new HasMany",
+      "line": 35,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 25,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\sequelize\\lib\\associations\\mixin.js",
+      "function": "User.hasMany",
+      "line": 22,
+      "method": "hasMany",
+      "native": false
+    },
+    {
+      "column": 6,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\models\\index.js",
+      "function": null,
+      "line": 41,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1706,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Object..js",
+      "line": 1839,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1441,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Function._load",
+      "line": 1263,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:diagnostics_channel",
+      "function": "TracingChannel.traceSync",
+      "line": 322,
+      "method": "traceSync",
+      "native": false
+    },
+    {
+      "column": 24,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "wrapModuleLoad",
+      "line": 237,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.require",
+      "line": 1463,
+      "method": "require",
+      "native": false
+    }
+  ]
+}
+2025-09-03 14:49:32:4932 [ERROR]: uncaughtException: JWT_SECRET environment variable is required
+Error: JWT_SECRET environment variable is required
+    at new AuthService (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:14:13)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:344:21)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+    at require (node:internal/modules/helpers:147:16)
+Error: JWT_SECRET environment variable is required
+    at new AuthService (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:14:13)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:344:21)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+    at require (node:internal/modules/helpers:147:16)
+Metadata: {
+  "error": {},
+  "exception": true,
+  "date": "Wed Sep 03 2025 14:49:32 GMT+0530 (India Standard Time)",
+  "process": {
+    "pid": 5416,
+    "uid": null,
+    "gid": null,
+    "cwd": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend",
+    "execPath": "C:\\Program Files\\nodejs\\node.exe",
+    "version": "v22.19.0",
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\app.js"
+    ],
+    "memoryUsage": {
+      "rss": 75935744,
+      "heapTotal": 57909248,
+      "heapUsed": 24750592,
+      "external": 2352377,
+      "arrayBuffers": 18899
+    }
+  },
+  "os": {
+    "loadavg": [
+      0,
+      0,
+      0
+    ],
+    "uptime": 3115.796
+  },
+  "trace": [
+    {
+      "column": 13,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\utils\\auth.js",
+      "function": "new AuthService",
+      "line": 14,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 21,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\utils\\auth.js",
+      "function": null,
+      "line": 344,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1706,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Object..js",
+      "line": 1839,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1441,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Function._load",
+      "line": 1263,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:diagnostics_channel",
+      "function": "TracingChannel.traceSync",
+      "line": 322,
+      "method": "traceSync",
+      "native": false
+    },
+    {
+      "column": 24,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "wrapModuleLoad",
+      "line": 237,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.require",
+      "line": 1463,
+      "method": "require",
+      "native": false
+    },
+    {
+      "column": 16,
+      "file": "node:internal/modules/helpers",
+      "function": "require",
+      "line": 147,
+      "method": null,
+      "native": false
+    }
+  ]
+}
+2025-09-03 14:49:43:4943 [ERROR]: uncaughtException: JWT_SECRET environment variable is required
+Error: JWT_SECRET environment variable is required
+    at new AuthService (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:14:13)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:344:21)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+    at require (node:internal/modules/helpers:147:16)
+Error: JWT_SECRET environment variable is required
+    at new AuthService (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:14:13)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:344:21)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+    at require (node:internal/modules/helpers:147:16)
+Metadata: {
+  "error": {},
+  "exception": true,
+  "date": "Wed Sep 03 2025 14:49:43 GMT+0530 (India Standard Time)",
+  "process": {
+    "pid": 15196,
+    "uid": null,
+    "gid": null,
+    "cwd": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend",
+    "execPath": "C:\\Program Files\\nodejs\\node.exe",
+    "version": "v22.19.0",
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\app.js"
+    ],
+    "memoryUsage": {
+      "rss": 74117120,
+      "heapTotal": 57909248,
+      "heapUsed": 25752328,
+      "external": 2352377,
+      "arrayBuffers": 18899
+    }
+  },
+  "os": {
+    "loadavg": [
+      0,
+      0,
+      0
+    ],
+    "uptime": 3126.984
+  },
+  "trace": [
+    {
+      "column": 13,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\utils\\auth.js",
+      "function": "new AuthService",
+      "line": 14,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 21,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\utils\\auth.js",
+      "function": null,
+      "line": 344,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1706,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Object..js",
+      "line": 1839,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1441,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Function._load",
+      "line": 1263,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:diagnostics_channel",
+      "function": "TracingChannel.traceSync",
+      "line": 322,
+      "method": "traceSync",
+      "native": false
+    },
+    {
+      "column": 24,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "wrapModuleLoad",
+      "line": 237,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.require",
+      "line": 1463,
+      "method": "require",
+      "native": false
+    },
+    {
+      "column": 16,
+      "file": "node:internal/modules/helpers",
+      "function": "require",
+      "line": 147,
+      "method": null,
+      "native": false
+    }
+  ]
+}
+2025-09-03 14:57:33:5733 [ERROR]: uncaughtException: JWT_SECRET environment variable is required
+Error: JWT_SECRET environment variable is required
+    at new AuthService (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:14:13)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:344:21)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+    at require (node:internal/modules/helpers:147:16)
+Error: JWT_SECRET environment variable is required
+    at new AuthService (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:14:13)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:344:21)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+    at require (node:internal/modules/helpers:147:16)
+Metadata: {
+  "error": {},
+  "exception": true,
+  "date": "Wed Sep 03 2025 14:57:33 GMT+0530 (India Standard Time)",
+  "process": {
+    "pid": 11544,
+    "uid": null,
+    "gid": null,
+    "cwd": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend",
+    "execPath": "C:\\Program Files\\nodejs\\node.exe",
+    "version": "v22.19.0",
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\app.js"
+    ],
+    "memoryUsage": {
+      "rss": 76288000,
+      "heapTotal": 58695680,
+      "heapUsed": 25399376,
+      "external": 2352377,
+      "arrayBuffers": 18899
+    }
+  },
+  "os": {
+    "loadavg": [
+      0,
+      0,
+      0
+    ],
+    "uptime": 3596.312
+  },
+  "trace": [
+    {
+      "column": 13,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\utils\\auth.js",
+      "function": "new AuthService",
+      "line": 14,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 21,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\utils\\auth.js",
+      "function": null,
+      "line": 344,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1706,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Object..js",
+      "line": 1839,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1441,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Function._load",
+      "line": 1263,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:diagnostics_channel",
+      "function": "TracingChannel.traceSync",
+      "line": 322,
+      "method": "traceSync",
+      "native": false
+    },
+    {
+      "column": 24,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "wrapModuleLoad",
+      "line": 237,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.require",
+      "line": 1463,
+      "method": "require",
+      "native": false
+    },
+    {
+      "column": 16,
+      "file": "node:internal/modules/helpers",
+      "function": "require",
+      "line": 147,
+      "method": null,
+      "native": false
+    }
+  ]
+}
+2025-09-03 15:08:44:844 [ERROR]: uncaughtException: JWT_SECRET environment variable is required
+Error: JWT_SECRET environment variable is required
+    at new AuthService (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:14:13)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:344:21)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+    at require (node:internal/modules/helpers:147:16)
+Error: JWT_SECRET environment variable is required
+    at new AuthService (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:14:13)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:344:21)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+    at require (node:internal/modules/helpers:147:16)
+Metadata: {
+  "error": {},
+  "exception": true,
+  "date": "Wed Sep 03 2025 15:08:44 GMT+0530 (India Standard Time)",
+  "process": {
+    "pid": 68,
+    "uid": null,
+    "gid": null,
+    "cwd": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend",
+    "execPath": "C:\\Program Files\\nodejs\\node.exe",
+    "version": "v22.19.0",
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\app.js"
+    ],
+    "memoryUsage": {
+      "rss": 78622720,
+      "heapTotal": 58171392,
+      "heapUsed": 25413288,
+      "external": 2352377,
+      "arrayBuffers": 18899
+    }
+  },
+  "os": {
+    "loadavg": [
+      0,
+      0,
+      0
+    ],
+    "uptime": 4268.109
+  },
+  "trace": [
+    {
+      "column": 13,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\utils\\auth.js",
+      "function": "new AuthService",
+      "line": 14,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 21,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\utils\\auth.js",
+      "function": null,
+      "line": 344,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1706,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Object..js",
+      "line": 1839,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1441,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Function._load",
+      "line": 1263,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:diagnostics_channel",
+      "function": "TracingChannel.traceSync",
+      "line": 322,
+      "method": "traceSync",
+      "native": false
+    },
+    {
+      "column": 24,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "wrapModuleLoad",
+      "line": 237,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.require",
+      "line": 1463,
+      "method": "require",
+      "native": false
+    },
+    {
+      "column": 16,
+      "file": "node:internal/modules/helpers",
+      "function": "require",
+      "line": 147,
+      "method": null,
+      "native": false
+    }
+  ]
+}
+2025-09-03 15:11:16:1116 [ERROR]: uncaughtException: Route.post() requires a callback function but got a [object Undefined]
+Error: Route.post() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as post] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as post] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:177:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Error: Route.post() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as post] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as post] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:177:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Metadata: {
+  "error": {},
+  "exception": true,
+  "date": "Wed Sep 03 2025 15:11:16 GMT+0530 (India Standard Time)",
+  "process": {
+    "pid": 14640,
+    "uid": null,
+    "gid": null,
+    "cwd": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend",
+    "execPath": "C:\\Program Files\\nodejs\\node.exe",
+    "version": "v22.19.0",
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\app.js"
+    ],
+    "memoryUsage": {
+      "rss": 78536704,
+      "heapTotal": 58433536,
+      "heapUsed": 26258680,
+      "external": 2352377,
+      "arrayBuffers": 18899
+    }
+  },
+  "os": {
+    "loadavg": [
+      0,
+      0,
+      0
+    ],
+    "uptime": 4419.828
+  },
+  "trace": [
+    {
+      "column": 15,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\express\\lib\\router\\route.js",
+      "function": "Route.<computed> [as post]",
+      "line": 216,
+      "method": "<computed> [as post]",
+      "native": false
+    },
+    {
+      "column": 19,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\express\\lib\\router\\index.js",
+      "function": "proto.<computed> [as post]",
+      "line": 521,
+      "method": "<computed> [as post]",
+      "native": false
+    },
+    {
+      "column": 8,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\routes\\jobs.js",
+      "function": null,
+      "line": 177,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1706,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Object..js",
+      "line": 1839,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1441,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Function._load",
+      "line": 1263,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:diagnostics_channel",
+      "function": "TracingChannel.traceSync",
+      "line": 322,
+      "method": "traceSync",
+      "native": false
+    },
+    {
+      "column": 24,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "wrapModuleLoad",
+      "line": 237,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.require",
+      "line": 1463,
+      "method": "require",
+      "native": false
+    }
+  ]
+}
+2025-09-03 15:14:52:1452 [ERROR]: uncaughtException: Route.get() requires a callback function but got a [object Undefined]
+Error: Route.get() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:309:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Error: Route.get() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:309:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Metadata: {
+  "error": {},
+  "exception": true,
+  "date": "Wed Sep 03 2025 15:14:52 GMT+0530 (India Standard Time)",
+  "process": {
+    "pid": 20720,
+    "uid": null,
+    "gid": null,
+    "cwd": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend",
+    "execPath": "C:\\Program Files\\nodejs\\node.exe",
+    "version": "v22.19.0",
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\app.js"
+    ],
+    "memoryUsage": {
+      "rss": 76943360,
+      "heapTotal": 58171392,
+      "heapUsed": 25831352,
+      "external": 2352377,
+      "arrayBuffers": 18899
+    }
+  },
+  "os": {
+    "loadavg": [
+      0,
+      0,
+      0
+    ],
+    "uptime": 4635.406
+  },
+  "trace": [
+    {
+      "column": 15,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\express\\lib\\router\\route.js",
+      "function": "Route.<computed> [as get]",
+      "line": 216,
+      "method": "<computed> [as get]",
+      "native": false
+    },
+    {
+      "column": 19,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\express\\lib\\router\\index.js",
+      "function": "proto.<computed> [as get]",
+      "line": 521,
+      "method": "<computed> [as get]",
+      "native": false
+    },
+    {
+      "column": 8,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\routes\\jobs.js",
+      "function": null,
+      "line": 309,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1706,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Object..js",
+      "line": 1839,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1441,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Function._load",
+      "line": 1263,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:diagnostics_channel",
+      "function": "TracingChannel.traceSync",
+      "line": 322,
+      "method": "traceSync",
+      "native": false
+    },
+    {
+      "column": 24,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "wrapModuleLoad",
+      "line": 237,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.require",
+      "line": 1463,
+      "method": "require",
+      "native": false
+    }
+  ]
+}
+2025-09-03 15:15:39:1539 [ERROR]: uncaughtException: Route.get() requires a callback function but got a [object Undefined]
+Error: Route.get() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:365:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Error: Route.get() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:365:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Metadata: {
+  "error": {},
+  "exception": true,
+  "date": "Wed Sep 03 2025 15:15:39 GMT+0530 (India Standard Time)",
+  "process": {
+    "pid": 20504,
+    "uid": null,
+    "gid": null,
+    "cwd": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend",
+    "execPath": "C:\\Program Files\\nodejs\\node.exe",
+    "version": "v22.19.0",
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\app.js"
+    ],
+    "memoryUsage": {
+      "rss": 76836864,
+      "heapTotal": 58171392,
+      "heapUsed": 26927104,
+      "external": 2352377,
+      "arrayBuffers": 18899
+    }
+  },
+  "os": {
+    "loadavg": [
+      0,
+      0,
+      0
+    ],
+    "uptime": 4682.937
+  },
+  "trace": [
+    {
+      "column": 15,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\express\\lib\\router\\route.js",
+      "function": "Route.<computed> [as get]",
+      "line": 216,
+      "method": "<computed> [as get]",
+      "native": false
+    },
+    {
+      "column": 19,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\express\\lib\\router\\index.js",
+      "function": "proto.<computed> [as get]",
+      "line": 521,
+      "method": "<computed> [as get]",
+      "native": false
+    },
+    {
+      "column": 8,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\routes\\jobs.js",
+      "function": null,
+      "line": 365,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1706,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Object..js",
+      "line": 1839,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1441,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Function._load",
+      "line": 1263,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:diagnostics_channel",
+      "function": "TracingChannel.traceSync",
+      "line": 322,
+      "method": "traceSync",
+      "native": false
+    },
+    {
+      "column": 24,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "wrapModuleLoad",
+      "line": 237,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.require",
+      "line": 1463,
+      "method": "require",
+      "native": false
+    }
+  ]
+}
+2025-09-03 15:21:33:2133 [ERROR]: uncaughtException: Route.get() requires a callback function but got a [object Undefined]
+Error: Route.get() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:365:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Error: Route.get() requires a callback function but got a [object Undefined]
+    at Route.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\route.js:216:15)
+    at proto.<computed> [as get] (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\express\lib\router\index.js:521:19)
+    at Object.<anonymous> (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\jobs.js:365:8)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+Metadata: {
+  "error": {},
+  "exception": true,
+  "date": "Wed Sep 03 2025 15:21:33 GMT+0530 (India Standard Time)",
+  "process": {
+    "pid": 12056,
+    "uid": null,
+    "gid": null,
+    "cwd": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend",
+    "execPath": "C:\\Program Files\\nodejs\\node.exe",
+    "version": "v22.19.0",
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\app.js"
+    ],
+    "memoryUsage": {
+      "rss": 74797056,
+      "heapTotal": 58171392,
+      "heapUsed": 27342304,
+      "external": 2352377,
+      "arrayBuffers": 18899
+    }
+  },
+  "os": {
+    "loadavg": [
+      0,
+      0,
+      0
+    ],
+    "uptime": 5036.265
+  },
+  "trace": [
+    {
+      "column": 15,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\express\\lib\\router\\route.js",
+      "function": "Route.<computed> [as get]",
+      "line": 216,
+      "method": "<computed> [as get]",
+      "native": false
+    },
+    {
+      "column": 19,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\node_modules\\express\\lib\\router\\index.js",
+      "function": "proto.<computed> [as get]",
+      "line": 521,
+      "method": "<computed> [as get]",
+      "native": false
+    },
+    {
+      "column": 8,
+      "file": "C:\\Users\\krush\\OneDrive\\Desktop\\Final\\linkedin-automation-saas\\backend\\src\\routes\\jobs.js",
+      "function": null,
+      "line": 365,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module._compile",
+      "line": 1706,
+      "method": "_compile",
+      "native": false
+    },
+    {
+      "column": 10,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Object..js",
+      "line": 1839,
+      "method": ".js",
+      "native": false
+    },
+    {
+      "column": 32,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.load",
+      "line": 1441,
+      "method": "load",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Function._load",
+      "line": 1263,
+      "method": "_load",
+      "native": false
+    },
+    {
+      "column": 14,
+      "file": "node:diagnostics_channel",
+      "function": "TracingChannel.traceSync",
+      "line": 322,
+      "method": "traceSync",
+      "native": false
+    },
+    {
+      "column": 24,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "wrapModuleLoad",
+      "line": 237,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/modules/cjs/loader",
+      "function": "Module.require",
+      "line": 1463,
+      "method": "require",
+      "native": false
+    }
+  ]
+}
