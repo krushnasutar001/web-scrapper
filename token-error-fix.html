@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Token Error Fix Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .result { padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        button { padding: 12px 24px; margin: 8px; cursor: pointer; border: none; border-radius: 4px; font-size: 14px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        h1 { color: #dc3545; }
+        h2 { color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 8px; }
+        .debug-info { font-family: monospace; background: #f8f9fa; padding: 10px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Token Error Fix Tool</h1>
+        
+        <div class="result error">
+            <strong>Current Issue:</strong> 403 Forbidden errors due to invalid/expired authentication tokens
+        </div>
+        
+        <h2>1. Diagnose Current State</h2>
+        <button class="btn-primary" onclick="diagnoseTokens()">🔍 Diagnose Token Issues</button>
+        <div id="diagnoseResults"></div>
+        
+        <h2>2. Fix Authentication</h2>
+        <div style="margin-bottom: 15px;">
+            <input type="email" id="loginEmail" placeholder="Email" value="test@example.com" style="padding: 8px; margin: 5px; width: 200px;">
+            <input type="password" id="loginPassword" placeholder="Password" value="password123" style="padding: 8px; margin: 5px; width: 200px;">
+        </div>
+        <button class="btn-success" onclick="freshLogin()">🔑 Fresh Login</button>
+        <button class="btn-warning" onclick="clearStorage()">🗑️ Clear Storage</button>
+        <div id="authResults"></div>
+        
+        <h2>3. Test APIs</h2>
+        <button class="btn-primary" onclick="testAllAPIs()">🧪 Test All APIs</button>
+        <div id="testResults"></div>
+        
+        <h2>4. Debug Information</h2>
+        <button class="btn-primary" onclick="showDebugInfo()">📊 Show Debug Info</button>
+        <div id="debugResults"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = message;
+            element.appendChild(div);
+        }
+        
+        function diagnoseTokens() {
+            const diagnoseDiv = document.getElementById('diagnoseResults');
+            diagnoseDiv.innerHTML = ''; // Clear previous results
+            
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            log('diagnoseResults', '<strong>Token Diagnosis:</strong>', 'info');
+            
+            if (token) {
+                log('diagnoseResults', `✅ Token exists (length: ${token.length})`, 'success');
+                
+                // Try to decode JWT payload
+                try {
+                    if (!token.includes('.')) {
+                        throw new Error('Invalid JWT structure');
+                    }
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    const exp = new Date(payload.exp * 1000);
+                    const now = new Date();
+                    
+                    if (exp > now) {
+                        log('diagnoseResults', `✅ Token expires: ${exp.toLocaleString()}`, 'success');
+                    } else {
+                        log('diagnoseResults', `❌ Token EXPIRED: ${exp.toLocaleString()}`, 'error');
+                    }
+                    
+                    log('diagnoseResults', `User ID: ${payload.userId || payload.id}, Email: ${payload.email}`, 'info');
+                } catch (e) {
+                    log('diagnoseResults', '❌ Invalid token format', 'error');
+                }
+            } else {
+                log('diagnoseResults', '❌ No token in localStorage', 'error');
+            }
+            
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    log('diagnoseResults', `✅ User data: ${userData.email}`, 'success');
+                } catch (e) {
+                    log('diagnoseResults', '❌ Invalid user data format', 'error');
+                }
+            } else {
+                log('diagnoseResults', '❌ No user data in localStorage', 'error');
+            }
+        }
+        
+        async function freshLogin() {
+            const authDiv = document.getElementById('authResults');
+            authDiv.innerHTML = ''; // Clear previous results
+            
+            try {
+                log('authResults', '🔑 Attempting fresh login...', 'info');
+                
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                
+                if (!email || !password) {
+                    log('authResults', '❌ Please enter email and password', 'error');
+                    return;
+                }
+                
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.data.token) {
+                    localStorage.setItem('token', data.data.token);
+                    localStorage.setItem('user', JSON.stringify(data.data.user));
+                    
+                    log('authResults', '✅ Fresh login successful! New token stored.', 'success');
+                    log('authResults', `Token length: ${data.data.token.length}`, 'info');
+                    
+                    // Auto-test APIs
+                    setTimeout(testAllAPIs, 1000);
+                } else {
+                    log('authResults', `❌ Login failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                log('authResults', `❌ Login error: ${error.message}`, 'error');
+            }
+        }
+        
+        function clearStorage() {
+            localStorage.clear();
+            sessionStorage.clear();
+            log('authResults', '🗑️ All storage cleared. Please login again.', 'warning');
+        }
+        
+        async function testAllAPIs() {
+            const testDiv = document.getElementById('testResults');
+            testDiv.innerHTML = ''; // Clear previous results
+            
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                log('testResults', '❌ No token available for testing', 'error');
+                return;
+            }
+            
+            const endpoints = [
+                { url: '/api/jobs', name: 'Jobs API' },
+                { url: '/api/linkedin-accounts/available', name: 'LinkedIn Accounts API' }
+            ];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(`${API_BASE}${endpoint.url}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        log('testResults', `✅ ${endpoint.name}: SUCCESS (Status: ${response.status})`, 'success');
+                    } else {
+                        const errorText = await response.text();
+                        log('testResults', `❌ ${endpoint.name}: FAILED (Status: ${response.status}) - ${errorText}`, 'error');
+                    }
+                } catch (error) {
+                    log('testResults', `❌ ${endpoint.name}: ERROR - ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        function showDebugInfo() {
+            const debugDiv = document.getElementById('debugResults');
+            debugDiv.innerHTML = '';
+            
+            const debugInfo = {
+                'Current URL': window.location.href,
+                'API Base': API_BASE,
+                'Local Storage Keys': Object.keys(localStorage),
+                'Session Storage Keys': Object.keys(sessionStorage),
+                'User Agent': navigator.userAgent.substring(0, 100),
+                'Timestamp': new Date().toISOString()
+            };
+            
+            let debugHtml = '<div class="debug-info">';
+            for (const [key, value] of Object.entries(debugInfo)) {
+                debugHtml += `<strong>${key}:</strong> ${value}<br>`;
+            }
+            debugHtml += '</div>';
+            
+            log('debugResults', debugHtml, 'info');
+        }
+        
+        // Auto-diagnose on page load
+        window.onload = () => {
+            diagnoseTokens();
+        };
+    </script>
+</body>
+</html>

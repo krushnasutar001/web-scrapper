@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001', // Explicit backend URL
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5001', // Explicit backend URL (fallback aligned with backend)
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -23,9 +23,17 @@ api.interceptors.request.use(
       fullURL: `${config.baseURL}${config.url}`
     });
     
-    // Add auth token
+    // Token is set via authAPI.setAuthToken() - no need to set here
+    // Debug token presence
     const token = localStorage.getItem('token');
-    if (token) {
+    const authHeader = config.headers.Authorization || config.headers.common?.Authorization;
+    console.log('🔐 Frontend Token Debug:', { 
+      tokenInStorage: token ? token.substring(0, 20) + '...' : 'null',
+      authHeaderSet: authHeader ? authHeader.substring(0, 30) + '...' : 'null'
+    });
+    
+    if (!authHeader && token) {
+      console.warn('⚠️ Token exists in storage but not in headers - setting manually');
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -67,12 +75,22 @@ api.interceptors.response.use(
       fullError: error
     });
     
-    // Handle 401 errors (unauthorized)
-    if (error.response?.status === 401) {
-      console.warn('🔐 Unauthorized - redirecting to login');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+    // Handle 401/403 errors (unauthorized/forbidden)
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      console.warn('🔐 Authentication failed - token may be invalid');
+      console.log('🔐 Error details:', error.response?.data);
+      console.log('🔐 Current token:', localStorage.getItem('token')?.substring(0, 50) + '...');
+      
+      // Only clear tokens and redirect if it's not a login request
+      if (!error.config?.url?.includes('/auth/login')) {
+        console.warn('🔐 Clearing invalid token and redirecting to login');
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      } else {
+        console.log('🔐 Login request failed - not clearing tokens');
+      }
     }
     
     // Return error in consistent format
@@ -85,6 +103,11 @@ api.interceptors.response.use(
     });
   }
 );
+
+// Rate limiting state
+let loginInProgress = false;
+let lastLoginAttempt = 0;
+const LOGIN_COOLDOWN = 2000; // 2 seconds between login attempts
 
 // Auth API
 export const authAPI = {
@@ -102,9 +125,64 @@ export const authAPI = {
     delete api.defaults.headers.common['Authorization'];
   },
   
-  // Login
-  login: (email, password) => {
-    return api.post('/api/auth/login', { email, password });
+  // Login with rate limiting
+  login: async (email, password) => {
+    console.log('🔐 Login attempt triggered for:', email);
+    
+    // Prevent multiple parallel logins
+    if (loginInProgress) {
+      console.warn('⚠️ Login already in progress, ignoring duplicate request');
+      return Promise.reject({ message: 'Login already in progress' });
+    }
+    
+    // Check cooldown period
+    const now = Date.now();
+    const timeSinceLastAttempt = now - lastLoginAttempt;
+    if (timeSinceLastAttempt < LOGIN_COOLDOWN) {
+      const remainingCooldown = LOGIN_COOLDOWN - timeSinceLastAttempt;
+      console.warn(`⏰ Login cooldown active, wait ${remainingCooldown}ms`);
+      return Promise.reject({ 
+        message: `Please wait ${Math.ceil(remainingCooldown / 1000)} seconds before trying again` 
+      });
+    }
+    
+    loginInProgress = true;
+    lastLoginAttempt = now;
+    
+    try {
+      const response = await api.post('/api/auth/login', { email, password });
+      console.log('✅ Login successful');
+      return response;
+    } catch (error) {
+      console.error('❌ Login failed:', error.message);
+      
+      // Handle specific error cases
+      if (error.response?.status === 429) {
+        console.warn('🚫 Too many login attempts detected');
+        throw {
+          message: 'Too many login attempts. Please wait before trying again.',
+          status: 429,
+          response: error.response
+        };
+      }
+      
+      if (error.response?.status === 431) {
+        console.warn('📦 Request headers too large - clearing cookies');
+        // Clear potentially oversized cookies
+        document.cookie.split(";").forEach(function(c) { 
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+        });
+        throw {
+          message: 'Request headers too large. Cookies cleared, please try again.',
+          status: 431,
+          response: error.response
+        };
+      }
+      
+      throw error;
+    } finally {
+      loginInProgress = false;
+    }
   },
   
   // Register
@@ -198,117 +276,23 @@ export const jobsAPI = {
 export const resultsAPI = {
   // Get results for a job
   getResults: (jobId, params = {}) => {
-    return api.get(`/api/results/${jobId}`, { params });
+    return api.get(`/api/jobs/${jobId}/results`, { params });
   },
   
-  // Get single result
-  getResult: (jobId, resultId) => {
-    return api.get(`/api/results/${jobId}/${resultId}`);
-  },
-  
-  // Update result
-  updateResult: (jobId, resultId, resultData) => {
-    return api.put(`/api/results/${jobId}/${resultId}`, resultData);
-  },
-  
-  // Delete result
-  deleteResult: (jobId, resultId) => {
-    return api.delete(`/api/results/${jobId}/${resultId}`);
-  },
-  
-  // Bulk delete results
-  bulkDeleteResults: (jobId, deleteData) => {
-    return api.delete(`/api/results/${jobId}/bulk`, { data: deleteData });
-  },
-  
-  // Export results
-  exportResults: (jobId, format = 'csv', quality = null) => {
-    const params = { format };
-    if (quality) params.quality = quality;
-    
-    return api.get(`/api/results/${jobId}/export`, {
-      params,
-      responseType: 'blob', // Important for file downloads
-    });
+  // Download results as CSV
+  downloadResults: (jobId) => {
+    return api.get(`/api/jobs/${jobId}/result`, { responseType: 'blob' });
   },
 };
 
-// Utility functions
-export const apiUtils = {
-  // Download file from blob response
-  downloadFile: (blob, filename) => {
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-  },
-  
-  // Format error message
-  formatError: (error) => {
-    if (typeof error === 'string') {
-      return error;
-    }
-    
-    if (error.response?.data?.message) {
-      return error.response.data.message;
-    }
-    
-    if (error.message) {
-      return error.message;
-    }
-    
-    return 'An unexpected error occurred';
-  },
-  
-  // Check if error is network error
-  isNetworkError: (error) => {
-    return !error.response && error.code === 'NETWORK_ERROR';
-  },
-  
-  // Check if error is timeout
-  isTimeoutError: (error) => {
-    return error.code === 'ECONNABORTED' || error.message?.includes('timeout');
-  },
-  
-  // Retry request with exponential backoff
-  retryRequest: async (requestFn, maxRetries = 3, baseDelay = 1000) => {
-    let lastError;
-    
-    for (let i = 0; i <= maxRetries; i++) {
-      try {
-        return await requestFn();
-      } catch (error) {
-        lastError = error;
-        
-        // Don't retry on 4xx errors (client errors)
-        if (error.status >= 400 && error.status < 500) {
-          throw error;
-        }
-        
-        // Don't retry on last attempt
-        if (i === maxRetries) {
-          break;
-        }
-        
-        // Wait before retrying (exponential backoff)
-        const delay = baseDelay * Math.pow(2, i);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-    
-    throw lastError;
-  },
-};
-
-// Health check
+// Health API for testing connectivity
 export const healthAPI = {
-  check: () => {
-    return api.get('/health');
-  },
+  check: () => api.get('/health'),
 };
 
 export default api;
+
+
+
+
+

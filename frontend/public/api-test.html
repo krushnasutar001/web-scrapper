@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test - Job Creation</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        input, select { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 API Test - Job Creation Debug</h1>
+    
+    <div class="section info">
+        <h3>📋 Test Job Creation API</h3>
+        <p>This page tests the job creation API directly to debug response issues.</p>
+    </div>
+
+    <div class="section">
+        <h3>🔐 Step 1: Login & Get Token</h3>
+        <input type="email" id="email" placeholder="Email" value="test@example.com">
+        <input type="password" id="password" placeholder="Password" value="password123">
+        <button onclick="login()">🚀 Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="section">
+        <h3>📝 Step 2: Create Job</h3>
+        <input type="text" id="jobName" placeholder="Job Name" value="Test Job from API Test">
+        <select id="jobType">
+            <option value="profiles">Profiles</option>
+            <option value="companies">Companies</option>
+            <option value="search">Search</option>
+        </select>
+        <input type="text" id="urls" placeholder="URLs (comma separated)" value="https://linkedin.com/in/test1,https://linkedin.com/in/test2">
+        <br><br>
+        <button onclick="createJobJSON()">📤 Create Job (JSON)</button>
+        <button onclick="createJobFormData()">📤 Create Job (FormData)</button>
+        <div id="jobResult"></div>
+    </div>
+
+    <div class="section">
+        <h3>📊 Test Results</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000';
+        let authToken = null;
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `section ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${message}`;
+            results.appendChild(div);
+            console.log(message);
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                log('🔐 Attempting login...');
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                console.log('Login response object:', response);
+                console.log('Login response status:', response.status);
+                
+                const data = await response.json();
+                console.log('Login response data:', data);
+                
+                if (data.success && data.data && data.data.token) {
+                    authToken = data.data.token;
+                    document.getElementById('loginResult').innerHTML = 
+                        `<div class="success">✅ Login successful! Token: ${authToken.substring(0, 20)}...</div>`;
+                    log('✅ Login successful! Token obtained.', 'success');
+                } else {
+                    document.getElementById('loginResult').innerHTML = 
+                        `<div class="error">❌ Login failed: ${data.error || 'Unknown error'}</div>`;
+                    log('❌ Login failed: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                document.getElementById('loginResult').innerHTML = 
+                    `<div class="error">❌ Login error: ${error.message}</div>`;
+                log('❌ Login error: ' + error.message, 'error');
+            }
+        }
+
+        async function createJobJSON() {
+            if (!authToken) {
+                alert('Please login first!');
+                return;
+            }
+            
+            const jobName = document.getElementById('jobName').value;
+            const jobType = document.getElementById('jobType').value;
+            const urlsText = document.getElementById('urls').value;
+            const urls = urlsText.split(',').map(u => u.trim()).filter(Boolean);
+            
+            const payload = {
+                type: jobType,
+                query: jobName,
+                maxResults: 100,
+                configuration: {
+                    urls: urls,
+                    accountSelectionMode: 'rotation',
+                    selectedAccountIds: []
+                }
+            };
+            
+            try {
+                log('📤 Sending JSON request...');
+                console.log('Request payload:', payload);
+                
+                const response = await fetch(`${API_BASE}/api/jobs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                console.log('🔍 Full response object:', response);
+                console.log('🔍 Response status:', response.status);
+                console.log('🔍 Response headers:', response.headers);
+                console.log('🔍 Response ok:', response.ok);
+                
+                const data = await response.json();
+                console.log('🔍 Response data:', data);
+                console.log('🔍 Response data type:', typeof data);
+                
+                if (data && data.success && data.job) {
+                    document.getElementById('jobResult').innerHTML = 
+                        `<div class="success">✅ Job created! ID: ${data.job.id}</div><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    log('✅ Job created successfully via JSON!', 'success');
+                } else {
+                    document.getElementById('jobResult').innerHTML = 
+                        `<div class="error">❌ Job creation failed</div><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    log('❌ Job creation failed: ' + JSON.stringify(data), 'error');
+                }
+            } catch (error) {
+                document.getElementById('jobResult').innerHTML = 
+                    `<div class="error">❌ Job creation error: ${error.message}</div>`;
+                log('❌ Job creation error: ' + error.message, 'error');
+                console.error('Full error:', error);
+            }
+        }
+
+        async function createJobFormData() {
+            if (!authToken) {
+                alert('Please login first!');
+                return;
+            }
+            
+            const jobName = document.getElementById('jobName').value;
+            const jobType = document.getElementById('jobType').value;
+            
+            const formData = new FormData();
+            formData.append('type', jobType);
+            formData.append('query', jobName);
+            formData.append('maxResults', '100');
+            formData.append('accountSelectionMode', 'rotation');
+            
+            try {
+                log('📤 Sending FormData request...');
+                
+                const response = await fetch(`${API_BASE}/api/jobs`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                        // Don't set Content-Type for FormData - browser sets it automatically
+                    },
+                    body: formData
+                });
+                
+                console.log('🔍 Full response object:', response);
+                console.log('🔍 Response status:', response.status);
+                console.log('🔍 Response ok:', response.ok);
+                
+                const data = await response.json();
+                console.log('🔍 Response data:', data);
+                
+                if (data && data.success && data.job) {
+                    document.getElementById('jobResult').innerHTML = 
+                        `<div class="success">✅ Job created! ID: ${data.job.id}</div><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    log('✅ Job created successfully via FormData!', 'success');
+                } else {
+                    document.getElementById('jobResult').innerHTML = 
+                        `<div class="error">❌ Job creation failed</div><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    log('❌ Job creation failed: ' + JSON.stringify(data), 'error');
+                }
+            } catch (error) {
+                document.getElementById('jobResult').innerHTML = 
+                    `<div class="error">❌ Job creation error: ${error.message}</div>`;
+                log('❌ Job creation error: ' + error.message, 'error');
+                console.error('Full error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

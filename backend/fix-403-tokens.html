@@ -1,0 +1,196 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title> Token Fix - 403 Error Resolver</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .error-box { background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .success-box { background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .info-box { background: #d1ecf1; color: #0c5460; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        button { padding: 12px 24px; margin: 8px; cursor: pointer; border: none; border-radius: 4px; font-size: 14px; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-primary { background: #007bff; color: white; }
+        h1 { color: #dc3545; }
+        .step { margin: 20px 0; padding: 15px; border-left: 4px solid #007bff; background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1> 403 Token Error Fix</h1>
+        
+        <div class="error-box">
+            <strong>Current Problem:</strong><br>
+            ❌ API Response Error: 403 Forbidden<br>
+            ❌ Failed to fetch jobs: Invalid or expired token<br>
+            ❌ Frontend has corrupted authentication tokens
+        </div>
+        
+        <div class="step">
+            <h2>Step 1: Clear Bad Tokens</h2>
+            <p>Remove all corrupted authentication data from browser storage:</p>
+            <button class="btn-danger" onclick="clearAllTokens()"> Clear All Tokens</button>
+            <div id="clearResult"></div>
+        </div>
+        
+        <div class="step">
+            <h2>Step 2: Fresh Login</h2>
+            <p>Get new valid authentication tokens:</p>
+            <input type="email" id="email" placeholder="Email" value="test@example.com" style="padding: 8px; margin: 5px; width: 200px;">
+            <input type="password" id="password" placeholder="Password" value="password123" style="padding: 8px; margin: 5px; width: 200px;"><br>
+            <button class="btn-success" onclick="doFreshLogin()"> Fresh Login</button>
+            <div id="loginResult"></div>
+        </div>
+        
+        <div class="step">
+            <h2>Step 3: Test APIs</h2>
+            <p>Verify the fix worked:</p>
+            <button class="btn-primary" onclick="testJobsAPI()"> Test Jobs API</button>
+            <button class="btn-primary" onclick="testAccountsAPI()"> Test Accounts API</button>
+            <div id="testResult"></div>
+        </div>
+        
+        <div class="step">
+            <h2>Step 4: Return to Main App</h2>
+            <p>Once tests pass, go back to your main application:</p>
+            <button class="btn-success" onclick="openMainApp()">🌐 Open Main App</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        
+        function log(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            const div = document.createElement('div');
+            div.className = isError ? 'error-box' : 'success-box';
+            div.innerHTML = message;
+            element.appendChild(div);
+        }
+        
+        function clearAllTokens() {
+            const clearDiv = document.getElementById('clearResult');
+            clearDiv.innerHTML = '';
+            
+            // Clear all possible token storage
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            // Clear specific token keys that might exist
+            const tokenKeys = ['token', 'authToken', 'jwt', 'accessToken', 'user', 'userData'];
+            tokenKeys.forEach(key => {
+                localStorage.removeItem(key);
+                sessionStorage.removeItem(key);
+            });
+            
+            log('clearResult', '✅ All tokens and storage cleared!<br>🗑️ localStorage: cleared<br>🗑️ sessionStorage: cleared<br>🗑️ All auth data: removed');
+        }
+        
+        async function doFreshLogin() {
+            const loginDiv = document.getElementById('loginResult');
+            loginDiv.innerHTML = '';
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                log('loginResult', ' Please enter email and password', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.data.token) {
+                    // Store new token
+                    localStorage.setItem('token', data.data.token);
+                    localStorage.setItem('user', JSON.stringify(data.data.user));
+                    
+                    log('loginResult', ` Fresh login successful!<br> New token stored<br> User: ${data.data.user.email}<br> Token length: ${data.data.token.length}`);
+                } else {
+                    log('loginResult', ` Login failed: ${data.message || 'Unknown error'}`, true);
+                }
+            } catch (error) {
+                log('loginResult', ` Login error: ${error.message}`, true);
+            }
+        }
+        
+        async function testJobsAPI() {
+            const testDiv = document.getElementById('testResult');
+            testDiv.innerHTML = '';
+            
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                log('testResult', ' No token found - please login first', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/jobs`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('testResult', ` Jobs API: SUCCESS!<br> Status: ${response.status}<br> Response: ${JSON.stringify(data).substring(0, 100)}...`);
+                } else {
+                    const errorText = await response.text();
+                    log('testResult', ` Jobs API: FAILED<br> Status: ${response.status}<br> Error: ${errorText}`, true);
+                }
+            } catch (error) {
+                log('testResult', ` Jobs API: ERROR - ${error.message}`, true);
+            }
+        }
+        
+        async function testAccountsAPI() {
+            const testDiv = document.getElementById('testResult');
+            
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                log('testResult', ' No token found - please login first', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/linkedin-accounts/available`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('testResult', ` Accounts API: SUCCESS!<br> Status: ${response.status}<br> Count: ${data.count}<br> Accounts available: ${data.count > 0 ? 'YES' : 'NO'}`);
+                } else {
+                    const errorText = await response.text();
+                    log('testResult', ` Accounts API: FAILED<br> Status: ${response.status}<br> Error: ${errorText}`, true);
+                }
+            } catch (error) {
+                log('testResult', ` Accounts API: ERROR - ${error.message}`, true);
+            }
+        }
+        
+        function openMainApp() {
+            window.open('http://localhost:3000', '_blank');
+        }
+        
+        // Auto-clear tokens on page load
+        window.onload = () => {
+            clearAllTokens();
+        };
+    </script>
+</body>
+</html>

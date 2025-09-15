@@ -37,15 +37,23 @@ const Jobs = () => {
     try {
       setLoading(true);
       const response = await api.get('/api/jobs');
-      console.log('Jobs API response:', response.data);
-      if (response && response.data && response.data.success) {
-        setJobs(response.data.jobs || []);
+      
+      console.log('📦 Raw jobs response:', response);
+      
+      // Support both Axios-style (response.data) and raw JSON (response)
+      const result = response.data || response;
+      
+      console.log('📦 Parsed jobs result:', result);
+      
+      if (result && result.success) {
+        setJobs(result.jobs || []);
+        console.log('✅ Jobs loaded:', result.jobs);
       } else {
-        console.warn('Invalid jobs response format:', response);
+        console.error('❌ Unexpected jobs response format:', result);
         setJobs([]);
       }
     } catch (error) {
-      console.error('Failed to fetch jobs:', error);
+      console.error('❌ Error fetching jobs:', error);
       setJobs([]);
     } finally {
       setLoading(false);
@@ -116,9 +124,13 @@ const Jobs = () => {
         // Use FormData for file uploads
         const formData = new FormData();
         formData.append('file', jobData.file);
-        formData.append('jobName', jobData.jobName);
-        formData.append('jobType', jobData.jobType);
+        // Map to backend expected field names
+        formData.append('type', jobData.jobType);           // Backend expects 'type'
+        formData.append('query', jobData.jobName);          // Backend expects 'query'
+        formData.append('maxResults', jobData.maxPages || 100);
         formData.append('accountSelectionMode', jobData.accountSelectionMode || 'rotation');
+        
+        console.log('🚀 Sending FormData to backend with type:', jobData.jobType, 'query:', jobData.jobName);
         
         // Add selected account IDs
         if (jobData.selectedAccountIds && jobData.selectedAccountIds.length > 0) {
@@ -135,32 +147,66 @@ const Jobs = () => {
         });
       } else {
         // Use JSON for manual URL input (no file)
+        // Map frontend fields to backend expected fields
         const payload = {
-          jobName: jobData.jobName,
-          jobType: jobData.jobType,
-          accountSelectionMode: jobData.accountSelectionMode || 'rotation',
-          selectedAccountIds: jobData.selectedAccountIds || []
+          type: jobData.jobType,                    // Backend expects 'type' not 'jobType'
+          query: jobData.jobName || jobData.searchQuery, // Backend expects 'query' not 'jobName'
+          maxResults: jobData.maxPages || 100,      // Backend expects 'maxResults' not 'maxPages'
+          configuration: {
+            accountSelectionMode: jobData.accountSelectionMode || 'rotation',
+            selectedAccountIds: jobData.selectedAccountIds || [],
+            urls: jobData.urls || [],               // Store URLs in configuration
+            jobType: jobData.jobType,               // Keep original for reference
+            jobName: jobData.jobName                // Keep original for reference
+          }
         };
         
-        if (jobData.jobType === 'sales_navigator') {
-          payload.searchQuery = jobData.searchQuery;
-          payload.maxPages = jobData.maxPages || 5;
-        } else {
-          // For profiles and companies, send URLs
-          payload.urls = jobData.urls || [];
-        }
+        console.log('🚀 Sending payload to backend:', payload);
 
         response = await api.post('/api/jobs', payload);
       }
 
-      if (response.data.success) {
-        await fetchJobs(); // Refresh jobs list
-        setIsModalOpen(false);
-        alert('Job created successfully! It will be processed in the background.');
+      // Enhanced debugging for response structure
+      console.log('🔍 Full response object:', response);
+      console.log('🔍 Response status:', response?.status);
+      console.log('🔍 Response headers:', response?.headers);
+      console.log('🔍 Response data:', response?.data);
+      console.log('🔍 Response data type:', typeof response?.data);
+      
+      // Check if response exists
+      if (!response) {
+        console.error('❌ No response received from server');
+        alert('Failed to create job: No response from server');
+        return;
+      }
+      
+      // Handle both Axios-style (response.data) and raw JSON responses
+      // Some libraries put payload inside response.data, others send raw JSON
+      const result = response.data || response;
+      console.log('🔍 Parsed result:', result);
+      console.log('🔍 Result success:', result.success);
+      console.log('🔍 Result job:', result.job);
+      
+      if (result && result.success === true) {
+        if (result.job) {
+          console.log('✅ Job created successfully:', result.job);
+          await fetchJobs(); // Refresh jobs list
+          setIsModalOpen(false);
+          alert('Job created successfully! It will be processed in the background.');
+        } else {
+          console.warn('⚠️ Success but no job object:', result);
+          alert('Job created but response format is unexpected');
+        }
+      } else {
+        console.error('❌ Job creation failed:', result);
+        const errorMsg = result?.error || result?.message || 'Unknown error';
+        alert(`Failed to create job: ${errorMsg}`);
       }
     } catch (error) {
       console.error('Failed to create job:', error);
-      alert('Failed to create job: ' + (error.response?.data?.error || error.message));
+      console.error('Error response:', error.response);
+      const errorMessage = error.response?.data?.error || error.message || 'Unknown error';
+      alert('Failed to create job: ' + errorMessage);
     }
   };
 
@@ -293,17 +339,17 @@ const Jobs = () => {
                   <tr key={job.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {job.jobName || `Job ${job.id.slice(0, 8)}`}
+                        {job.query || `Job ${job.id.slice(0, 8)}`}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getJobTypeBadge(job.job_type)}
+                      {getJobTypeBadge(job.type)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900 max-w-xs truncate">
-                        {job.job_type === 'sales_navigator' ? 
-                          (JSON.parse(job.input_data || '{}').searchQuery || 'Search query') :
-                          `${(JSON.parse(job.input_data || '{}').urls || []).length} URLs`
+                        {job.type === 'sales_navigator' ? 
+                          (job.configuration?.searchQuery || job.query || 'Search query') :
+                          `${(job.configuration?.urls || []).length} URLs`
                         }
                       </div>
                     </td>
@@ -340,7 +386,7 @@ const Jobs = () => {
                         </button>
                         {job.status === 'completed' && job.totalResults > 0 && (
                           <button 
-                            onClick={() => handleExportJob(job.id, job.job_name)}
+                            onClick={() => handleExportJob(job.id, job.query)}
                             className="text-green-600 hover:text-green-900 transition-colors"
                             title="Export Results"
                           >

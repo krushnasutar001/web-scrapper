@@ -1,5 +1,6 @@
 const crypto = require('crypto');
-const { v4: uuidv4 } = require('uuid');
+const uuid = require('uuid');
+const uuidv4 = uuid.v4;
 const puppeteer = require('puppeteer');
 
 class LinkedInAccountsService {
@@ -354,7 +355,23 @@ class LinkedInAccountsService {
   async getAvailableAccounts(userId, jobType = null) {
     try {
       const accounts = await this.getUserAccounts(userId);
-      return accounts.filter(account => this.canAccountMakeRequest(account));
+
+      // Return ACTIVE accounts that can make requests PLUS PENDING accounts that are active (to allow UI selection)
+      return accounts.filter(account => {
+        const notBlocked = !(account.blocked_until && new Date(account.blocked_until) > new Date());
+        const notCooldown = !(account.cooldown_until && new Date(account.cooldown_until) > new Date());
+
+        if (!notBlocked || !notCooldown) return false;
+
+        if (account.validation_status === 'ACTIVE') {
+          return this.canAccountMakeRequest(account);
+        }
+        // Allow showing PENDING accounts if user activated them
+        if (account.validation_status === 'PENDING') {
+          return account.is_active === 1 || account.is_active === true;
+        }
+        return false;
+      });
     } catch (error) {
       console.error('Failed to get available accounts:', error);
       throw error;

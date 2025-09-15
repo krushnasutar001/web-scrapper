@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug LinkedIn Accounts</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug LinkedIn Accounts Issue</h1>
+    
+    <div class="section info">
+        <h3>📋 Current Status</h3>
+        <p>This page helps debug why LinkedIn accounts are not showing in the job creation modal.</p>
+    </div>
+
+    <div class="section">
+        <h3>🔐 Step 1: Check Authentication</h3>
+        <button onclick="checkToken()">🔍 Check Token</button>
+        <button onclick="login()">🚀 Login</button>
+        <div id="authResult"></div>
+    </div>
+
+    <div class="section">
+        <h3>📡 Step 2: Test LinkedIn Accounts API</h3>
+        <button onclick="testAccountsAPI()">📤 Test Accounts API</button>
+        <div id="accountsResult"></div>
+    </div>
+
+    <div class="section">
+        <h3>🔧 Step 3: Test Frontend API Service</h3>
+        <button onclick="testFrontendAPI()">🧪 Test Frontend API</button>
+        <div id="frontendResult"></div>
+    </div>
+
+    <div class="section">
+        <h3>📊 Debug Results</h3>
+        <div id="debugResults"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000';
+        let authToken = null;
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('debugResults');
+            const div = document.createElement('div');
+            div.className = `section ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${message}`;
+            results.appendChild(div);
+            console.log(message);
+        }
+
+        function checkToken() {
+            const token = localStorage.getItem('token');
+            const authResult = document.getElementById('authResult');
+            
+            if (token) {
+                authToken = token;
+                authResult.innerHTML = `
+                    <div class="success">
+                        ✅ Token found in localStorage<br>
+                        <strong>Token:</strong> ${token.substring(0, 50)}...<br>
+                        <strong>Length:</strong> ${token.length} characters
+                    </div>
+                `;
+                log('✅ Token found in localStorage', 'success');
+            } else {
+                authResult.innerHTML = `
+                    <div class="error">
+                        ❌ No token found in localStorage<br>
+                        You need to login first.
+                    </div>
+                `;
+                log('❌ No token found in localStorage', 'error');
+            }
+        }
+
+        async function login() {
+            try {
+                log('🔐 Attempting login...');
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: 'test@example.com', 
+                        password: 'password123' 
+                    })
+                });
+                
+                console.log('Login response:', response);
+                const data = await response.json();
+                console.log('Login data:', data);
+                
+                if (data.success && data.data && data.data.token) {
+                    authToken = data.data.token;
+                    localStorage.setItem('token', authToken);
+                    
+                    document.getElementById('authResult').innerHTML = `
+                        <div class="success">
+                            ✅ Login successful!<br>
+                            <strong>Token:</strong> ${authToken.substring(0, 50)}...<br>
+                            <strong>Stored in localStorage</strong>
+                        </div>
+                    `;
+                    log('✅ Login successful! Token stored.', 'success');
+                } else {
+                    document.getElementById('authResult').innerHTML = `
+                        <div class="error">
+                            ❌ Login failed<br>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                    log('❌ Login failed: ' + JSON.stringify(data), 'error');
+                }
+            } catch (error) {
+                document.getElementById('authResult').innerHTML = `
+                    <div class="error">
+                        ❌ Login error: ${error.message}
+                    </div>
+                `;
+                log('❌ Login error: ' + error.message, 'error');
+            }
+        }
+
+        async function testAccountsAPI() {
+            if (!authToken) {
+                alert('Please login first!');
+                return;
+            }
+            
+            try {
+                log('📡 Testing LinkedIn Accounts API...');
+                
+                const response = await fetch(`${API_BASE}/api/linkedin-accounts/available`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Accounts API response:', response);
+                const data = await response.json();
+                console.log('Accounts API data:', data);
+                
+                if (data.success && data.data) {
+                    const activeAccounts = data.data.filter(acc => 
+                        acc.validation_status === 'ACTIVE' || acc.validation_status === 'PENDING'
+                    );
+                    
+                    document.getElementById('accountsResult').innerHTML = `
+                        <div class="success">
+                            ✅ LinkedIn Accounts API working!<br>
+                            <strong>Total accounts:</strong> ${data.total}<br>
+                            <strong>Available accounts:</strong> ${activeAccounts.length}<br>
+                            <pre>${JSON.stringify(activeAccounts, null, 2)}</pre>
+                        </div>
+                    `;
+                    log(`✅ Found ${activeAccounts.length} available LinkedIn accounts`, 'success');
+                } else {
+                    document.getElementById('accountsResult').innerHTML = `
+                        <div class="error">
+                            ❌ Accounts API failed<br>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                    log('❌ Accounts API failed: ' + JSON.stringify(data), 'error');
+                }
+            } catch (error) {
+                document.getElementById('accountsResult').innerHTML = `
+                    <div class="error">
+                        ❌ Accounts API error: ${error.message}
+                    </div>
+                `;
+                log('❌ Accounts API error: ' + error.message, 'error');
+            }
+        }
+
+        async function testFrontendAPI() {
+            try {
+                log('🧪 Testing Frontend API Service...');
+                
+                // Simulate the frontend API call
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('No token in localStorage');
+                }
+                
+                const response = await fetch(`${API_BASE}/api/linkedin-accounts/available`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Frontend API response:', response);
+                
+                // Simulate the flexible response handling from NewJobModal
+                const result = response.data || await response.json();
+                console.log('Frontend API result:', result);
+                
+                if (result && result.success && Array.isArray(result.data)) {
+                    const accounts = result.data.filter(account => 
+                        account.validation_status === 'ACTIVE' || 
+                        account.validation_status === 'PENDING'
+                    );
+                    
+                    document.getElementById('frontendResult').innerHTML = `
+                        <div class="success">
+                            ✅ Frontend API simulation successful!<br>
+                            <strong>Filtered accounts:</strong> ${accounts.length}<br>
+                            <strong>Account names:</strong> ${accounts.map(a => a.account_name).join(', ')}<br>
+                            <pre>${JSON.stringify(accounts, null, 2)}</pre>
+                        </div>
+                    `;
+                    log(`✅ Frontend API would show ${accounts.length} accounts`, 'success');
+                } else {
+                    document.getElementById('frontendResult').innerHTML = `
+                        <div class="error">
+                            ❌ Frontend API simulation failed<br>
+                            <strong>Result structure:</strong><br>
+                            <pre>${JSON.stringify(result, null, 2)}</pre>
+                        </div>
+                    `;
+                    log('❌ Frontend API simulation failed', 'error');
+                }
+            } catch (error) {
+                document.getElementById('frontendResult').innerHTML = `
+                    <div class="error">
+                        ❌ Frontend API error: ${error.message}
+                    </div>
+                `;
+                log('❌ Frontend API error: ' + error.message, 'error');
+            }
+        }
+
+        // Auto-check token on page load
+        window.onload = function() {
+            checkToken();
+        };
+    </script>
+</body>
+</html>

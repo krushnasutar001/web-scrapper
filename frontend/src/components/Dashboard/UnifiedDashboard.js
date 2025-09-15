@@ -13,21 +13,53 @@ import api from '../../services/api';
 
 const UnifiedDashboard = () => {
   const [jobs, setJobs] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState(null);
   const [jobStats, setJobStats] = useState(null);
   const [exportFormat, setExportFormat] = useState('csv');
+  const [pollingInterval, setPollingInterval] = useState(null);
 
   useEffect(() => {
     fetchJobs();
+    fetchDashboardStats();
+    
+    // Start polling for job updates every 5 seconds
+    const interval = setInterval(() => {
+      fetchJobs();
+      fetchDashboardStats();
+    }, 5000);
+    
+    setPollingInterval(interval);
+    
+    // Cleanup on unmount
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
   }, []);
+
+  const fetchDashboardStats = async () => {
+    try {
+      const response = await api.get('/api/dashboard/stats');
+      const result = response.data || response;
+      if (result && result.success) {
+        setDashboardStats(result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    }
+  };
 
   const fetchJobs = async () => {
     try {
       setLoading(true);
       const response = await api.get('/api/jobs');
-      if (response.data.success) {
-        setJobs(response.data.jobs || []);
+      // Support both Axios-style (response.data) and raw JSON (response)
+      const result = response.data || response;
+      if (result && result.success) {
+        setJobs(result.jobs || []);
       }
     } catch (error) {
       console.error('Error fetching jobs:', error);
@@ -39,8 +71,10 @@ const UnifiedDashboard = () => {
   const fetchJobStats = async (jobId) => {
     try {
       const response = await api.get(`/api/jobs/${jobId}/stats`);
-      if (response.data.success) {
-        setJobStats(response.data);
+      // Support both Axios-style (response.data) and raw JSON (response)
+      const result = response.data || response;
+      if (result && result.success) {
+        setJobStats(result);
       }
     } catch (error) {
       console.error('Error fetching job stats:', error);
@@ -54,19 +88,25 @@ const UnifiedDashboard = () => {
 
   const handleExport = async (jobId, format) => {
     try {
-      const response = await api.get(`/api/jobs/${jobId}/results?format=${format}&download=true`, {
+      const response = await api.get(`/api/jobs/${jobId}/download/${format}`, {
         responseType: 'blob'
       });
+      
+      // Get job details for filename
+      const job = jobs.find(j => j.id === jobId);
+      if (!job) {
+        console.error('Job not found for export');
+        return;
+      }
       
       // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       
-      const job = jobs.find(j => j.id === jobId);
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      // Generate filename
       const extension = format === 'excel' ? 'xlsx' : format;
-      const filename = `${job?.job_name || 'export'}_${job?.job_type}_${timestamp}.${extension}`;
+      const filename = `${job.query}_results.${extension}`;
       
       link.setAttribute('download', filename);
       document.body.appendChild(link);
@@ -74,8 +114,31 @@ const UnifiedDashboard = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
       
+      console.log(`✅ Downloaded ${format} results for job: ${job.query} (${job.resultCount} results)`);
     } catch (error) {
-      console.error('Error exporting results:', error);
+      console.error('❌ Download failed:', error);
+      alert(`Download failed: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
+  const handlePauseResume = async (jobId, action) => {
+    try {
+      console.log(`${action === 'pause' ? '⏸️' : '▶️'} ${action}ing job:`, jobId);
+      
+      const response = await api.post(`/api/jobs/${jobId}/${action}`);
+      const result = response.data || response;
+      
+      if (result && result.success) {
+        console.log(`✅ Job ${action}d successfully:`, result.job);
+        // Refresh jobs to get updated status
+        fetchJobs();
+      } else {
+        console.error(`❌ Failed to ${action} job:`, result);
+        alert(`Failed to ${action} job: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error ${action}ing job:`, error);
+      alert(`Error ${action}ing job: ${error.response?.data?.error || error.message}`);
     }
   };
 
@@ -149,6 +212,75 @@ const UnifiedDashboard = () => {
         </div>
       </div>
 
+      {/* Dashboard Stats */}
+      {dashboardStats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <CheckCircleIcon className="h-6 w-6 text-green-400" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Total Completed Jobs</dt>
+                    <dd className="text-lg font-medium text-gray-900">{dashboardStats.totalJobs}</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <ClockIcon className="h-6 w-6 text-blue-400" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Active Jobs</dt>
+                    <dd className="text-lg font-medium text-gray-900">{dashboardStats.activeJobs}</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <DocumentArrowDownIcon className="h-6 w-6 text-purple-400" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Total Results</dt>
+                    <dd className="text-lg font-medium text-gray-900">{dashboardStats.totalResults}</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <ChartBarIcon className="h-6 w-6 text-green-400" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Success Rate</dt>
+                    <dd className="text-lg font-medium text-gray-900">{dashboardStats.successRate}%</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Job List */}
         <div className="lg:col-span-2">
@@ -176,9 +308,11 @@ const UnifiedDashboard = () => {
                       <div className="flex items-center space-x-3">
                         {getStatusIcon(job.status)}
                         <div>
-                          <h3 className="text-sm font-medium text-gray-900">{job.job_name}</h3>
+                          <h3 className="text-sm font-medium text-gray-900">{job.query}</h3>
                           <p className="text-sm text-gray-500">
-                            {job.job_type} • Created {formatDate(job.created_at)}
+                            {job.type} • Created {formatDate(job.createdAt)}
+                            {job.resultCount > 0 && ` • ${job.resultCount} results`}
+                            {job.completedAt && ` • Completed ${formatDate(job.completedAt)}`}
                           </p>
                         </div>
                       </div>
@@ -190,6 +324,32 @@ const UnifiedDashboard = () => {
                           {job.status}
                         </span>
                         
+                        {/* Progress Info */}
+                        {job.progress && job.progress.totalUrls > 0 && (
+                          <div className="text-xs text-gray-600">
+                            {job.progress.totalUrls} URLs • {job.progress.successful} success • {job.progress.failed} failed
+                          </div>
+                        )}
+                        
+                        {/* Pause/Resume Button */}
+                        {(job.status === 'running' || job.status === 'paused') && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePauseResume(job.id, job.status === 'running' ? 'pause' : 'resume');
+                            }}
+                            className={`px-2 py-1 text-xs rounded ${
+                              job.status === 'running' 
+                                ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' 
+                                : 'bg-green-100 text-green-800 hover:bg-green-200'
+                            }`}
+                            title={job.status === 'running' ? 'Pause Job' : 'Resume Job'}
+                          >
+                            {job.status === 'running' ? '⏸️ Pause' : '▶️ Resume'}
+                          </button>
+                        )}
+                        
+                        {/* Download Buttons */}
                         {job.status === 'completed' && (
                           <div className="flex space-x-2">
                             <button
@@ -217,26 +377,54 @@ const UnifiedDashboard = () => {
                       </div>
                     </div>
                     
-                    {/* Progress Bar */}
-                    {(job.status === 'fetching' || job.status === 'parsing' || job.total_items > 0) && (
+                    {/* Enhanced Progress Bar */}
+                    {job.progress && job.progress.totalUrls > 0 && (
                       <div className="mt-3">
                         <div className="flex justify-between text-xs text-gray-600 mb-1">
                           <span>
-                            {job.stage === 'fetcher' ? 'Fetching' : job.stage === 'parser' ? 'Parsing' : 'Progress'}
+                            {job.status === 'running' ? 'Scraping in Progress' : 
+                             job.status === 'paused' ? 'Paused' : 
+                             job.status === 'completed' ? 'Completed' : 'Progress'}
                           </span>
-                          <span>{calculateProgress(job)}%</span>
+                          <span>{Math.round((job.progress.processed / job.progress.totalUrls) * 100)}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                            style={{ width: `${calculateProgress(job)}%` }}
-                          ></div>
+                        
+                        {/* Multi-segment Progress Bar */}
+                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                          <div className="flex h-full">
+                            {/* Successful */}
+                            <div 
+                              className="bg-green-500 transition-all duration-300" 
+                              style={{ width: `${(job.progress.successful / job.progress.totalUrls) * 100}%` }}
+                            ></div>
+                            {/* Failed */}
+                            <div 
+                              className="bg-red-500 transition-all duration-300" 
+                              style={{ width: `${(job.progress.failed / job.progress.totalUrls) * 100}%` }}
+                            ></div>
+                            {/* Remaining space for pending */}
+                          </div>
                         </div>
+                        
                         <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>Fetched: {job.fetched_items || 0}</span>
-                          <span>Parsed: {job.parsed_items || 0}</span>
-                          <span>Total: {job.total_items || 0}</span>
+                          <span className="text-green-600">✅ Success: {job.progress.successful}</span>
+                          <span className="text-red-600">❌ Failed: {job.progress.failed}</span>
+                          <span className="text-gray-600">⏳ Pending: {job.progress.pending}</span>
+                          <span className="font-medium">Total: {job.progress.totalUrls}</span>
                         </div>
+                        
+                        {/* Real-time Status */}
+                        {job.status === 'running' && (
+                          <div className="text-xs text-blue-600 mt-1 animate-pulse">
+                            🔄 Processing... ({job.progress.processed}/{job.progress.totalUrls} URLs)
+                          </div>
+                        )}
+                        
+                        {job.status === 'paused' && (
+                          <div className="text-xs text-yellow-600 mt-1">
+                            ⏸️ Paused at {job.progress.processed}/{job.progress.totalUrls} URLs
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -256,11 +444,11 @@ const UnifiedDashboard = () => {
             {selectedJob ? (
               <div className="p-6 space-y-4">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900 mb-2">{selectedJob.job_name}</h3>
+                  <h3 className="text-sm font-medium text-gray-900 mb-2">{selectedJob.query}</h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-500">Type:</span>
-                      <span className="font-medium">{selectedJob.job_type}</span>
+                      <span className="font-medium">{selectedJob.type}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Status:</span>

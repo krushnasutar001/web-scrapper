@@ -1,0 +1,175 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>LinkedIn Accounts Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1> LinkedIn Accounts Direct Test</h1>
+    
+    <div>
+        <h2>Authentication</h2>
+        <input type="email" id="email" placeholder="Email" value="test@example.com" style="padding: 8px; margin: 5px; width: 200px;">
+        <input type="password" id="password" placeholder="Password" value="password123" style="padding: 8px; margin: 5px; width: 200px;">
+        <button onclick="login()">🔑 Login</button>
+        <div id="authResult"></div>
+    </div>
+    
+    <div>
+        <h2>Test LinkedIn Accounts API</h2>
+        <button onclick="testAccountsAPI()">🧪 Test Accounts API</button>
+        <div id="accountsResult"></div>
+    </div>
+    
+    <div>
+        <h2>Simulate Job Creation</h2>
+        <button onclick="simulateJobCreation()">🎯 Simulate Job Creation</button>
+        <div id="jobResult"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        let authToken = null;
+        
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = message;
+            element.appendChild(div);
+        }
+        
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            document.getElementById('authResult').innerHTML = '';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.data.token) {
+                    authToken = data.data.token;
+                    log('authResult', `✅ Login successful! Token: ${authToken.substring(0, 30)}...`, 'success');
+                } else {
+                    log('authResult', `❌ Login failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                log('authResult', `❌ Login error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAccountsAPI() {
+            document.getElementById('accountsResult').innerHTML = '';
+            
+            if (!authToken) {
+                log('accountsResult', '❌ Please login first', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/linkedin-accounts/available`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                log('accountsResult', ` API Response:`, 'info');
+                log('accountsResult', `Success: ${data.success}`, 'info');
+                log('accountsResult', `Count: ${data.count}`, 'info');
+                log('accountsResult', `Message: ${data.message || 'None'}`, 'info');
+                
+                if (data.success && data.count > 0) {
+                    log('accountsResult', ` Found ${data.count} accounts:`, 'success');
+                    data.data.forEach(acc => {
+                        log('accountsResult', `  - ${acc.account_name} (${acc.validation_status})`, 'success');
+                    });
+                } else {
+                    log('accountsResult', ` No accounts returned - this is the problem!`, 'error');
+                }
+                
+            } catch (error) {
+                log('accountsResult', ` API error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function simulateJobCreation() {
+            document.getElementById('jobResult').innerHTML = '';
+            
+            if (!authToken) {
+                log('jobResult', ' Please login first', 'error');
+                return;
+            }
+            
+            // First get accounts
+            try {
+                const accountsResponse = await fetch(`${API_BASE}/api/linkedin-accounts/available`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const accountsData = await accountsResponse.json();
+                
+                if (accountsData.success && accountsData.count > 0) {
+                    log('jobResult', ` Accounts available for job creation: ${accountsData.count}`, 'success');
+                    
+                    // Try to create a test job
+                    const jobData = {
+                        jobName: `Test Job - ${new Date().toLocaleTimeString()}`,
+                        jobType: 'profiles',
+                        urls: ['https://www.linkedin.com/in/test-account'],
+                        accountSelectionMode: 'rotation'
+                    };
+                    
+                    const jobResponse = await fetch(`${API_BASE}/api/jobs`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(jobData)
+                    });
+                    
+                    const jobResult = await jobResponse.json();
+                    
+                    if (jobResult.success) {
+                        log('jobResult', ` Job creation successful! ID: ${jobResult.jobId}`, 'success');
+                    } else {
+                        log('jobResult', ` Job creation failed: ${jobResult.message}`, 'error');
+                    }
+                    
+                } else {
+                    log('jobResult', ` Cannot create job - no accounts available`, 'error');
+                    log('jobResult', `This is exactly what your frontend is experiencing`, 'error');
+                }
+                
+            } catch (error) {
+                log('jobResult', `❌ Simulation error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-login on page load
+        window.onload = () => {
+            login();
+        };
+    </script>
+</body>
+</html>

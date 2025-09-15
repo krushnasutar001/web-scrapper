@@ -45,6 +45,21 @@ const createJob = asyncHandler(async (req, res) => {
  */
 const getJobs = asyncHandler(async (req, res) => {
   try {
+    console.log('🔍 DEBUG getJobs: req.user =', req.user ? {
+      id: req.user.id,
+      email: req.user.email
+    } : 'undefined');
+    
+    if (!req.user || !req.user.id) {
+      console.error('❌ DEBUG getJobs: req.user or req.user.id is missing');
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+    
+    console.log('🔍 DEBUG getJobs: Querying jobs for userId:', req.user.id);
+    
     const jobs = await Job.findAll({
       where: { userId: req.user.id },
       order: [['createdAt', 'DESC']],
@@ -55,11 +70,19 @@ const getJobs = asyncHandler(async (req, res) => {
       }]
     });
     
+    console.log('✅ DEBUG getJobs: Successfully fetched', jobs.length, 'jobs');
+    
     res.json({
       success: true,
       data: jobs
     });
   } catch (error) {
+    console.error('❌ DEBUG getJobs ERROR:', {
+      message: error.message,
+      stack: error.stack,
+      userId: req.user?.id
+    });
+    
     res.status(500).json({
       success: false,
       message: 'Failed to fetch jobs',
@@ -326,6 +349,64 @@ const getJobStats = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * Retry a failed job
+ */
+const retryJob = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const job = await Job.findOne({
+      where: { 
+        id,
+        userId: req.user.id 
+      }
+    });
+    
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found'
+      });
+    }
+    
+    if (job.status !== 'failed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only failed jobs can be retried'
+      });
+    }
+    
+    if (job.retryCount >= 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'Maximum retry attempts reached'
+      });
+    }
+    
+    // Reset job for retry
+    await job.update({
+      status: 'queued',
+      retryCount: job.retryCount + 1,
+      errorMessage: null,
+      startedAt: null,
+      completedAt: null
+    });
+    
+    res.json({
+      success: true,
+      message: 'Job retry initiated',
+      data: { job }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retry job',
+      error: error.message
+    });
+  }
+});
+
 module.exports = {
   createJob,
   getJobs,
@@ -334,5 +415,6 @@ module.exports = {
   deleteJob,
   executeJob,
   cancelJob,
-  getJobStats
+  getJobStats,
+  retryJob
 };

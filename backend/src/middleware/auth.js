@@ -10,25 +10,51 @@ const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     
+    // Debug logging
+    console.log('🔍 AUTH DEBUG - Headers:', {
+      authorization: authHeader ? authHeader.substring(0, 20) + '...' : 'missing',
+      'content-type': req.headers['content-type'],
+      'user-agent': req.headers['user-agent']?.substring(0, 50)
+    });
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.warn('❌ AUTH DEBUG - No Authorization header or invalid format');
       throw new AuthenticationError('Access token required');
     }
     
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
     
+    console.log('🔍 AUTH DEBUG - Token:', {
+      tokenLength: token.length,
+      tokenPreview: token.substring(0, 20) + '...'
+    });
+    
     // Verify token
     const decoded = authService.verifyToken(token);
+    
+    console.log('🔍 AUTH DEBUG - Token decoded:', {
+      userId: decoded.id,
+      email: decoded.email,
+      exp: new Date(decoded.exp * 1000)
+    });
     
     // Get user from database
     const user = await User.findByPk(decoded.id);
     
     if (!user) {
+      console.warn('❌ AUTH DEBUG - User not found in database:', decoded.id);
       throw new AuthenticationError('User not found');
     }
     
     if (!user.isActive) {
+      console.warn('❌ AUTH DEBUG - User account deactivated:', user.email);
       throw new AuthenticationError('Account is deactivated');
     }
+    
+    console.log('✅ AUTH DEBUG - Authentication successful:', {
+      userId: user.id,
+      email: user.email
+    });
     
     // Attach user to request
     req.user = user;
@@ -36,6 +62,12 @@ const authenticate = async (req, res, next) => {
     
     next();
   } catch (error) {
+    console.error('❌ AUTH DEBUG - Authentication error:', {
+      error: error.message,
+      stack: error.stack?.split('\n')[0],
+      ip: req.ip
+    });
+    
     if (error instanceof AuthenticationError) {
       return next(error);
     }

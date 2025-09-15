@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Test & Token Refresh</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        .token { word-break: break-all; font-family: monospace; font-size: 12px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔧 LinkedIn Automation - Authentication Test & Debug</h1>
+    
+    <div class="section info">
+        <h3>📋 Current Status</h3>
+        <p><strong>Backend:</strong> <span id="backend-status">Checking...</span></p>
+        <p><strong>Current Token:</strong> <span id="current-token">Checking...</span></p>
+        <p><strong>User Data:</strong> <span id="user-data">Checking...</span></p>
+    </div>
+
+    <div class="section">
+        <h3>🔐 Authentication Actions</h3>
+        <button onclick="refreshToken()">🔄 Get Fresh Token</button>
+        <button onclick="clearAuth()">🗑️ Clear All Auth Data</button>
+        <button onclick="testAPI()">🧪 Test API Endpoints</button>
+        <button onclick="checkStatus()">📊 Check Status</button>
+    </div>
+
+    <div class="section">
+        <h3>🔑 Fresh Login</h3>
+        <input type="email" id="email" placeholder="Email" value="krushna.sutar001@gmail.com">
+        <input type="password" id="password" placeholder="Password" value="password123">
+        <button onclick="login()">🚀 Login & Get New Token</button>
+    </div>
+
+    <div class="section">
+        <h3>📊 Test Results</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000';
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `section ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${message}`;
+            results.appendChild(div);
+            console.log(message);
+        }
+
+        async function checkStatus() {
+            // Check backend
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                document.getElementById('backend-status').textContent = '✅ Online';
+                log('✅ Backend is online', 'success');
+            } catch (error) {
+                document.getElementById('backend-status').textContent = '❌ Offline';
+                log('❌ Backend is offline: ' + error.message, 'error');
+            }
+
+            // Check current token
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            document.getElementById('current-token').innerHTML = token ? 
+                `<span class="token">${token.substring(0, 50)}...</span>` : '❌ No token';
+            document.getElementById('user-data').textContent = user ? 
+                JSON.parse(user).email : '❌ No user data';
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                log('🔐 Attempting login...');
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    localStorage.setItem('token', data.data.token);
+                    localStorage.setItem('user', JSON.stringify(data.data.user));
+                    log('✅ Login successful! New token stored.', 'success');
+                    checkStatus();
+                } else {
+                    log('❌ Login failed: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                log('❌ Login error: ' + error.message, 'error');
+            }
+        }
+
+        async function refreshToken() {
+            await login();
+        }
+
+        function clearAuth() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            log('🗑️ All authentication data cleared', 'info');
+            checkStatus();
+        }
+
+        async function testAPI() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                log('❌ No token available. Please login first.', 'error');
+                return;
+            }
+
+            // Test accounts endpoint
+            try {
+                log('🧪 Testing accounts endpoint...');
+                const response = await fetch(`${API_BASE}/api/linkedin-accounts/available`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Accounts endpoint works! Found ${data.total} accounts.`, 'success');
+                } else {
+                    log(`❌ Accounts endpoint failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log('❌ Accounts test error: ' + error.message, 'error');
+            }
+
+            // Test jobs endpoint
+            try {
+                log('🧪 Testing jobs endpoint...');
+                const response = await fetch(`${API_BASE}/api/jobs`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Jobs endpoint works! Found ${data.total} jobs.`, 'success');
+                } else {
+                    log(`❌ Jobs endpoint failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log('❌ Jobs test error: ' + error.message, 'error');
+            }
+
+            // Test job creation
+            try {
+                log('🧪 Testing job creation...');
+                const jobData = {
+                    jobName: 'Test Job from Auth Page',
+                    jobType: 'profiles',
+                    urls: ['https://linkedin.com/in/test'],
+                    selectedAccountIds: ['test-account-id']
+                };
+                
+                const response = await fetch(`${API_BASE}/api/jobs`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(jobData)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Job creation works! Job ID: ' + data.job.id, 'success');
+                } else {
+                    const errorData = await response.text();
+                    log(`❌ Job creation failed: ${response.status} ${response.statusText} - ${errorData}`, 'error');
+                }
+            } catch (error) {
+                log('❌ Job creation test error: ' + error.message, 'error');
+            }
+        }
+
+        // Auto-check status on page load
+        checkStatus();
+    </script>
+</body>
+</html>

@@ -362,7 +362,7 @@ router.get('/stats', jobController.getJobStats);
  *       404:
  *         description: Job not found
  */
-router.get('/:id', jobController.getJob);
+router.get('/:id', jobController.getJobById);
 
 /**
  * @swagger

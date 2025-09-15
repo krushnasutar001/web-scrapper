@@ -83,25 +83,56 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
       // Use the configured API service instead of direct fetch
       const response = await api.get('/api/linkedin-accounts/available');
       
-      console.log('📋 Available accounts response:', response.data);
+      console.log('📋 Raw accounts response:', response);
       
-      if (response.data && response.data.success && Array.isArray(response.data.data)) {
-        const accounts = response.data.data.filter(account => 
-          account.validation_status === 'ACTIVE' || 
-          account.validation_status === 'PENDING'
-        );
-        console.log(`✅ Found ${accounts.length} available accounts:`, accounts);
-        setAvailableAccounts(accounts);
-        
-        // Force re-render by updating a dummy state
-        setErrors(prev => ({ ...prev }));
+      // Support both Axios-style (response.data) and raw JSON (response)
+      const result = response.data || response;
+      
+      console.log('📋 Parsed accounts result:', result);
+      console.log('📋 Result type:', typeof result);
+      console.log('📋 Result.success:', result?.success);
+      console.log('📋 Result.data type:', typeof result?.data);
+      console.log('📋 Result.data isArray:', Array.isArray(result?.data));
+      console.log('📋 Result.data content:', result?.data);
+      
+      // Handle multiple response formats
+      let accounts = [];
+      
+      if (result && result.success && Array.isArray(result.data)) {
+        // Standard API response: {success: true, data: [...]}
+        accounts = result.data;
+        console.log('✅ Using result.data format');
+      } else if (Array.isArray(result)) {
+        // Direct array response: [...]
+        accounts = result;
+        console.log('✅ Using direct array format');
+      } else if (result && Array.isArray(result.accounts)) {
+        // Object with accounts property: {accounts: [...]}
+        accounts = result.accounts;
+        console.log('✅ Using result.accounts format');
       } else {
-        console.warn('⚠️ Invalid accounts response format:', response.data);
+        console.warn('⚠️ Invalid accounts response format:', result);
         setAvailableAccounts([]);
+        return;
       }
+      
+      // Filter for active/pending accounts
+      const filteredAccounts = accounts.filter(account => 
+        account.validation_status === 'ACTIVE' || 
+        account.validation_status === 'PENDING'
+      );
+      
+      console.log(`📊 Total accounts: ${accounts.length}`);
+      console.log(`📊 Filtered accounts: ${filteredAccounts.length}`);
+      console.log('📊 Filtered accounts list:', filteredAccounts);
+      
+      setAvailableAccounts(filteredAccounts);
+      
+      // Clear any previous error about accounts
+      setErrors(prev => ({ ...prev, accounts: undefined }));
     } catch (error) {
       console.error('❌ Failed to fetch available accounts:', error);
-      console.error('Error details:', error.response?.data || error.message);
+      console.error('Error details:', error?.response?.data || error?.message || error);
       setAvailableAccounts([]);
       
       // Show user-friendly error message
@@ -184,41 +215,40 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
     }
   };
 
-  const validateForm = () => {
+  const validateForm = (dataToValidate = formData) => {
     const newErrors = {};
     
-    if (!formData.jobName.trim()) {
+    if (!dataToValidate.jobName.trim()) {
       newErrors.jobName = 'Job name is required';
     }
     
     if (jobType === 'sales_navigator') {
-      if (!formData.searchQuery.trim()) {
+      if (!dataToValidate.searchQuery.trim()) {
         newErrors.searchQuery = 'Search query or Sales Navigator URL is required';
       }
     } else {
       if (inputMethod === 'file') {
-        if (!formData.file) {
+        if (!dataToValidate.file) {
           newErrors.file = 'Please upload a CSV or Excel file';
         }
       } else {
-        // Parse URLs from text input
-        const urls = urlsText.split('\n').filter(url => url.trim().length > 0);
-        if (urls.length === 0) {
+        // Validate URLs from the data being validated
+        if (!dataToValidate.urls || dataToValidate.urls.length === 0) {
           newErrors.urls = 'Please enter at least one LinkedIn URL';
         } else {
           // Validate URL format
-          const invalidUrls = urls.filter(url => !url.includes('linkedin.com'));
+          const invalidUrls = dataToValidate.urls.filter(url => !url.includes('linkedin.com'));
           if (invalidUrls.length > 0) {
             newErrors.urls = 'All URLs must be LinkedIn URLs';
           }
         }
       }
     }
-    
+
     // Only check for accounts if we've attempted to fetch them
     if (availableAccounts.length === 0) {
       newErrors.accounts = 'No LinkedIn accounts available. Please add accounts first in the LinkedIn Accounts section.';
-    } else if (formData.accountSelectionMode === 'specific' && !formData.selectedAccountId) {
+    } else if (dataToValidate.accountSelectionMode === 'specific' && (!dataToValidate.selectedAccountIds || dataToValidate.selectedAccountIds.length === 0)) {
       newErrors.accounts = 'Please select a specific LinkedIn account to use for scraping.';
     }
     
@@ -259,17 +289,44 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    if (validateForm()) {
+    console.log('📝 Form submission started');
+    console.log('📝 Current formData:', formData);
+    console.log('📝 Current jobType:', jobType);
+    console.log('📝 Current urlsText:', urlsText);
+    console.log('📝 Current inputMethod:', inputMethod);
+    console.log('📝 Available accounts:', availableAccounts);
+    
+    // Update form data with URLs from text input before validation
+    const urls = urlsText.split('\n').filter(url => url.trim().length > 0);
+    const updatedFormData = {
+      ...formData,
+      urls: inputMethod === 'urls' ? urls : formData.urls
+    };
+    
+    console.log('📝 Updated form data:', updatedFormData);
+    
+    // Update the form data state
+    setFormData(updatedFormData);
+    
+    console.log('📝 Running validation...');
+    const isValid = validateForm(updatedFormData);
+    console.log('📝 Validation result:', isValid);
+    console.log('📝 Current errors:', errors);
+    
+    if (isValid) {
       // Prepare the form data with proper account selection
       const submitData = {
-        ...formData,
-        selectedAccountIds: formData.accountSelectionMode === 'specific' 
-          ? [formData.selectedAccountId] 
+        ...updatedFormData,
+        selectedAccountIds: updatedFormData.accountSelectionMode === 'specific' 
+          ? updatedFormData.selectedAccountIds
           : availableAccounts.map(acc => acc.id)
       };
       
+      console.log('🚀 Submitting job data:', submitData);
       onSubmit(submitData);
       handleClose();
+    } else {
+      console.log('❌ Validation failed, not submitting');
     }
   };
 
@@ -337,7 +394,7 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
                   type="text"
                   value={formData.jobName}
                   onChange={(e) => setFormData(prev => ({ ...prev, jobName: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500 ${
                     errors.jobName ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="Enter a descriptive name for this job"
@@ -432,7 +489,7 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
                          value={urlsText}
                          onChange={handleUrlsChange}
                          rows={8}
-                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500 ${
                            errors.urls ? 'border-red-500' : 'border-gray-300'
                          }`}
                          placeholder={selectedJobType?.placeholder || 'Enter LinkedIn URLs (one per line)'}
@@ -559,6 +616,20 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
                           />
                           <span className="text-sm text-gray-700">Specific Account</span>
                         </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="accountMode"
+                            value="multiple"
+                            checked={formData.accountSelectionMode === 'multiple'}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              accountSelectionMode: e.target.value
+                            }))}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">Multiple Accounts</span>
+                        </label>
                       </div>
                     </div>
 
@@ -569,20 +640,67 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
                           Select LinkedIn Account
                         </label>
                         <select
-                          value={formData.selectedAccountId || ''}
+                          value={formData.selectedAccountIds[0] || ''}
                           onChange={(e) => setFormData(prev => ({
                             ...prev,
-                            selectedAccountId: e.target.value
+                            selectedAccountIds: e.target.value ? [e.target.value] : []
                           }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                         >
                           <option value="">Choose an account...</option>
                           {availableAccounts.map(account => (
                             <option key={account.id} value={account.id}>
-                              {account.account_name} ({account.validation_status})
+                              {account.account_name} • ID: {account.id.substring(0, 8)}... • Status: {account.validation_status}
                             </option>
                           ))}
                         </select>
+                      </div>
+                    )}
+
+                    {/* Multiple Account Selection */}
+                    {formData.accountSelectionMode === 'multiple' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-2">
+                          Select LinkedIn Accounts (Multiple)
+                        </label>
+                        <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3">
+                          {availableAccounts.map(account => (
+                            <label key={account.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={formData.selectedAccountIds.includes(account.id)}
+                                onChange={(e) => {
+                                  const accountId = account.id;
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    selectedAccountIds: e.target.checked
+                                      ? [...prev.selectedAccountIds, accountId]
+                                      : prev.selectedAccountIds.filter(id => id !== accountId)
+                                  }));
+                                }}
+                                className="text-blue-600 focus:ring-blue-500"
+                              />
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-gray-900">{account.account_name}</div>
+                                <div className="text-xs text-gray-500">
+                                  ID: {account.id.substring(0, 8)}... • Status: {account.validation_status} • Email: {account.email}
+                                </div>
+                              </div>
+                              <span className={`px-2 py-1 text-xs rounded-full ${
+                                account.validation_status === 'ACTIVE' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {account.validation_status}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                        {formData.selectedAccountIds.length > 0 && (
+                          <p className="text-sm text-gray-600 mt-2">
+                            {formData.selectedAccountIds.length} account(s) selected
+                          </p>
+                        )}
                       </div>
                     )}
 
@@ -630,7 +748,7 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
                       {/* Selection Summary */}
                       <div className="mt-3 p-2 bg-blue-50 rounded">
                         <p className="text-blue-800 text-sm">
-                          <strong>Selection Mode:</strong> {formData.accountSelectionMode === 'rotation' ? 'Auto Rotation (all accounts will be used)' : `Specific Account (${formData.selectedAccountId ? availableAccounts.find(acc => acc.id === formData.selectedAccountId)?.account_name || 'None selected' : 'None selected'})`}
+                          <strong>Selection Mode:</strong> {formData.accountSelectionMode === 'rotation' ? 'Auto Rotation (all accounts will be used)' : `Specific Account (${formData.selectedAccountIds[0] ? availableAccounts.find(acc => acc.id === formData.selectedAccountIds[0])?.account_name || 'None selected' : 'None selected'})`}
                         </p>
                       </div>
                     </div>
