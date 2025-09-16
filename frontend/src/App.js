@@ -12,6 +12,7 @@ import Profile from './pages/Profile';
 import LinkedInAccounts from './pages/LinkedInAccounts';
 import UnifiedDashboard from './components/Dashboard/UnifiedDashboard';
 import LoadingSpinner from './components/UI/LoadingSpinner';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -74,7 +75,11 @@ function App() {
                 <Routes>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/unified-dashboard" element={<UnifiedDashboard />} />
-                  <Route path="/jobs" element={<Jobs />} />
+                  <Route path="/jobs" element={
+                    <ErrorBoundary fallbackMessage="There was an error loading the jobs page. This might be due to invalid job data or a network issue.">
+                      <Jobs />
+                    </ErrorBoundary>
+                  } />
                   <Route path="/jobs/:id" element={<JobDetails />} />
                   <Route path="/results/:jobId" element={<Results />} />
                   <Route path="/profile" element={<Profile />} />

@@ -28,9 +28,12 @@ class Job {
    * Create a new job
    */
   static async create({ user_id, job_name, job_type, max_results = 100, configuration = {}, urls = [] }) {
-    return await transaction(async (connection) => {
-      try {
-        const jobId = uuidv4();
+    try {
+      console.log('🔍 Starting job creation transaction...');
+      return await transaction(async (connection) => {
+        try {
+          const jobId = uuidv4();
+          console.log('🔍 Generated job ID:', jobId);
         
         // Insert job
         const jobSql = `
@@ -73,12 +76,30 @@ class Job {
         }
         
         console.log(`✅ Created job: ${job_name} (${job_type}) with ${urls.length} URLs`);
-        return await Job.findById(jobId);
+        
+        // Add debugging for findById
+        console.log('🔍 Looking for job with ID:', jobId);
+        
+        // First check with raw query within transaction
+        const [rawResults] = await connection.execute('SELECT * FROM jobs WHERE id = ?', [jobId]);
+        console.log('🔍 Raw query within transaction found:', rawResults.length, 'jobs');
+        
+        if (rawResults.length > 0) {
+          console.log('🔍 Job exists in transaction, returning new Job instance');
+          return new Job(rawResults[0]);
+        } else {
+          console.log('❌ Job not found even within transaction');
+          return null;
+        }
       } catch (error) {
-        console.error('❌ Error creating job:', error);
-        throw error;
-      }
-    });
+          console.error('❌ Error creating job (inner):', error);
+          throw error;
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error creating job (outer):', error);
+      throw error;
+    }
   }
 
   /**
@@ -117,14 +138,14 @@ class Job {
       // Add ordering
       sql += ' ORDER BY created_at DESC';
       
-      // Add pagination
+      // Add pagination with safe integer handling
       if (options.limit) {
-        sql += ' LIMIT ?';
-        params.push(options.limit);
+        const safeLimit = Math.max(1, Math.min(1000, parseInt(options.limit) || 50));
+        sql += ` LIMIT ${safeLimit}`;
         
         if (options.offset) {
-          sql += ' OFFSET ?';
-          params.push(options.offset);
+          const safeOffset = Math.max(0, parseInt(options.offset) || 0);
+          sql += ` OFFSET ${safeOffset}`;
         }
       }
       
@@ -179,14 +200,17 @@ class Job {
    */
   static async getRecentByUserId(user_id, limit = 5) {
     try {
+      // Ensure limit is a safe integer
+      const safeLimit = Math.max(1, Math.min(100, parseInt(limit) || 5));
+      
       const sql = `
         SELECT * FROM jobs 
         WHERE user_id = ? 
         ORDER BY created_at DESC 
-        LIMIT ?
+        LIMIT ${safeLimit}
       `;
       
-      const results = await query(sql, [user_id, limit]);
+      const results = await query(sql, [user_id]);
       return results.map(job => new Job(job));
     } catch (error) {
       console.error('❌ Error getting recent jobs:', error);
@@ -433,22 +457,36 @@ class Job {
 
   /**
    * Convert to JSON with additional computed fields
+   * Includes safe defaults to prevent frontend errors
    */
   toJSON() {
+    // Ensure job_type has a safe default value
+    const safeJobType = this.job_type && typeof this.job_type === 'string' 
+      ? this.job_type.trim() 
+      : 'unknown';
+    
+    // Ensure job_name has a safe default value
+    const safeJobName = this.job_name && typeof this.job_name === 'string'
+      ? this.job_name.trim()
+      : `Job ${this.id ? this.id.toString().slice(0, 8) : 'Unknown'}`;
+    
     return {
       id: this.id,
       user_id: this.user_id,
-      job_name: this.job_name,
-      job_type: this.job_type,
-      status: this.status,
-      max_results: this.max_results,
-      configuration: this.configuration,
-      total_urls: this.total_urls,
-      processed_urls: this.processed_urls,
-      successful_urls: this.successful_urls,
-      failed_urls: this.failed_urls,
-      result_count: this.result_count,
-      error_message: this.error_message,
+      job_name: safeJobName,
+      job_type: safeJobType,
+      // Include both field names for frontend compatibility
+      type: safeJobType, // Frontend expects 'type'
+      query: safeJobName, // Frontend expects 'query'
+      status: this.status || 'unknown',
+      max_results: this.max_results || 0,
+      configuration: this.configuration || {},
+      total_urls: this.total_urls || 0,
+      processed_urls: this.processed_urls || 0,
+      successful_urls: this.successful_urls || 0,
+      failed_urls: this.failed_urls || 0,
+      result_count: this.result_count || 0,
+      error_message: this.error_message || null,
       created_at: this.created_at,
       started_at: this.started_at,
       completed_at: this.completed_at,

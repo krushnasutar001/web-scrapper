@@ -18,7 +18,7 @@ const dashboardRoutes = require('./routes/dashboard');
 
 // Create Express app
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5002;
 
 // Middleware
 app.use(cors({
@@ -72,11 +72,56 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log('🔐 Auth Header:', req.headers.authorization ? req.headers.authorization.substring(0, 50) + '...' : 'None');
+  next();
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/linkedin-accounts', accountRoutes);
+app.use('/api/accounts', accountRoutes); // Route alias for frontend compatibility
 app.use('/api/jobs', jobRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+
+// Stats endpoint for LinkedInAccountManager compatibility
+app.get('/api/stats', async (req, res) => {
+  try {
+    // Return basic stats for account management
+    res.json({
+      success: true,
+      stats: {
+        totalAccounts: 0,
+        activeAccounts: 0,
+        validatedAccounts: 0,
+        pendingValidation: 0
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch stats'
+    });
+  }
+});
+
+// Enhanced error handling middleware
+app.use((err, req, res, next) => {
+  console.error('❌ Unhandled Error:', err);
+  console.error('❌ Stack Trace:', err.stack);
+  console.error('❌ Request URL:', req.url);
+  console.error('❌ Request Method:', req.method);
+  console.error('❌ Request Headers:', req.headers);
+  
+  res.status(500).json({
+    success: false,
+    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error',
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
+});
 
 // Legacy route compatibility (for existing frontend)
 app.get('/api/linkedin-accounts/available', (req, res, next) => {
@@ -84,8 +129,22 @@ app.get('/api/linkedin-accounts/available', (req, res, next) => {
   accountRoutes(req, res, next);
 });
 
+// Serve static files from public directory (includes favicon)
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Serve static files from uploads directory
 app.use('/uploads', express.static(uploadsDir));
+
+// Handle favicon.ico requests explicitly to avoid 500 errors
+app.get('/favicon.ico', (req, res) => {
+  const faviconPath = path.join(__dirname, 'public', 'favicon.svg');
+  if (fs.existsSync(faviconPath)) {
+    res.sendFile(faviconPath);
+  } else {
+    // Return 204 No Content if favicon doesn't exist
+    res.status(204).end();
+  }
+});
 
 // Error handling middleware
 app.use((error, req, res, next) => {

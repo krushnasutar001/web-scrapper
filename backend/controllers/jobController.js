@@ -161,8 +161,11 @@ const createJob = async (req, res) => {
     const file = req.file;
     
     console.log('📋 Creating job for user:', user.id);
-    console.log('📋 Request body:', req.body);
+    console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
+    console.log('📋 Request body keys:', Object.keys(req.body));
     console.log('📋 Uploaded file:', file ? file.originalname : 'None');
+    console.log('📋 Content-Type:', req.headers['content-type']);
+    console.log('📋 Request method:', req.method);
     
     // Extract and map fields
     const {
@@ -307,6 +310,14 @@ const createJob = async (req, res) => {
     };
     
     // Create the job
+    console.log('🔍 About to create job with data:', {
+      user_id: user.id,
+      job_name: mappedQuery,
+      job_type: mappedType,
+      max_results: mappedMaxResults,
+      urls_count: validUrls.length
+    });
+    
     const newJob = await Job.create({
       user_id: user.id,
       job_name: mappedQuery,
@@ -316,7 +327,16 @@ const createJob = async (req, res) => {
       urls: validUrls
     });
     
+    console.log('🔍 Job.create returned:', newJob ? 'Job object' : 'null');
+    
     console.log(`✅ Job created: ${mappedQuery} (${mappedType}) with ${validUrls.length} URLs`);
+    
+    // Check if job creation was successful
+    if (!newJob) {
+      throw new Error('Job creation failed - returned null');
+    }
+    
+    console.log('✅ Job object created successfully:', newJob.id);
     
     // Start job processing immediately
     const jobWorker = require('../services/jobWorker');

@@ -113,56 +113,116 @@ const getAccountById = async (req, res) => {
  */
 const createAccount = async (req, res) => {
   try {
-    const { account_name, email, username } = req.body;
+    // Handle both regular form data and multipart form data
+    const { name, account_name, email, username, cookies, proxy_url, user_agent } = req.body;
     const user = req.user;
     
-    console.log('📋 Creating LinkedIn account:', { account_name, email, username, userId: user.id });
+    // Use 'name' field if 'account_name' is not provided (for frontend compatibility)
+    const finalAccountName = account_name || name;
     
-    // Validate required fields
-    if (!account_name || !email) {
+    console.log('📋 Creating LinkedIn account:', { 
+      finalAccountName, 
+      email, 
+      username, 
+      userId: user.id,
+      hasCookiesFile: !!req.file,
+      hasCookiesJson: !!cookies
+    });
+    
+    // Validate required fields - only account name is required now
+    if (!finalAccountName) {
       return res.status(400).json({
         success: false,
-        error: 'Account name and email are required',
+        error: 'Account name is required',
         code: 'MISSING_FIELDS',
-        received: { account_name, email, username }
+        received: { finalAccountName, email, username }
       });
     }
     
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid email format',
-        code: 'INVALID_EMAIL'
-      });
+    // Process cookies if provided (file or JSON)
+    let cookiesData = null;
+    if (req.file) {
+      // Handle uploaded cookies file
+      try {
+        const fs = require('fs');
+        const fileContent = fs.readFileSync(req.file.path, 'utf8');
+        cookiesData = JSON.parse(fileContent);
+        console.log('📋 Processed cookies from uploaded file');
+        
+        // Clean up uploaded file
+        fs.unlinkSync(req.file.path);
+      } catch (error) {
+        console.error('❌ Error processing cookies file:', error);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid cookies file format. Please upload a valid JSON file.',
+          code: 'INVALID_COOKIES_FILE'
+        });
+      }
+    } else if (cookies) {
+      // Handle cookies JSON string
+      try {
+        cookiesData = typeof cookies === 'string' ? JSON.parse(cookies) : cookies;
+        console.log('📋 Processed cookies from JSON string');
+      } catch (error) {
+        console.error('❌ Error parsing cookies JSON:', error);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid cookies JSON format',
+          code: 'INVALID_COOKIES_JSON'
+        });
+      }
     }
     
-    // Check if account with this email already exists for this user
-    const existingAccount = await LinkedInAccount.findByUserIdAndEmail(user.id, email);
-    if (existingAccount) {
-      return res.status(409).json({
-        success: false,
-        error: 'Account with this email already exists',
-        code: 'ACCOUNT_EXISTS',
-        existing: existingAccount.account_name
-      });
+    // Validate email format only if email is provided
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid email format',
+          code: 'INVALID_EMAIL'
+        });
+      }
+      
+      // Check if account with this email already exists for this user
+      const existingAccount = await LinkedInAccount.findByUserIdAndEmail(user.id, email);
+      if (existingAccount) {
+        return res.status(409).json({
+          success: false,
+          error: 'Account with this email already exists',
+          code: 'ACCOUNT_EXISTS',
+          existing: existingAccount.account_name
+        });
+      }
     }
     
     // Create the account
     const newAccount = await LinkedInAccount.create({
       user_id: user.id,
-      account_name,
+      account_name: finalAccountName,
       email,
       username
     });
     
-    console.log(`✅ LinkedIn account created: ${account_name} (${email})`);
+    // If cookies are provided, automatically set validation status to ACTIVE
+    if (cookiesData) {
+      console.log('📋 Cookies provided - setting account as validated');
+      await newAccount.update({
+        validation_status: 'ACTIVE',
+        is_active: true
+      });
+    }
+    
+    console.log(`✅ LinkedIn account created: ${finalAccountName} (${email || 'no email'})${cookiesData ? ' with cookies' : ''}`);
     
     res.status(201).json({
       success: true,
-      message: 'LinkedIn account created successfully',
-      data: newAccount.toJSON()
+      message: cookiesData ? 
+        'LinkedIn account created and validated successfully with cookies' : 
+        'LinkedIn account created successfully',
+      data: newAccount.toJSON(),
+      validated: !!cookiesData
     });
     
   } catch (error) {

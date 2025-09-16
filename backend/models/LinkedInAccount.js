@@ -27,6 +27,10 @@ class LinkedInAccount {
     try {
       const id = uuidv4();
       
+      // Handle optional email and provide fallbacks
+      const safeEmail = email || null;
+      const safeUsername = username || email || account_name;
+      
       const sql = `
         INSERT INTO linkedin_accounts (
           id, user_id, account_name, email, username, 
@@ -35,9 +39,9 @@ class LinkedInAccount {
         ) VALUES (?, ?, ?, ?, ?, TRUE, 'ACTIVE', 150, 0, 0, NOW(), NOW())
       `;
       
-      await query(sql, [id, user_id, account_name, email, username || email]);
+      await query(sql, [id, user_id, account_name, safeEmail, safeUsername]);
       
-      console.log(`✅ Created LinkedIn account: ${account_name} (${email}) for user ${user_id}`);
+      console.log(`✅ Created LinkedIn account: ${account_name} (${safeEmail || 'no email'}) for user ${user_id}`);
       return await LinkedInAccount.findById(id);
     } catch (error) {
       if (error.code === 'ER_DUP_ENTRY') {

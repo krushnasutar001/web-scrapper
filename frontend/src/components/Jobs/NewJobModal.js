@@ -23,7 +23,7 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
 
   const jobTypes = [
     {
-      id: 'profiles',
+      id: 'profile_scraping',
       name: 'Scrape LinkedIn Profiles',
       description: 'Extract profile data from LinkedIn profile URLs',
       icon: UserIcon,
@@ -32,7 +32,7 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
       placeholder: 'Enter LinkedIn profile URLs (one per line)'
     },
     {
-      id: 'companies',
+      id: 'company_scraping',
       name: 'Scrape Company Profiles',
       description: 'Extract company data from LinkedIn company URLs',
       icon: BuildingOfficeIcon,
@@ -41,7 +41,7 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
       placeholder: 'Enter LinkedIn company URLs (one per line)'
     },
     {
-      id: 'sales_navigator',
+      id: 'search_result_scraping',
       name: 'Sales Navigator Search',
       description: 'Scrape Sales Navigator search results with pagination',
       icon: MagnifyingGlassIcon,

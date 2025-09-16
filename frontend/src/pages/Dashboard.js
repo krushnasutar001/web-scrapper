@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
 import {
   BriefcaseIcon,
   DocumentTextIcon,
@@ -10,64 +11,138 @@ import {
 
 const Dashboard = () => {
   const { user } = useAuth();
-
-  const stats = [
+  const [stats, setStats] = useState([
     {
       name: 'Total Jobs',
-      value: '12',
-      change: '+2 from last week',
-      changeType: 'positive',
+      value: '0',
+      change: 'Loading...',
+      changeType: 'neutral',
       icon: BriefcaseIcon
     },
     {
       name: 'Active Jobs',
-      value: '3',
-      change: 'Currently running',
+      value: '0',
+      change: 'Loading...',
       changeType: 'neutral',
       icon: ChartBarIcon
     },
     {
       name: 'Total Results',
-      value: '1,247',
-      change: '+180 this week',
-      changeType: 'positive',
+      value: '0',
+      change: 'Loading...',
+      changeType: 'neutral',
       icon: DocumentTextIcon
     },
     {
       name: 'Success Rate',
-      value: '94%',
-      change: '+2% from last month',
-      changeType: 'positive',
+      value: '0%',
+      change: 'Loading...',
+      changeType: 'neutral',
       icon: ChartBarIcon
     }
-  ];
+  ]);
+  const [recentJobs, setRecentJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const recentJobs = [
-    {
-      id: '1',
-      type: 'Profile',
-      query: 'Software Engineer',
-      status: 'completed',
-      results: 45,
-      createdAt: '2 hours ago'
-    },
-    {
-      id: '2',
-      type: 'Company',
-      query: 'Tech Startups',
-      status: 'running',
-      results: 12,
-      createdAt: '4 hours ago'
-    },
-    {
-      id: '3',
-      type: 'Job Posting',
-      query: 'Remote Developer',
-      status: 'completed',
-      results: 78,
-      createdAt: '1 day ago'
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch dashboard stats
+      const statsResponse = await api.get('/api/dashboard/stats');
+      if (statsResponse.data && statsResponse.data.success) {
+        const data = statsResponse.data.data;
+        setStats([
+          {
+            name: 'Total Jobs',
+            value: data.total_jobs?.toString() || '0',
+            change: `${data.jobs_this_week || 0} this week`,
+            changeType: (data.jobs_this_week || 0) > 0 ? 'positive' : 'neutral',
+            icon: BriefcaseIcon
+          },
+          {
+            name: 'Active Jobs',
+            value: data.active_jobs?.toString() || '0',
+            change: 'Currently running',
+            changeType: 'neutral',
+            icon: ChartBarIcon
+          },
+          {
+            name: 'Total Results',
+            value: data.total_results?.toLocaleString() || '0',
+            change: `${data.results_this_week || 0} this week`,
+            changeType: (data.results_this_week || 0) > 0 ? 'positive' : 'neutral',
+            icon: DocumentTextIcon
+          },
+          {
+            name: 'Success Rate',
+            value: `${Math.round(data.success_rate || 0)}%`,
+            change: `${data.success_rate >= 90 ? 'Excellent' : data.success_rate >= 70 ? 'Good' : 'Needs improvement'}`,
+            changeType: data.success_rate >= 90 ? 'positive' : data.success_rate >= 70 ? 'neutral' : 'negative',
+            icon: ChartBarIcon
+          }
+        ]);
+      }
+      
+      // Fetch recent jobs
+      const jobsResponse = await api.get('/api/jobs?limit=5');
+      if (jobsResponse.data && jobsResponse.data.success) {
+        setRecentJobs(jobsResponse.data.jobs || []);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error fetching dashboard data:', error);
+      // Keep default loading state if API fails
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Recent jobs are now fetched from API in useEffect
+  
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'running':
+        return 'bg-blue-100 text-blue-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'failed':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+  
+  const getJobTypeDisplay = (type) => {
+    switch (type) {
+      case 'profile_scraping':
+        return 'Profile';
+      case 'company_scraping':
+        return 'Company';
+      case 'search_result_scraping':
+        return 'Search';
+      default:
+        return type || 'Unknown';
+    }
+  };
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-6">
@@ -159,29 +234,41 @@ const Dashboard = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {recentJobs.map((job) => (
-                <tr key={job.id}>
-                  <td>
-                    <span className="badge badge-secondary">{job.type}</span>
-                  </td>
-                  <td className="font-medium text-gray-900">{job.query}</td>
-                  <td>
-                    <span className={`status-${job.status}`}>
-                      {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="text-gray-500">{job.results}</td>
-                  <td className="text-gray-500">{job.createdAt}</td>
-                  <td>
-                    <Link
-                      to={`/jobs/${job.id}`}
-                      className="text-primary-600 hover:text-primary-900"
-                    >
-                      View
-                    </Link>
+              {recentJobs.length > 0 ? (
+                recentJobs.map((job) => (
+                  <tr key={job.id}>
+                    <td>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {getJobTypeDisplay(job.job_type)}
+                      </span>
+                    </td>
+                    <td className="font-medium text-gray-900">{job.job_name}</td>
+                    <td>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(job.status)}`}>
+                        {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="text-gray-500">{job.result_count || 0}</td>
+                    <td className="text-gray-500">
+                      {job.created_at ? new Date(job.created_at).toLocaleDateString() : 'N/A'}
+                    </td>
+                    <td>
+                      <Link
+                        to={`/jobs/${job.id}`}
+                        className="text-primary-600 hover:text-primary-900"
+                      >
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="text-center py-8 text-gray-500">
+                    {loading ? 'Loading jobs...' : 'No recent jobs found. Create your first job to get started!'}
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

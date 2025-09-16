@@ -4,10 +4,10 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import BulkAccountImport from './BulkAccountImport';
+import api from '../services/api';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
 // Status badge component
 const StatusBadge = ({ status }) => {
@@ -87,17 +87,17 @@ const AddAccountForm = ({ onAccountAdded, onClose }) => {
         throw new Error('Please provide cookies either as file or JSON');
       }
 
-      const response = await axios.post(`${API_BASE_URL}/api/accounts`, submitData, {
+      const response = await api.post('/api/accounts', submitData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
 
-      if (response.data.success) {
+      if (response.success) {
         onAccountAdded();
         onClose();
       } else {
-        setError(response.data.error || 'Failed to add account');
+        setError(response.error || 'Failed to add account');
       }
     } catch (error) {
       setError(error.response?.data?.error || error.message || 'Failed to add account');
@@ -260,7 +260,7 @@ const AccountList = ({ accounts, onValidate, onDelete, loading }) => {
     );
   }
 
-  if (accounts.length === 0) {
+  if (!accounts || accounts.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
         <p className="text-lg mb-2">No accounts found</p>
@@ -295,7 +295,7 @@ const AccountList = ({ accounts, onValidate, onDelete, loading }) => {
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {accounts.map((account) => (
+          {accounts && accounts.map((account) => (
             <tr key={account.id} className="hover:bg-gray-50">
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="text-sm font-medium text-gray-900">
@@ -434,9 +434,9 @@ const LinkedInAccountManager = () => {
   // Fetch accounts
   const fetchAccounts = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/accounts`);
-      if (response.data.success) {
-        setAccounts(response.data.accounts);
+      const response = await api.get('/api/accounts');
+      if (response.success) {
+        setAccounts(response.accounts);
       }
     } catch (error) {
       console.error('Error fetching accounts:', error);
@@ -448,9 +448,9 @@ const LinkedInAccountManager = () => {
   // Fetch statistics
   const fetchStats = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/stats`);
-      if (response.data.success) {
-        setStats(response.data.stats);
+      const response = await api.get('/api/stats');
+      if (response.success) {
+        setStats(response.stats);
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -461,8 +461,8 @@ const LinkedInAccountManager = () => {
   const handleValidate = async (accountId) => {
     setValidatingId(accountId);
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/accounts/${accountId}/validate`);
-      if (response.data.success) {
+      const response = await api.post(`/api/accounts/${accountId}/validate`);
+      if (response.success) {
         // Refresh accounts and stats
         await fetchAccounts();
         await fetchStats();
@@ -487,8 +487,8 @@ const LinkedInAccountManager = () => {
     }
 
     try {
-      const response = await axios.delete(`${API_BASE_URL}/api/accounts/${accountId}`);
-      if (response.data.success) {
+      const response = await api.delete(`/api/accounts/${accountId}`);
+      if (response.success) {
         // Refresh accounts and stats
         await fetchAccounts();
         await fetchStats();
@@ -583,7 +583,7 @@ const LinkedInAccountManager = () => {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                📋 Account List ({accounts.length})
+                📋 Account List ({accounts?.length || 0})
               </button>
               <button
                 onClick={() => setActiveTab('bulk-import')}

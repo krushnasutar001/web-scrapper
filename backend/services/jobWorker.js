@@ -2,6 +2,10 @@ const Job = require('../models/Job');
 const LinkedInAccount = require('../models/LinkedInAccount');
 const { query, transaction } = require('../utils/database');
 const { v4: uuidv4 } = require('uuid');
+const LinkedInScraper = require('./linkedin-scraper');
+const ScrapingService = require('./scrapingService');
+const fs = require('fs').promises;
+const path = require('path');
 
 // Job queue and processing state
 const jobQueue = [];
@@ -172,8 +176,8 @@ const processJob = async (jobId) => {
       );
       
       try {
-        // Simulate scraping process
-        const scrapingResult = await simulateScraping(jobUrl.url, selectedAccount);
+        // Perform actual scraping
+        const scrapingResult = await performRealScraping(jobUrl.url, selectedAccount, job.job_type);
         
         if (scrapingResult.success) {
           // Update URL status to completed
@@ -249,7 +253,75 @@ const processJob = async (jobId) => {
 };
 
 /**
- * Simulate LinkedIn scraping process
+ * Perform real LinkedIn scraping using Puppeteer
+ */
+const performRealScraping = async (url, account, jobType) => {
+  let scraper = null;
+  
+  try {
+    console.log(`🔍 Starting real scraping for: ${url}`);
+    console.log(`🔗 Using account: ${account.email}`);
+    
+    // Initialize LinkedIn scraper
+    scraper = new LinkedInScraper({
+      headless: true,
+      timeout: 30000
+    });
+    
+    await scraper.initialize();
+    
+    // Load account cookies if available
+    const cookiesPath = path.join(__dirname, '../cookies', `${account.id}.json`);
+    try {
+      const cookiesData = await fs.readFile(cookiesPath, 'utf8');
+      const cookies = JSON.parse(cookiesData);
+      await scraper.loadCookies(cookies);
+      console.log(`🍪 Loaded cookies for account: ${account.email}`);
+    } catch (error) {
+      console.log(`⚠️ No cookies found for account: ${account.email}`);
+    }
+    
+    // Perform scraping based on job type
+    let scrapedData;
+    
+    if (jobType === 'profile_scraping') {
+      scrapedData = await scraper.scrapeProfile(url);
+    } else if (jobType === 'company_scraping') {
+      scrapedData = await scraper.scrapeCompany(url);
+    } else {
+      throw new Error(`Unsupported job type: ${jobType}`);
+    }
+    
+    if (scrapedData) {
+      console.log(`✅ Successfully scraped: ${url}`);
+      return {
+        success: true,
+        data: {
+          ...scrapedData,
+          linkedin_url: url,
+          scraped_at: new Date().toISOString(),
+          scraped_by_account: account.email
+        }
+      };
+    } else {
+      throw new Error('No data extracted from profile');
+    }
+    
+  } catch (error) {
+    console.error(`❌ Scraping failed for ${url}:`, error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  } finally {
+    if (scraper) {
+      await scraper.close();
+    }
+  }
+};
+
+/**
+ * Fallback simulation for testing (kept for backward compatibility)
  */
 const simulateScraping = async (url, account) => {
   // Simulate network delay
@@ -383,12 +455,52 @@ const getQueueStatus = () => {
 };
 
 /**
+ * Load pending jobs from database into queue
+ */
+const loadPendingJobs = async () => {
+  try {
+    console.log('🔍 Checking for pending jobs in database...');
+    
+    const pendingJobsSql = `
+      SELECT id FROM jobs 
+      WHERE status = 'pending' 
+      ORDER BY created_at ASC 
+      LIMIT 10
+    `;
+    
+    const pendingJobs = await query(pendingJobsSql);
+    
+    if (pendingJobs.length > 0) {
+      console.log(`📋 Found ${pendingJobs.length} pending jobs`);
+      
+      for (const job of pendingJobs) {
+        // Check if job is not already in queue
+        if (!jobQueue.find(queuedJob => queuedJob.id === job.id)) {
+          console.log(`➕ Adding pending job to queue: ${job.id}`);
+          await addJobToQueue(job.id);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error loading pending jobs:', error);
+  }
+};
+
+/**
  * Initialize job worker
  */
 const initializeJobWorker = () => {
   console.log('🚀 Job worker initialized');
   console.log(`📊 Max concurrent jobs: ${MAX_CONCURRENT_JOBS}`);
   console.log(`⏱️ URL processing delay: ${URL_PROCESSING_DELAY}ms`);
+  
+  // Load pending jobs immediately on startup
+  loadPendingJobs();
+  
+  // Check for pending jobs every 10 seconds
+  setInterval(() => {
+    loadPendingJobs();
+  }, 10000);
   
   // Start processing jobs every 5 seconds
   setInterval(() => {
@@ -456,5 +568,6 @@ module.exports = {
   cancelJob,
   getQueueStatus,
   initializeJobWorker,
-  restartFailedJobs
+  restartFailedJobs,
+  loadPendingJobs
 };

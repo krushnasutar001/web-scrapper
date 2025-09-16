@@ -138,8 +138,8 @@ export const AuthProvider = ({ children }) => {
       
       console.log(' Login response:', response);
       
-      if (response.data.success) {
-        const { user, accessToken, refreshToken } = response.data.data;
+      if (response.success) {
+        const { user, accessToken, refreshToken } = response.data;
         
         console.log('🔐 Login successful, storing data...');
         console.log('User:', user);
@@ -162,13 +162,13 @@ export const AuthProvider = ({ children }) => {
         toast.success('Login successful!');
         return { success: true };
       } else {
-        console.error('❌ Login failed:', response.data.message);
+        console.error('❌ Login failed:', response.message);
         dispatch({
           type: AUTH_ACTIONS.SET_ERROR,
-          payload: response.data.message || 'Login failed',
+          payload: response.message || 'Login failed',
         });
-        toast.error(response.data.message || 'Login failed');
-        return { success: false, message: response.data.message };
+        toast.error(response.message || 'Login failed');
+        return { success: false, message: response.message };
       }
     } catch (error) {
       console.error('❌ Login error:', error);
@@ -199,8 +199,8 @@ export const AuthProvider = ({ children }) => {
       
       const response = await authAPI.register(userData);
       
-      if (response.data.success) {
-        const { user, accessToken, refreshToken } = response.data.data;
+      if (response.success) {
+        const { user, accessToken, refreshToken } = response.data;
         
         // Store in localStorage
         localStorage.setItem('token', accessToken);
@@ -218,13 +218,13 @@ export const AuthProvider = ({ children }) => {
         toast.success('Registration successful!');
         return { success: true };
       } else {
-        console.error('❌ Registration failed:', response.data.message);
+        console.error('❌ Registration failed:', response.message);
         dispatch({
           type: AUTH_ACTIONS.SET_ERROR,
-          payload: response.data.message || 'Registration failed',
+          payload: response.message || 'Registration failed',
         });
-        toast.error(response.data.message || 'Registration failed');
-        return { success: false, message: response.data.message };
+        toast.error(response.message || 'Registration failed');
+        return { success: false, message: response.message };
       }
     } catch (error) {
       const message = error.response?.data?.message || 'Registration failed';

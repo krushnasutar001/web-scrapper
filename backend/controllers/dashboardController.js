@@ -9,16 +9,22 @@ const getDashboardStats = async (req, res) => {
   try {
     const user = req.user;
     
-    console.log('📊 Calculating dashboard stats for user:', user.id);
+    console.log('📊 Starting dashboard stats calculation for user:', user.id);
     
     // Get job statistics
+    console.log('📊 Fetching job stats...');
     const jobStats = await Job.getStatsByUserId(user.id);
+    console.log('📊 Job stats result:', jobStats);
     
     // Get account statistics
+    console.log('📊 Fetching account stats...');
     const accountStats = await getAccountStats(user.id);
+    console.log('📊 Account stats result:', accountStats);
     
     // Get recent jobs
+    console.log('📊 Fetching recent jobs...');
     const recentJobs = await Job.getRecentByUserId(user.id, 5);
+    console.log('📊 Recent jobs count:', recentJobs ? recentJobs.length : 0);
     
     // Calculate additional metrics
     const stats = {

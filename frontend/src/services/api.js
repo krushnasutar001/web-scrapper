@@ -75,6 +75,15 @@ api.interceptors.response.use(
       fullError: error
     });
     
+    // Add user-friendly error message
+    if (error.response?.status === 500) {
+      console.error('🔥 Server Error: The server encountered an internal error. Please try again later.');
+    } else if (error.response?.status === 404) {
+      console.error('🔍 Not Found: The requested resource was not found.');
+    } else if (error.response?.status === 403) {
+      console.error('🚫 Forbidden: You do not have permission to access this resource.');
+    }
+    
     // Handle 401/403 errors (unauthorized/forbidden)
     if (error.response?.status === 401 || error.response?.status === 403) {
       console.warn('🔐 Authentication failed - token may be invalid');
@@ -291,6 +300,14 @@ export const healthAPI = {
 };
 
 export default api;
+
+
+
+
+
+
+
+
 
 
 

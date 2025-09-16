@@ -13,12 +13,18 @@ const Jobs = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [notification, setNotification] = useState(null);
   const { user } = useAuth();
 
   const jobTypeColors = {
     profile: 'bg-blue-100 text-blue-800',
     company: 'bg-green-100 text-green-800',
-    search: 'bg-purple-100 text-purple-800'
+    search: 'bg-purple-100 text-purple-800',
+    profile_scraping: 'bg-blue-100 text-blue-800',
+    company_scraping: 'bg-green-100 text-green-800',
+    search_result_scraping: 'bg-purple-100 text-purple-800',
+    sales_navigator: 'bg-indigo-100 text-indigo-800',
+    unknown: 'bg-gray-100 text-gray-800'
   };
 
   const statusColors = {
@@ -32,6 +38,16 @@ const Jobs = () => {
   useEffect(() => {
     fetchJobs();
   }, []);
+
+  // Auto-dismiss notification after 5 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const fetchJobs = async () => {
     try {
@@ -100,9 +116,35 @@ const Jobs = () => {
     );
   };
 
+  /**
+   * Safely renders a job type badge with proper null checks
+   * Handles cases where jobType is undefined, null, or empty string
+   * @param {string|undefined|null} jobType - The job type to display
+   * @returns {JSX.Element} A styled badge component
+   */
   const getJobTypeBadge = (jobType) => {
-    const colorClass = jobTypeColors[jobType] || 'bg-gray-100 text-gray-800';
-    const displayName = jobType === 'sales_navigator' ? 'Sales Navigator' : jobType.charAt(0).toUpperCase() + jobType.slice(1);
+    // Safely handle undefined, null, or empty jobType
+    const safeJobType = jobType && typeof jobType === 'string' ? jobType.trim() : '';
+    
+    // Use fallback if jobType is invalid
+    const normalizedType = safeJobType || 'unknown';
+    
+    // Get color class with fallback
+    const colorClass = jobTypeColors[normalizedType] || 'bg-gray-100 text-gray-800';
+    
+    // Safely create display name with proper checks
+    let displayName;
+    if (normalizedType === 'sales_navigator') {
+      displayName = 'Sales Navigator';
+    } else if (normalizedType === 'unknown') {
+      displayName = 'Unknown';
+    } else {
+      // Safe string manipulation with charAt check
+      displayName = normalizedType.length > 0 
+        ? normalizedType.charAt(0).toUpperCase() + normalizedType.slice(1)
+        : 'N/A';
+    }
+    
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
         {displayName}
@@ -126,17 +168,27 @@ const Jobs = () => {
         formData.append('file', jobData.file);
         // Map to backend expected field names
         formData.append('type', jobData.jobType);           // Backend expects 'type'
-        formData.append('query', jobData.jobName);          // Backend expects 'query'
+        formData.append('query', jobData.jobName || jobData.searchQuery); // Backend expects 'query'
         formData.append('maxResults', jobData.maxPages || 100);
         formData.append('accountSelectionMode', jobData.accountSelectionMode || 'rotation');
         
-        console.log('🚀 Sending FormData to backend with type:', jobData.jobType, 'query:', jobData.jobName);
+        // Add URLs if provided (for mixed input)
+        if (jobData.urls && jobData.urls.length > 0) {
+          formData.append('urls', jobData.urls.join('\n'));
+        }
+        
+        console.log('🚀 FormData details:');
+        console.log('  - type:', jobData.jobType);
+        console.log('  - query:', jobData.jobName || jobData.searchQuery);
+        console.log('  - file:', jobData.file.name);
+        console.log('  - urls count:', jobData.urls?.length || 0);
         
         // Add selected account IDs
         if (jobData.selectedAccountIds && jobData.selectedAccountIds.length > 0) {
           jobData.selectedAccountIds.forEach((accountId, index) => {
             formData.append(`selectedAccountIds[${index}]`, accountId);
           });
+          console.log('  - selectedAccountIds:', jobData.selectedAccountIds);
         }
         
         // Send FormData with proper headers
@@ -149,17 +201,27 @@ const Jobs = () => {
         // Use JSON for manual URL input (no file)
         // Map frontend fields to backend expected fields
         const payload = {
-          type: jobData.jobType,                    // Backend expects 'type' not 'jobType'
-          query: jobData.jobName || jobData.searchQuery, // Backend expects 'query' not 'jobName'
-          maxResults: jobData.maxPages || 100,      // Backend expects 'maxResults' not 'maxPages'
+          type: jobData.jobType,                    // Backend expects 'type'
+          query: jobData.jobName || jobData.searchQuery, // Backend expects 'query'
+          maxResults: jobData.maxPages || 100,      // Backend expects 'maxResults'
+          urls: jobData.urls || [],                 // Backend expects 'urls' as direct field
+          accountSelectionMode: jobData.accountSelectionMode || 'rotation',
+          selectedAccountIds: jobData.selectedAccountIds || [],
           configuration: {
-            accountSelectionMode: jobData.accountSelectionMode || 'rotation',
-            selectedAccountIds: jobData.selectedAccountIds || [],
-            urls: jobData.urls || [],               // Store URLs in configuration
             jobType: jobData.jobType,               // Keep original for reference
-            jobName: jobData.jobName                // Keep original for reference
+            jobName: jobData.jobName,               // Keep original for reference
+            searchQuery: jobData.searchQuery        // Keep search query for reference
           }
         };
+        
+        console.log('🚀 Payload details:');
+        console.log('  - type:', payload.type);
+        console.log('  - query:', payload.query);
+        console.log('  - maxResults:', payload.maxResults);
+        console.log('  - urls count:', payload.urls.length);
+        console.log('  - urls sample:', payload.urls.slice(0, 3));
+        console.log('  - accountSelectionMode:', payload.accountSelectionMode);
+        console.log('  - selectedAccountIds:', payload.selectedAccountIds);
         
         console.log('🚀 Sending payload to backend:', payload);
 
@@ -192,21 +254,54 @@ const Jobs = () => {
           console.log('✅ Job created successfully:', result.job);
           await fetchJobs(); // Refresh jobs list
           setIsModalOpen(false);
-          alert('Job created successfully! It will be processed in the background.');
+          // Show success notification (you can replace this with a toast notification)
+          setNotification({
+            type: 'success',
+            message: `Job "${result.job.job_name}" created successfully! Processing will begin shortly.`,
+            details: `Job ID: ${result.job.id} | Type: ${result.job.job_type} | URLs: ${result.job.total_urls || 'N/A'}`
+          });
         } else {
           console.warn('⚠️ Success but no job object:', result);
-          alert('Job created but response format is unexpected');
+          setNotification({
+            type: 'warning',
+            message: 'Job created but response format is unexpected',
+            details: 'The job may have been created successfully, but we received an unexpected response format.'
+          });
         }
       } else {
         console.error('❌ Job creation failed:', result);
         const errorMsg = result?.error || result?.message || 'Unknown error';
-        alert(`Failed to create job: ${errorMsg}`);
+        const errorCode = result?.code || 'UNKNOWN_ERROR';
+        const errorDetails = result?.received || result?.validTypes || result?.invalidUrls || null;
+        
+        setNotification({
+          type: 'error',
+          message: `Failed to create job: ${errorMsg}`,
+          details: errorCode === 'MISSING_FIELDS' ? 'Please ensure all required fields are filled out.' :
+                   errorCode === 'INVALID_JOB_TYPE' ? `Valid job types: ${errorDetails?.join(', ')}` :
+                   errorCode === 'NO_VALID_URLS' ? 'Please provide valid LinkedIn URLs.' :
+                   errorCode === 'NO_VALID_ACCOUNTS' ? 'Please select valid LinkedIn accounts.' :
+                   `Error code: ${errorCode}`
+        });
       }
     } catch (error) {
       console.error('Failed to create job:', error);
       console.error('Error response:', error.response);
-      const errorMessage = error.response?.data?.error || error.message || 'Unknown error';
-      alert('Failed to create job: ' + errorMessage);
+      
+      const errorData = error.response?.data;
+      const errorMessage = errorData?.error || error.message || 'Unknown error';
+      const errorCode = errorData?.code || 'NETWORK_ERROR';
+      const statusCode = error.response?.status;
+      
+      setNotification({
+        type: 'error',
+        message: `Failed to create job: ${errorMessage}`,
+        details: statusCode === 403 ? 'You do not have permission to create jobs. Please check your authentication.' :
+                 statusCode === 401 ? 'Your session has expired. Please log in again.' :
+                 statusCode === 400 ? 'Invalid request data. Please check your input and try again.' :
+                 statusCode === 500 ? 'Server error. Please try again later.' :
+                 `HTTP ${statusCode} - ${errorCode}`
+      });
     }
   };
 
@@ -335,16 +430,27 @@ const Jobs = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredJobs.map((job) => (
-                  <tr key={job.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {job.query || `Job ${job.id.slice(0, 8)}`}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getJobTypeBadge(job.type)}
-                    </td>
+                {Array.isArray(filteredJobs) && filteredJobs.length > 0 ? (
+                  filteredJobs.map((job) => {
+                    // Safe job object validation
+                    if (!job || typeof job !== 'object') {
+                      console.warn('Invalid job object:', job);
+                      return null;
+                    }
+                    
+                    const jobId = job.id || `unknown-${Math.random().toString(36).substr(2, 9)}`;
+                    const jobQuery = job.query || job.job_name || `Job ${jobId.toString().slice(0, 8)}`;
+                    
+                    return (
+                      <tr key={jobId} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {jobQuery}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getJobTypeBadge(job.type || job.job_type)}
+                        </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900 max-w-xs truncate">
                         {job.type === 'sales_navigator' ? 
@@ -361,13 +467,13 @@ const Jobs = () => {
                         <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                           <div 
                             className="bg-sky-500 h-2 rounded-full transition-all duration-300" 
-                            style={{ width: `${job.progress || 0}%` }}
+                            style={{ width: `${job.progress?.percentage || 0}%` }}
                           ></div>
                         </div>
-                        <span className="text-sm text-gray-600">{job.progress || 0}%</span>
-                        {job.totalResults > 0 && (
+                        <span className="text-sm text-gray-600">{job.progress?.percentage || 0}%</span>
+                        {job.progress && job.progress.totalUrls > 0 && (
                           <span className="ml-2 text-xs text-gray-500">
-                            ({job.successfulResults}/{job.totalResults})
+                            ({job.progress.successful || 0}/{job.progress.totalUrls || 0})
                           </span>
                         )}
                       </div>
@@ -407,12 +513,44 @@ const Jobs = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                    );
+                  }).filter(Boolean) // Remove null entries from invalid jobs
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
+                      {loading ? 'Loading jobs...' : 'No jobs found. Create your first job to get started!'}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         )}
       </div>
+
+      {/* Notification */}
+      {notification && (
+        <div className={`fixed top-4 right-4 max-w-md p-4 rounded-lg shadow-lg z-50 ${
+          notification.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' :
+          notification.type === 'warning' ? 'bg-yellow-100 border border-yellow-400 text-yellow-700' :
+          'bg-red-100 border border-red-400 text-red-700'
+        }`}>
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="font-medium">{notification.message}</div>
+              {notification.details && (
+                <div className="text-sm mt-1 opacity-90">{notification.details}</div>
+              )}
+            </div>
+            <button
+              onClick={() => setNotification(null)}
+              className="ml-4 text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* New Job Modal */}
       <NewJobModal 

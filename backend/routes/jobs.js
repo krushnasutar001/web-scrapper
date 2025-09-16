@@ -273,6 +273,46 @@ router.get('/export/stats', authenticateToken, jobRateLimit, async (req, res) =>
   }
 });
 
+/**
+ * @route   POST /api/jobs/process-queue
+ * @desc    Manual job processing trigger
+ * @access  Private
+ */
+router.post('/process-queue', authenticateToken, async (req, res) => {
+  try {
+    const jobWorker = require('../services/jobWorker');
+    
+    // Get queue status
+    const status = jobWorker.getQueueStatus();
+    
+    console.log('🔄 Manual job processing triggered by user:', req.user.email);
+    console.log('📊 Current queue status:', status);
+    
+    // Force load pending jobs
+    await jobWorker.loadPendingJobs();
+    
+    // Get updated status
+    const updatedStatus = jobWorker.getQueueStatus();
+    
+    res.json({
+      success: true,
+      message: 'Job processing triggered successfully',
+      queue_status: {
+        before: status,
+        after: updatedStatus
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Manual job processing error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to trigger job processing',
+      code: 'PROCESS_ERROR'
+    });
+  }
+});
+
 // Error handling middleware for multer
 router.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
