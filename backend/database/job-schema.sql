@@ -264,8 +264,8 @@ ADD COLUMN IF NOT EXISTS usage_count INT DEFAULT 0,
 ADD COLUMN IF NOT EXISTS last_job_id CHAR(36) NULL;
 
 -- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_linkedin_accounts_last_used ON linkedin_accounts(last_used_at);
-CREATE INDEX IF NOT EXISTS idx_linkedin_accounts_usage ON linkedin_accounts(usage_count);
+ALTER TABLE linkedin_accounts ADD INDEX idx_linkedin_accounts_last_used (last_used_at);
+ALTER TABLE linkedin_accounts ADD INDEX idx_linkedin_accounts_usage (usage_count);
 
 -- Views for easier data access
 

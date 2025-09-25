@@ -1,6 +1,9 @@
 const { chromium } = require('playwright');
 const fs = require('fs').promises;
 const path = require('path');
+const { safeJsonParse } = require('../utils/responseValidator');
+const { linkedInRateLimiter, withRateLimit } = require('../utils/rateLimiter');
+const { handleLinkedInResponse, logLinkedInError } = require('../utils/linkedinResponseHandler');
 
 class BulkScrapingService {
   constructor(db) {
@@ -193,8 +196,24 @@ class BulkScrapingService {
         try {
           console.log(`📋 Scraping profile ${i + 1}/${profileUrls.length}: ${profileUrl}`);
           
+          // Apply rate limiting before each profile scrape
+          await linkedInRateLimiter.waitForToken();
+          
           await page.goto(profileUrl, { waitUntil: 'networkidle' });
           await this.humanScroll(page);
+          
+          // Check for LinkedIn errors before extracting data
+          const pageContent = await page.content();
+          const linkedInError = handleLinkedInResponse(null, pageContent);
+          
+          if (linkedInError.isLinkedInError) {
+            logLinkedInError('Bulk Profile Scraping', linkedInError, profileUrl);
+            console.warn(`⚠️ LinkedIn error detected for ${profileUrl}: ${linkedInError.errorType}`);
+            
+            // Add longer delay for errors
+            await new Promise(resolve => setTimeout(resolve, linkedInRateLimiter.getLinkedInDelay(true)));
+            continue;
+          }
           
           // Extract profile data
           const profileData = await page.evaluate(() => {
@@ -563,7 +582,13 @@ class BulkScrapingService {
         csvContent = headers.join(',') + '\n';
         
         results.forEach(result => {
-          const data = JSON.parse(result.data || '{}');
+          const { safeJsonParse } = require('../utils/responseValidator');
+        const parseResult = safeJsonParse(result.data || '{}');
+        const data = parseResult.success ? parseResult.data : {};
+        
+        if (!parseResult.success) {
+          console.warn(`⚠️ Failed to parse result data: ${parseResult.error}`);
+        }
           const row = [
             data.name || '',
             data.headline || '',
@@ -583,7 +608,13 @@ class BulkScrapingService {
         csvContent = headers.join(',') + '\n';
         
         results.forEach(result => {
-          const data = JSON.parse(result.data || '{}');
+          const { safeJsonParse } = require('../utils/responseValidator');
+        const parseResult = safeJsonParse(result.data || '{}');
+        const data = parseResult.success ? parseResult.data : {};
+        
+        if (!parseResult.success) {
+          console.warn(`⚠️ Failed to parse result data: ${parseResult.error}`);
+        }
           const row = [
             data.companyName || '',
             data.industry || '',
@@ -602,7 +633,13 @@ class BulkScrapingService {
         csvContent = headers.join(',') + '\n';
         
         results.forEach(result => {
-          const data = JSON.parse(result.data || '{}');
+          const { safeJsonParse } = require('../utils/responseValidator');
+        const parseResult = safeJsonParse(result.data || '{}');
+        const data = parseResult.success ? parseResult.data : {};
+        
+        if (!parseResult.success) {
+          console.warn(`⚠️ Failed to parse result data: ${parseResult.error}`);
+        }
           const row = [
             data.name || '',
             data.jobTitle || '',

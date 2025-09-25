@@ -1,0 +1,51 @@
+[
+  {
+    "name": "li_at",
+    "value": "AQEDAVIYJnMEMkOTAAABmR7Mn30AAAGZQtkjfU0AKhtt5629U5o1HPZck8LzDXMnFQAKSr8afXu6UsGc2nXzPQ6QvIAHSxCanTYAp2Y-WWzSEhdIkRifsIm3jT8RM3mMJNGl3NpnYnDT7jWeQshZGih2",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": 1756899252,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "JSESSIONID",
+    "value": "ajax:2234567890123456789",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "bscookie",
+    "value": "v=1&20241201_223456_abcdef123456789",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": 1756899252,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "bcookie",
+    "value": "v=2&abcdef22-3456-7890-abcd-ef1234567890",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": 1756899252,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "liap",
+    "value": "true",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": 1756899252,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  }
+]

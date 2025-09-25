@@ -47,15 +47,13 @@ async function createUser() {
         id: 'ff1c9f3b-88a8-11f0-aa08-088fc3850692', // Same ID used in backend tests
         email: 'admin@test.com',
         password: 'admin123',
-        firstName: 'Admin',
-        lastName: 'User'
+        name: 'Admin User'
       },
       {
         id: uuidv4(),
         email: 'test@test.com',
         password: 'test123',
-        firstName: 'Test',
-        lastName: 'User'
+        name: 'Test User'
       }
     ];
     
@@ -78,9 +76,9 @@ async function createUser() {
       
       // Insert user
       await connection.execute(
-        `INSERT INTO users (id, email, password, firstName, lastName, isActive, emailVerified) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [user.id, user.email, hashedPassword, user.firstName, user.lastName, true, true]
+        `INSERT INTO users (id, email, password_hash, name, is_active) 
+         VALUES (?, ?, ?, ?, ?)`,
+        [user.id, user.email, hashedPassword, user.name, true]
       );
       
       console.log(`✅ Created user: ${user.email}`);

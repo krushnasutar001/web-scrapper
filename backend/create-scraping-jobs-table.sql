@@ -1,0 +1,35 @@
+-- Create scraping_jobs table (base table that profile_results references)
+CREATE TABLE IF NOT EXISTS scraping_jobs (
+  id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  job_name VARCHAR(255) NOT NULL,
+  job_type ENUM('profiles', 'companies', 'sales_navigator') NOT NULL,
+  status ENUM('pending', 'fetching', 'parsing', 'completed', 'failed', 'cancelled') DEFAULT 'pending',
+  stage ENUM('fetcher', 'parser', 'completed') DEFAULT 'fetcher',
+  progress INT DEFAULT 0,
+  total_items INT DEFAULT 0,
+  fetched_items INT DEFAULT 0,
+  parsed_items INT DEFAULT 0,
+  failed_items INT DEFAULT 0,
+  account_id VARCHAR(36),
+  proxy_url VARCHAR(512),
+  input_data JSON,
+  job_config JSON,
+  results_summary JSON,
+  error_message TEXT,
+  scheduled_at TIMESTAMP NULL,
+  started_at TIMESTAMP NULL,
+  completed_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_by VARCHAR(255),
+  worker_id VARCHAR(255),
+  priority INT DEFAULT 5,
+  retry_count INT DEFAULT 0,
+  max_retries INT DEFAULT 3,
+  
+  -- Indexes for performance
+  INDEX idx_status (status),
+  INDEX idx_job_type (job_type),
+  INDEX idx_created_at (created_at),
+  INDEX idx_account_id (account_id)
+) ENGINE=InnoDB;

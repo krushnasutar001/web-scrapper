@@ -220,9 +220,18 @@ class ExportService {
     if (!field) return '';
     
     try {
-      return typeof field === 'string' ? JSON.parse(field) : field;
+      const { safeJsonParse } = require('../utils/responseValidator');
+      const parseResult = safeJsonParse(field);
+      
+      if (parseResult.success) {
+        return parseResult.data;
+      } else {
+        console.warn(`⚠️ Failed to parse JSON field: ${parseResult.error}`);
+        return typeof field === 'string' ? field : {};
+      }
     } catch (error) {
-      return field;
+      console.warn(`⚠️ Error in parseJSONField: ${error.message}`);
+      return typeof field === 'string' ? field : {};
     }
   }
 

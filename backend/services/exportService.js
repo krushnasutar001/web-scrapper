@@ -1,7 +1,7 @@
 const Job = require('../models/Job');
 const { query } = require('../utils/database');
 const xlsx = require('xlsx');
-const csv = require('csv-stringify');
+const csv = require('csv-stringify').stringify;
 
 /**
  * Export job results in specified format
@@ -15,6 +15,12 @@ const exportJobResults = async (jobId, format, userId) => {
     if (!job) {
       throw new Error('Job not found');
     }
+    
+    console.log('🔍 Export access check:', {
+      jobUserId: job.user_id,
+      requestUserId: userId,
+      match: job.user_id === userId
+    });
     
     if (job.user_id !== userId) {
       throw new Error('Access denied to this job');
@@ -33,19 +39,73 @@ const exportJobResults = async (jobId, format, userId) => {
     
     console.log(`📊 Exporting ${results.length} results`);
     
-    // Format data for export
-    const exportData = results.map(result => ({
-      Name: result.name || '',
-      Title: result.title || '',
-      Company: result.company || '',
-      Location: result.location || '',
-      Email: result.email || '',
-      'LinkedIn URL': result.linkedin_url || result.source_url || '',
-      'Source URL': result.source_url || '',
-      'Scraped At': result.created_at ? new Date(result.created_at).toISOString() : '',
-      'Job Name': job.job_name,
-      'Job Type': job.job_type
-    }));
+    // Format data for export based on job type
+    let exportData;
+    
+    switch (job.job_type) {
+      case 'profile_scraping':
+        exportData = results.map(result => ({
+          'Full Name': result.full_name || '',
+          'First Name': result.first_name || '',
+          'Last Name': result.last_name || '',
+          'Headline': result.headline || '',
+          'About': result.about || '',
+          'Country': result.country || '',
+          'City': result.city || '',
+          'Industry': result.industry || '',
+          'Email': result.email || '',
+          'Phone': result.phone || '',
+          'Website': result.website || '',
+          'Current Job Title': result.current_job_title || '',
+          'Current Company URL': result.current_company_url || '',
+          'Company Name': result.company_name || '',
+          'Skills': Array.isArray(result.skills) ? result.skills.join(', ') : result.skills || '',
+          'Education': Array.isArray(result.education) ? result.education.map(edu => `${edu.school || ''} - ${edu.degree || ''}`).join('; ') : result.education || '',
+          'Experience': Array.isArray(result.experience) ? result.experience.map(exp => `${exp.title || ''} at ${exp.company || ''}`).join('; ') : result.experience || '',
+          'Profile URL': result.profile_url || '',
+          'Status': result.status || '',
+          'Scraped At': result.created_at ? new Date(result.created_at).toISOString() : '',
+          'Job Name': job.job_name,
+          'Job Type': job.job_type
+        }));
+        break;
+        
+      case 'company_scraping':
+        exportData = results.map(result => ({
+          'Company Name': result.company_name || '',
+          'Company URL': result.company_url || '',
+          'Industry': result.company_industry || '',
+          'Company Size': result.company_size || '',
+          'Location': result.company_location || '',
+          'Description': result.company_description || '',
+          'Website': result.company_website || '',
+          'Specialties': result.company_specialties || '',
+          'Scraped At': result.created_at ? new Date(result.created_at).toISOString() : '',
+          'Job Name': job.job_name,
+          'Job Type': job.job_type
+        }));
+        break;
+        
+      case 'search_result_scraping':
+        exportData = results.map(result => ({
+          'Job Title': result.title || '',
+          'Company': result.company || '',
+          'Location': result.location || '',
+          'Description': result.description || '',
+          'Job URL': result.url || '',
+          'Posted Date': result.posted_date || '',
+          'Salary Range': result.salary_range || '',
+          'Employment Type': result.employment_type || '',
+          'Experience Level': result.experience_level || '',
+          'Scraped At': result.created_at ? new Date(result.created_at).toISOString() : '',
+          'Job Name': job.job_name,
+          'Job Type': job.job_type
+        }));
+        break;
+        
+      default:
+        throw new Error(`Unsupported job type for export: ${job.job_type}`);
+    }
     
     // Generate export based on format
     switch (format.toLowerCase()) {
@@ -71,12 +131,43 @@ const exportJobResults = async (jobId, format, userId) => {
  */
 const generateCSV = async (data, job) => {
   return new Promise((resolve, reject) => {
+    // Get column headers based on job type
+    let columns;
+    
+    switch (job.job_type) {
+      case 'profile_scraping':
+        columns = [
+          'Full Name', 'First Name', 'Last Name', 'Headline', 'About', 
+          'Country', 'City', 'Industry', 'Email', 'Phone', 'Website',
+          'Current Job Title', 'Current Company URL', 'Company Name', 
+          'Skills', 'Education', 'Experience', 'Profile URL', 'Status',
+          'Scraped At', 'Job Name', 'Job Type'
+        ];
+        break;
+        
+      case 'company_scraping':
+        columns = [
+          'Company Name', 'Company URL', 'Industry', 'Company Size', 
+          'Location', 'Description', 'Website', 'Specialties',
+          'Scraped At', 'Job Name', 'Job Type'
+        ];
+        break;
+        
+      case 'search_result_scraping':
+        columns = [
+          'Job Title', 'Company', 'Location', 'Description', 'Job URL',
+          'Posted Date', 'Salary Range', 'Employment Type', 'Experience Level',
+          'Scraped At', 'Job Name', 'Job Type'
+        ];
+        break;
+        
+      default:
+        columns = Object.keys(data[0] || {});
+    }
+    
     csv(data, {
       header: true,
-      columns: [
-        'Name', 'Title', 'Company', 'Location', 'Email', 
-        'LinkedIn URL', 'Source URL', 'Scraped At', 'Job Name', 'Job Type'
-      ]
+      columns: columns
     }, (err, output) => {
       if (err) {
         reject(err);
@@ -103,13 +194,25 @@ const generateExcel = async (data, job) => {
     
     // Set column widths
     const columnWidths = [
-      { wch: 20 }, // Name
-      { wch: 25 }, // Title
-      { wch: 20 }, // Company
-      { wch: 20 }, // Location
+      { wch: 20 }, // Full Name
+      { wch: 15 }, // First Name
+      { wch: 15 }, // Last Name
+      { wch: 30 }, // Headline
+      { wch: 40 }, // About
+      { wch: 15 }, // Country
+      { wch: 15 }, // City
+      { wch: 20 }, // Industry
       { wch: 25 }, // Email
-      { wch: 40 }, // LinkedIn URL
-      { wch: 40 }, // Source URL
+      { wch: 15 }, // Phone
+      { wch: 30 }, // Website
+      { wch: 25 }, // Current Job Title
+      { wch: 30 }, // Current Company URL
+      { wch: 20 }, // Company Name
+      { wch: 40 }, // Skills
+      { wch: 40 }, // Education
+      { wch: 40 }, // Experience
+      { wch: 40 }, // Profile URL
+      { wch: 15 }, // Status
       { wch: 20 }, // Scraped At
       { wch: 20 }, // Job Name
       { wch: 15 }  // Job Type

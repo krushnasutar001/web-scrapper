@@ -103,17 +103,17 @@ CREATE TABLE job_account_assignments (
     UNIQUE KEY unique_job_account (job_id, linkedin_account_id)
 );
 
--- Indexes for performance (with IF NOT EXISTS to prevent duplicates)
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_linkedin_accounts_user_id ON linkedin_accounts(user_id);
-CREATE INDEX IF NOT EXISTS idx_linkedin_accounts_status ON linkedin_accounts(validation_status);
-CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
-CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
-CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
-CREATE INDEX IF NOT EXISTS idx_job_urls_job_id ON job_urls(job_id);
-CREATE INDEX IF NOT EXISTS idx_job_urls_status ON job_urls(status);
-CREATE INDEX IF NOT EXISTS idx_job_results_job_id ON job_results(job_id);
-CREATE INDEX IF NOT EXISTS idx_job_account_assignments_job_id ON job_account_assignments(job_id);
+-- Indexes for performance (using ALTER TABLE to avoid MySQL compatibility issues)
+ALTER TABLE users ADD INDEX idx_users_email (email);
+ALTER TABLE linkedin_accounts ADD INDEX idx_linkedin_accounts_user_id (user_id);
+ALTER TABLE linkedin_accounts ADD INDEX idx_linkedin_accounts_status (validation_status);
+ALTER TABLE jobs ADD INDEX idx_jobs_user_id (user_id);
+ALTER TABLE jobs ADD INDEX idx_jobs_status (status);
+ALTER TABLE jobs ADD INDEX idx_jobs_created_at (created_at);
+ALTER TABLE job_urls ADD INDEX idx_job_urls_job_id (job_id);
+ALTER TABLE job_urls ADD INDEX idx_job_urls_status (status);
+ALTER TABLE job_results ADD INDEX idx_job_results_job_id (job_id);
+ALTER TABLE job_account_assignments ADD INDEX idx_job_account_assignments_job_id (job_id);
 
 -- Insert default admin user for testing
 INSERT INTO users (id, email, password_hash, name) VALUES 

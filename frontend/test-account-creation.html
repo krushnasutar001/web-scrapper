@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Account Creation</title>
+</head>
+<body>
+    <h1>Test Account Creation</h1>
+    <form id="testForm">
+        <div>
+            <label>Account Name:</label>
+            <input type="text" id="accountName" value="Test Account" required>
+        </div>
+        <div>
+            <label>Cookies:</label>
+            <textarea id="cookies" placeholder="li_at=value; JSESSIONID=value"></textarea>
+        </div>
+        <div>
+            <label>Proxy URL:</label>
+            <input type="text" id="proxyUrl" placeholder="http://proxy.com:8080">
+        </div>
+        <button type="submit">Create Account</button>
+    </form>
+
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('testForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                document.getElementById('result').innerHTML = '<p style="color: red;">No token found. Please login first.</p>';
+                return;
+            }
+
+            const requestBody = {
+                account_name: document.getElementById('accountName').value,
+                cookies: document.getElementById('cookies').value,
+                proxyUrl: document.getElementById('proxyUrl').value
+            };
+
+            console.log('🚀 Test request body:', requestBody);
+
+            try {
+                const response = await fetch('/api/linkedin-accounts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+                console.log('📋 Response:', data);
+
+                document.getElementById('result').innerHTML = `
+                    <h3>Response:</h3>
+                    <p>Status: ${response.status}</p>
+                    <p>Success: ${data.success}</p>
+                    <p>Message: ${data.message}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

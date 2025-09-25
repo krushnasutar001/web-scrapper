@@ -18,28 +18,30 @@ class LinkedInAccount {
     this.consecutive_failures = data.consecutive_failures;
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;
+    this.cookies_json = data.cookies_json;
   }
 
   /**
    * Create a new LinkedIn account
    */
-  static async create({ user_id, account_name, email, username }) {
+  static async create({ user_id, account_name, email, username, cookies_json }) {
     try {
       const id = uuidv4();
       
       // Handle optional email and provide fallbacks
       const safeEmail = email || null;
       const safeUsername = username || email || account_name;
+      const safeCookiesJson = cookies_json ? JSON.stringify(cookies_json) : null;
       
       const sql = `
         INSERT INTO linkedin_accounts (
-          id, user_id, account_name, email, username, 
+          id, user_id, account_name, email, username, cookies_json,
           is_active, validation_status, daily_request_limit, 
           requests_today, consecutive_failures, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, TRUE, 'ACTIVE', 150, 0, 0, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, TRUE, 'ACTIVE', 150, 0, 0, NOW(), NOW())
       `;
       
-      await query(sql, [id, user_id, account_name, safeEmail, safeUsername]);
+      await query(sql, [id, user_id, account_name, safeEmail, safeUsername, safeCookiesJson]);
       
       console.log(`✅ Created LinkedIn account: ${account_name} (${safeEmail || 'no email'}) for user ${user_id}`);
       return await LinkedInAccount.findById(id);
@@ -140,7 +142,7 @@ class LinkedInAccount {
     try {
       const allowedFields = [
         'account_name', 'email', 'username', 'is_active', 
-        'validation_status', 'daily_request_limit'
+        'validation_status', 'daily_request_limit', 'cookies_json'
       ];
       
       const updateFields = [];
@@ -148,8 +150,13 @@ class LinkedInAccount {
       
       for (const [key, value] of Object.entries(updates)) {
         if (allowedFields.includes(key)) {
-          updateFields.push(`${key} = ?`);
-          updateValues.push(value);
+          if (key === 'cookies_json' && value) {
+            updateFields.push(`${key} = ?`);
+            updateValues.push(JSON.stringify(value));
+          } else {
+            updateFields.push(`${key} = ?`);
+            updateValues.push(value);
+          }
         }
       }
       
@@ -352,6 +359,51 @@ class LinkedInAccount {
       displayName: this.getDisplayName(),
       isAvailable: this.isAvailable()
     };
+  }
+
+  /**
+   * Get parsed cookies from stored JSON
+   */
+  getCookies() {
+    if (!this.cookies_json) return [];
+
+    let raw;
+    // Convert to string if it's not already 
+    if (typeof this.cookies_json === 'string') {
+      raw = this.cookies_json;
+    } else if (Buffer.isBuffer(this.cookies_json)) {
+      raw = this.cookies_json.toString('utf8');
+    } else {
+      // Fallback for objects (Sequelize JSON type)
+      raw = JSON.stringify(this.cookies_json);
+    }
+
+    console.log('🍪 Debug - Type:', typeof this.cookies_json, 'Raw length:', raw.length);
+    console.log('🍪 Debug - Raw preview:', raw.substring(0, 100));
+
+    try {
+      const parsed = JSON.parse(raw);
+      console.log('🍪 Debug - Parsed type:', typeof parsed, 'Is array:', Array.isArray(parsed));
+      const result = Array.isArray(parsed) ? parsed : [];
+      console.log('🍪 Debug - Final result length:', result.length);
+      return result;
+    } catch (err) {
+      console.warn('Failed to parse cookies_json:', err.message, 'Raw:', raw);
+      return [];
+    }
+  }
+
+  /**
+   * Set cookies as JSON string
+   */
+  async setCookies(cookies) {
+    try {
+      await this.update({ cookies_json: cookies });
+      return this;
+    } catch (error) {
+      console.error('❌ Error setting cookies:', error);
+      throw error;
+    }
   }
 }
 

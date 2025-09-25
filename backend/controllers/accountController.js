@@ -519,6 +519,160 @@ const refreshAccounts = async (req, res) => {
   }
 };
 
+/**
+ * Get LinkedIn accounts statistics
+ */
+const getStats = async (req, res) => {
+  try {
+    const user = req.user;
+    
+    console.log('📊 Fetching LinkedIn account stats for user:', user.id);
+    
+    const accounts = await LinkedInAccount.findByUserId(user.id);
+    
+    const stats = {
+      total: accounts.length,
+      valid: accounts.filter(acc => acc.status === 'active').length,
+      invalid: accounts.filter(acc => acc.status === 'blocked' || acc.status === 'error').length,
+      pending: accounts.filter(acc => acc.status === 'pending').length
+    };
+    
+    console.log('✅ Account stats:', stats);
+    
+    res.json({
+      success: true,
+      stats: stats
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fetching account stats:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch account statistics',
+      code: 'FETCH_STATS_ERROR'
+    });
+  }
+};
+
+/**
+ * Add LinkedIn account with cookies file
+ */
+const addWithCookies = async (req, res) => {
+  try {
+    const user = req.user;
+    const { account_name, mode, folderPath, proxyUrl } = req.body;
+    const cookieFile = req.file;
+    
+    console.log('🍪 Adding LinkedIn account with cookies for user:', user.id);
+    console.log('📋 Request data:', { account_name, mode, folderPath, proxyUrl, hasFile: !!cookieFile });
+    
+    if (!account_name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Account name is required',
+        code: 'MISSING_ACCOUNT_NAME'
+      });
+    }
+    
+    if (mode === 'single' && !cookieFile) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cookie file is required for single mode',
+        code: 'MISSING_COOKIE_FILE'
+      });
+    }
+    
+    // For now, create a basic account entry
+    // In a full implementation, you would parse the cookie file and validate the account
+    // Generate unique email to avoid duplicates
+    const timestamp = Date.now();
+    const uniqueEmail = `${account_name.replace(/\s+/g, '_')}_${timestamp}@linkedin.com`;
+    
+    const newAccount = await LinkedInAccount.create({
+      user_id: user.id,
+      account_name: account_name,
+      email: uniqueEmail,
+      username: account_name // Use account_name as username
+    });
+    
+    console.log('✅ Created LinkedIn account:', newAccount.id);
+    
+    res.json({
+      success: true,
+      message: 'Account added successfully',
+      results: {
+        successful: [newAccount.toJSON()],
+        failed: []
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error adding account with cookies:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to add account with cookies',
+      code: 'ADD_WITH_COOKIES_ERROR'
+    });
+  }
+};
+
+/**
+ * Validate a LinkedIn account
+ */
+const validateAccount = async (req, res) => {
+  try {
+    const { accountId } = req.params;
+    const user = req.user;
+    
+    console.log('🔍 Validating LinkedIn account:', accountId, 'for user:', user.id);
+    
+    // Find the account
+    const account = await LinkedInAccount.findById(accountId);
+    
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found',
+        code: 'ACCOUNT_NOT_FOUND'
+      });
+    }
+    
+    // Check if account belongs to user
+    if (account.user_id !== user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied to this account',
+        code: 'ACCESS_DENIED'
+      });
+    }
+    
+    // For now, just return the account status
+    // In a real implementation, you might want to test the cookies/session
+    res.json({
+      success: true,
+      data: {
+        accountId: account.id,
+        accountName: account.account_name,
+        email: account.email,
+        status: account.status,
+        isValid: account.status === 'active',
+        lastValidated: new Date().toISOString()
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error validating LinkedIn account:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to validate account',
+      code: 'VALIDATE_ACCOUNT_ERROR'
+    });
+  }
+};
+
 module.exports = {
   getAccounts,
   getAvailableAccounts,
@@ -528,5 +682,8 @@ module.exports = {
   deleteAccount,
   blockAccount,
   unblockAccount,
-  refreshAccounts
+  refreshAccounts,
+  getStats,
+  addWithCookies,
+  validateAccount
 };

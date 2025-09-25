@@ -94,6 +94,18 @@ const AddAccountForm = ({ onAccountAdded, onClose }) => {
       });
 
       if (response.success) {
+        // Validate the account immediately after adding
+        try {
+          const validateResponse = await api.post(`/api/accounts/${response.data.id}/validate`);
+          if (validateResponse.success) {
+            console.log('Account validated successfully');
+          } else {
+            console.warn('Account added but validation failed:', validateResponse.error);
+          }
+        } catch (validateError) {
+          console.warn('Account added but validation failed:', validateError.message);
+        }
+        
         onAccountAdded();
         onClose();
       } else {
@@ -299,7 +311,10 @@ const AccountList = ({ accounts, onValidate, onDelete, loading }) => {
             <tr key={account.id} className="hover:bg-gray-50">
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="text-sm font-medium text-gray-900">
-                  {account.name}
+                  {account.account_name || account.name}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {account.email || account.username}
                 </div>
                 {account.validation_error && (
                   <div className="text-xs text-red-600 mt-1">
@@ -308,7 +323,18 @@ const AccountList = ({ accounts, onValidate, onDelete, loading }) => {
                 )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <StatusBadge status={account.status} />
+                <div className="flex flex-col space-y-1">
+                  <StatusBadge status={account.validation_status || account.status} />
+                  {account.is_active === 1 ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                      Inactive
+                    </span>
+                  )}
+                </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 {account.proxy_url ? (
@@ -436,7 +462,7 @@ const LinkedInAccountManager = () => {
     try {
       const response = await api.get('/api/accounts');
       if (response.success) {
-        setAccounts(response.accounts);
+        setAccounts(response.data || []);
       }
     } catch (error) {
       console.error('Error fetching accounts:', error);

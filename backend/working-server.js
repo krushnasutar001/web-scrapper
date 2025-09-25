@@ -247,22 +247,34 @@ app.get('/api/jobs/:id/result', authenticateToken, async (req, res) => {
     // Extract headers from first result
     if (results.length > 0) {
       try {
-        const firstResult = JSON.parse(results[0].data);
+        const { safeJsonParse } = require('./utils/responseValidator');
+        const firstParseResult = safeJsonParse(results[0].data);
+        
+        if (!firstParseResult.success) {
+          console.error('Failed to parse first result:', firstParseResult.error);
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to parse result data: ' + firstParseResult.error
+          });
+        }
+        
+        const firstResult = firstParseResult.data;
         headers = Object.keys(firstResult);
         csvContent = headers.join(',') + '\n';
         
         // Add data rows
         results.forEach(result => {
-          try {
-            const data = JSON.parse(result.data);
+          const parseResult = safeJsonParse(result.data);
+          if (parseResult.success) {
+            const data = parseResult.data;
             const row = headers.map(header => {
               const value = data[header] || '';
               // Escape commas and quotes in CSV
               return `"${String(value).replace(/"/g, '""')}"`;
             });
             csvContent += row.join(',') + '\n';
-          } catch (e) {
-            console.error('Failed to parse result data:', e);
+          } else {
+            console.error('Failed to parse result data:', parseResult.error);
           }
         });
       } catch (e) {

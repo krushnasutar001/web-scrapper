@@ -270,24 +270,36 @@ const performRealScraping = async (url, account, jobType) => {
     
     await scraper.initialize();
     
-    // Load account cookies if available
-    const cookiesPath = path.join(__dirname, '../cookies', `${account.id}.json`);
+    // Load account cookies from database
     try {
-      const cookiesData = await fs.readFile(cookiesPath, 'utf8');
-      const cookies = JSON.parse(cookiesData);
-      await scraper.loadCookies(cookies);
-      console.log(`🍪 Loaded cookies for account: ${account.email}`);
+      const cookies = account.getCookies();
+      if (cookies && Array.isArray(cookies) && cookies.length > 0) {
+        await scraper.loadCookies(cookies);
+        console.log(`🍪 Loaded ${cookies.length} cookies for account: ${account.account_name || account.email || account.id}`);
+      } else {
+        console.log(`⚠️ No valid cookies found for account: ${account.account_name || account.email || account.id}`);
+        console.log(`⚠️ Account will proceed without cookies - this may result in limited access or login prompts`);
+        
+        // You can choose to either:
+        // 1. Continue without cookies (current behavior)
+        // 2. Skip this account and try another one
+        // 3. Throw an error to stop processing
+        
+        // For now, we'll continue but log a warning
+        console.log(`⚠️ Continuing scraping without cookies for account: ${account.account_name || account.email || account.id}`);
+      }
     } catch (error) {
-      console.log(`⚠️ No cookies found for account: ${account.email}`);
+      console.log(`⚠️ Error loading cookies for account: ${account.account_name || account.email || account.id}`, error.message);
+      console.log(`⚠️ Continuing scraping without cookies due to error`);
     }
     
     // Perform scraping based on job type
     let scrapedData;
     
     if (jobType === 'profile_scraping') {
-      scrapedData = await scraper.scrapeProfile(url);
+      scrapedData = await scraper.scrapeProfile(url, account);
     } else if (jobType === 'company_scraping') {
-      scrapedData = await scraper.scrapeCompany(url);
+      scrapedData = await scraper.scrapeCompany(url, account);
     } else {
       throw new Error(`Unsupported job type: ${jobType}`);
     }
@@ -300,7 +312,7 @@ const performRealScraping = async (url, account, jobType) => {
           ...scrapedData,
           linkedin_url: url,
           scraped_at: new Date().toISOString(),
-          scraped_by_account: account.email
+          scraped_by_account: account.account_name || account.email || account.id
         }
       };
     } else {
@@ -370,32 +382,125 @@ const simulateScraping = async (url, account) => {
  */
 const saveScrapedData = async (jobId, jobUrlId, sourceUrl, scrapedData) => {
   try {
-    const resultId = uuidv4();
+    // Use database validation service for safe insert
+    const DatabaseValidationService = require('./database-validation');
     
-    const sql = `
-      INSERT INTO job_results (
-        id, job_id, job_url_id, source_url, scraped_data,
-        name, title, company, location, email, linkedin_url, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-    `;
-    
-    await query(sql, [
-      resultId,
-      jobId,
-      jobUrlId,
-      sourceUrl,
-      JSON.stringify(scrapedData),
-      scrapedData.name,
-      scrapedData.title,
-      scrapedData.company,
-      scrapedData.location,
-      scrapedData.email,
-      scrapedData.linkedin_url
-    ]);
-    
-    return resultId;
+    try {
+      // Prepare job data for potential creation
+      const jobData = {
+        user_id: 'system',
+        job_name: `Auto-created job for ${jobId}`,
+        job_type: 'profile_scraping'
+      };
+      
+      // Use safe insert method that handles validation
+      const resultId = await DatabaseValidationService.safeInsertProfileResult(
+        {
+          url: scrapedData.linkedin_url || sourceUrl,
+          full_name: scrapedData.full_name || scrapedData.name,
+          first_name: scrapedData.first_name,
+          last_name: scrapedData.last_name,
+          headline: scrapedData.headline || scrapedData.title || scrapedData.current_job_title,
+          about: scrapedData.about || scrapedData.description,
+          country: scrapedData.country,
+          city: scrapedData.city || scrapedData.location,
+          industry: scrapedData.industry,
+          email: scrapedData.email,
+          phone: scrapedData.phone,
+          website: scrapedData.website,
+          current_job_title: scrapedData.current_job_title || scrapedData.title,
+          current_company_url: scrapedData.current_company_url,
+          current_company: scrapedData.current_company || scrapedData.company,
+          skills: scrapedData.skills || [],
+          education: scrapedData.education || [],
+          experience: scrapedData.experience || [],
+          content_validation: scrapedData.validation_status || 'unknown'
+        },
+        jobId,
+        jobData
+      );
+      
+      console.log(`✅ Successfully saved scraped data for job ${jobId}, result ID: ${resultId}`);
+      return resultId;
+    } catch (validationError) {
+      console.error('Database validation failed, falling back to original method:', validationError);
+      
+      // Fallback to original method if validation service fails
+      const jobCheckSql = 'SELECT id FROM scraping_jobs WHERE id = ?';
+      const jobExists = await query(jobCheckSql, [jobId]);
+      
+      if (!jobExists || jobExists.length === 0) {
+        console.error(`❌ Job ID ${jobId} does not exist in scraping_jobs table`);
+        throw new Error(`Foreign key constraint: job_id ${jobId} does not exist in scraping_jobs table`);
+      }
+      
+      const resultId = uuidv4();
+      
+      const sql = `
+        INSERT INTO profile_results (
+          id, job_id, profile_url, full_name, first_name, last_name,
+          headline, about, country, city, industry, email, phone, website,
+          current_job_title, current_company_url, company_name,
+          skills, education, experience, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), NOW())
+      `;
+      
+      // Map scraped data fields to database fields and handle undefined values
+      const fullName = scrapedData.full_name || scrapedData.name || null;
+      const firstName = scrapedData.first_name || null;
+      const lastName = scrapedData.last_name || null;
+      const headline = scrapedData.headline || scrapedData.title || scrapedData.current_job_title || null;
+      const about = scrapedData.about || scrapedData.description || null;
+      const country = scrapedData.country || null;
+      const city = scrapedData.city || scrapedData.location || null;
+      const industry = scrapedData.industry || null;
+      const email = scrapedData.email || null;
+      const phone = scrapedData.phone || null;
+      const website = scrapedData.website || null;
+      const currentJobTitle = scrapedData.current_job_title || scrapedData.title || null;
+      const companyUrl = scrapedData.current_company_url || null;
+      const companyName = scrapedData.current_company || scrapedData.company || null;
+      const skills = JSON.stringify(scrapedData.skills || []);
+      const education = JSON.stringify(scrapedData.education || []);
+      const experience = JSON.stringify(scrapedData.experience || []);
+      const profileUrl = scrapedData.linkedin_url || sourceUrl || null;
+      
+      await query(sql, [
+        resultId,
+        jobId,
+        profileUrl,
+        fullName,
+        firstName,
+        lastName,
+        headline,
+        about,
+        country,
+        city,
+        industry,
+        email,
+        phone,
+        website,
+        currentJobTitle,
+        companyUrl,
+        companyName,
+        skills,
+        education,
+        experience
+      ]);
+      
+      console.log(`✅ Successfully saved scraped data for job ${jobId}, result ID: ${resultId}`);
+      return resultId;
+    }
   } catch (error) {
     console.error('❌ Error saving scraped data:', error);
+    
+    // Handle specific MySQL errors
+    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+      console.error(`❌ Foreign key constraint failed: job_id ${jobId} does not exist in scraping_jobs table`);
+    } else if (error.code === 'ER_DUP_ENTRY') {
+      console.error(`❌ Duplicate entry error: ${error.message}`);
+    }
+    
     throw error;
   }
 };

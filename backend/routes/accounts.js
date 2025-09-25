@@ -48,6 +48,13 @@ router.get('/', authenticateToken, accountRateLimit, accountController.getAccoun
 router.get('/available', authenticateToken, accountRateLimit, accountController.getAvailableAccounts);
 
 /**
+ * @route   GET /api/linkedin-accounts/stats
+ * @desc    Get LinkedIn accounts statistics
+ * @access  Private
+ */
+router.get('/stats', authenticateToken, accountRateLimit, accountController.getStats);
+
+/**
  * @route   GET /api/linkedin-accounts/refresh
  * @desc    Refresh accounts list (for frontend refresh button)
  * @access  Private
@@ -67,6 +74,13 @@ router.get('/:accountId', authenticateToken, accountRateLimit, accountController
  * @access  Private
  */
 router.post('/', authenticateToken, accountRateLimit, upload.single('cookiesFile'), accountController.createAccount);
+
+/**
+ * @route   POST /api/linkedin-accounts/add-with-cookies
+ * @desc    Add LinkedIn account with cookies file
+ * @access  Private
+ */
+router.post('/add-with-cookies', authenticateToken, accountRateLimit, upload.single('cookieFile'), accountController.addWithCookies);
 
 /**
  * @route   PUT /api/linkedin-accounts/:accountId
@@ -95,5 +109,12 @@ router.post('/:accountId/block', authenticateToken, accountRateLimit, accountCon
  * @access  Private
  */
 router.post('/:accountId/unblock', authenticateToken, accountRateLimit, accountController.unblockAccount);
+
+/**
+ * @route   POST /api/linkedin-accounts/:accountId/validate
+ * @desc    Validate a LinkedIn account
+ * @access  Private
+ */
+router.post('/:accountId/validate', authenticateToken, accountRateLimit, accountController.validateAccount);
 
 module.exports = router;

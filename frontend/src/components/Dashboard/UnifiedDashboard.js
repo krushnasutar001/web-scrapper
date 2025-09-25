@@ -14,6 +14,7 @@ import api from '../../services/api';
 const UnifiedDashboard = () => {
   const [jobs, setJobs] = useState([]);
   const [dashboardStats, setDashboardStats] = useState(null);
+  const [linkedinAccounts, setLinkedinAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState(null);
   const [jobStats, setJobStats] = useState(null);
@@ -23,12 +24,14 @@ const UnifiedDashboard = () => {
   useEffect(() => {
     fetchJobs();
     fetchDashboardStats();
+    fetchLinkedInAccounts();
     
-    // Start polling for job updates every 5 seconds
+    // Start polling for job updates every 2 minutes to avoid rate limiting
     const interval = setInterval(() => {
       fetchJobs();
       fetchDashboardStats();
-    }, 5000);
+      fetchLinkedInAccounts();
+    }, 120000);
     
     setPollingInterval(interval);
     
@@ -49,6 +52,18 @@ const UnifiedDashboard = () => {
       }
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
+    }
+  };
+
+  const fetchLinkedInAccounts = async () => {
+    try {
+      const response = await api.get('/api/linkedin-accounts');
+      const result = response.data || response;
+      if (result && result.success) {
+        setLinkedinAccounts(result.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching LinkedIn accounts:', error);
     }
   };
 
@@ -278,8 +293,71 @@ const UnifiedDashboard = () => {
               </div>
             </div>
           </div>
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <CheckCircleIcon className="h-6 w-6 text-blue-400" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">LinkedIn Accounts</dt>
+                    <dd className="text-lg font-medium text-gray-900">{dashboardStats.totalAccounts}</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
+
+      {/* LinkedIn Accounts Section */}
+      <div className="bg-white shadow rounded-lg mb-6">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-medium text-gray-900">LinkedIn Accounts</h2>
+          <p className="text-sm text-gray-500">Manage your LinkedIn accounts for scraping jobs</p>
+        </div>
+        
+        <div className="divide-y divide-gray-200">
+          {linkedinAccounts.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">
+              No LinkedIn accounts found. Add accounts to start scraping.
+            </div>
+          ) : (
+            linkedinAccounts.map((account) => (
+              <div key={account.id} className="p-6 hover:bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full ${
+                      account.validation_status === 'ACTIVE' ? 'bg-green-400' :
+                      account.validation_status === 'FAILED' ? 'bg-red-400' :
+                      'bg-yellow-400'
+                    }`}></div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-900">{account.account_name}</h3>
+                      <p className="text-sm text-gray-500">{account.email}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-4">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      account.validation_status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                      account.validation_status === 'FAILED' ? 'bg-red-100 text-red-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {account.validation_status}
+                    </span>
+                    
+                    <div className="text-xs text-gray-600">
+                      Requests: {account.requests_today || 0}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Job List */}

@@ -2705,11 +2705,16 @@ app.get('/api/jobs/:jobId/results', async (req, res) => {
       [jobId, parseInt(limit), parseInt(offset)]
     );
     
-    // Parse JSON data
-    const processedResults = results.map(result => ({
-      ...result,
-      data: JSON.parse(result.data || '{}')
-    }));
+    // Parse JSON data safely
+    const { safeJsonParse } = require('./utils/responseValidator');
+    const processedResults = results.map(result => {
+      const parseResult = safeJsonParse(result.data || '{}');
+      return {
+        ...result,
+        data: parseResult.success ? parseResult.data : {},
+        parseError: parseResult.success ? null : parseResult.error
+      };
+    });
     
     res.json({
       success: true,

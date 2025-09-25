@@ -4,6 +4,9 @@ const path = require('path');
 const csv = require('csv-parser');
 const XLSX = require('xlsx');
 const mysql = require('mysql2/promise');
+const { handleLinkedInResponse, logLinkedInError } = require('../utils/linkedinResponseHandler');
+const { retryLinkedInRequest } = require('../utils/responseValidator');
+const { linkedInRateLimiter, withRateLimit } = require('../utils/rateLimiter');
 
 class ScrapingService {
   constructor(dbConnection) {
@@ -200,6 +203,8 @@ class ScrapingService {
   }
 
   async setLinkedInCookie(page, cookieValue, accountId = null) {
+    const { handleLinkedInResponse, logLinkedInError } = require('../utils/linkedinResponseHandler');
+    
     await page.setCookie({
       name: 'li_at',
       value: cookieValue,
@@ -217,8 +222,36 @@ class ScrapingService {
       });
       
       const currentUrl = page.url();
+      const pageContent = await page.content();
       
-      // Check if redirected to login (authentication failed)
+      // Use LinkedIn response handler to detect errors
+      const responseResult = handleLinkedInResponse(pageContent, 'text/html', currentUrl);
+      
+      if (!responseResult.success && responseResult.linkedInError) {
+        logLinkedInError(responseResult, 'authentication');
+        
+        // Mark account as INVALID if accountId is provided
+        if (accountId) {
+          try {
+            await this.db.execute(`
+              UPDATE linkedin_accounts 
+              SET validation_status = 'INVALID', last_validated_at = NOW(),
+                  consecutive_failures = consecutive_failures + 1,
+                  last_error_message = ?,
+                  last_error_at = NOW()
+              WHERE id = ?
+            `, [responseResult.linkedInError.message, accountId]);
+            
+            console.log(`📝 Account ${accountId} marked as INVALID: ${responseResult.linkedInError.errorType}`);
+          } catch (dbError) {
+            console.error(`❌ Failed to update account ${accountId} status:`, dbError.message);
+          }
+        }
+        
+        throw new Error(`LinkedIn authentication failed: ${responseResult.linkedInError.message}`);
+      }
+      
+      // Check if redirected to login (fallback check)
       if (currentUrl.includes('/login') || currentUrl.includes('/uas/login') || 
           currentUrl.includes('/checkpoint/') || response.status() === 401) {
         
@@ -259,74 +292,120 @@ class ScrapingService {
   }
 
   async scrapeLinkedInProfile(page, profileUrl) {
+    // Apply rate limiting to profile scraping
+    await linkedInRateLimiter.waitForToken();
+    
+    const scrapeWithRetry = async () => {
+      try {
+        await page.goto(profileUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+        
+        // Wait for profile content to load
+        await page.waitForSelector('h1', { timeout: 10000 });
+        
+        const profileData = await page.evaluate(() => {
+          const getText = (selector) => {
+            const element = document.querySelector(selector);
+            return element ? element.textContent.trim() : '';
+          };
+          
+          const getTexts = (selector) => {
+            const elements = document.querySelectorAll(selector);
+            return Array.from(elements).map(el => el.textContent.trim());
+          };
+          
+          return {
+            name: getText('h1'),
+            headline: getText('.text-body-medium.break-words'),
+            location: getText('.text-body-small.inline.t-black--light.break-words'),
+            about: getText('.pv-about-section .pv-about__summary-text .lt-line-clamp__raw-line'),
+            experience: getTexts('.pv-entity__summary-info h3').slice(0, 3).join('; '),
+            education: getTexts('.pv-education-entity h3').slice(0, 2).join('; '),
+            skills: getTexts('.pv-skill-category-entity__name span').slice(0, 10).join('; '),
+            connections: getText('.t-black--light.t-normal'),
+            profileUrl: window.location.href
+          };
+        });
+        
+        return profileData;
+        
+      } catch (error) {
+        // Check if this is a LinkedIn-specific error (login page, captcha, etc.)
+        const pageContent = await page.content().catch(() => '');
+        const linkedInError = handleLinkedInResponse(null, pageContent);
+        
+        if (linkedInError.isLinkedInError) {
+          logLinkedInError('Profile Scraping', linkedInError, profileUrl);
+          throw new Error(`LinkedIn error: ${linkedInError.errorType} - ${linkedInError.message}`);
+        }
+        
+        throw error;
+      }
+    };
+
     try {
-      await page.goto(profileUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-      
-      // Wait for profile content to load
-      await page.waitForSelector('h1', { timeout: 10000 });
-      
-      const profileData = await page.evaluate(() => {
-        const getText = (selector) => {
-          const element = document.querySelector(selector);
-          return element ? element.textContent.trim() : '';
-        };
-        
-        const getTexts = (selector) => {
-          const elements = document.querySelectorAll(selector);
-          return Array.from(elements).map(el => el.textContent.trim());
-        };
-        
-        return {
-          name: getText('h1'),
-          headline: getText('.text-body-medium.break-words'),
-          location: getText('.text-body-small.inline.t-black--light.break-words'),
-          about: getText('.pv-about-section .pv-about__summary-text .lt-line-clamp__raw-line'),
-          experience: getTexts('.pv-entity__summary-info h3').slice(0, 3).join('; '),
-          education: getTexts('.pv-education-entity h3').slice(0, 2).join('; '),
-          skills: getTexts('.pv-skill-category-entity__name span').slice(0, 10).join('; '),
-          connections: getText('.t-black--light.t-normal'),
-          profileUrl: window.location.href
-        };
+      return await retryLinkedInRequest(scrapeWithRetry, {
+        maxRetries: 3,
+        baseDelay: linkedInRateLimiter.getLinkedInDelay()
       });
-      
-      return profileData;
-      
     } catch (error) {
-      console.error('Failed to scrape profile:', error.message);
+      console.error('Failed to scrape profile after retries:', error.message);
       return null;
     }
   }
 
   async scrapeLinkedInCompany(page, companyUrl) {
-    try {
-      await page.goto(companyUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-      
-      // Wait for company content to load
-      await page.waitForSelector('h1', { timeout: 10000 });
-      
-      const companyData = await page.evaluate(() => {
-        const getText = (selector) => {
-          const element = document.querySelector(selector);
-          return element ? element.textContent.trim() : '';
-        };
+    // Apply rate limiting to company scraping
+    await linkedInRateLimiter.waitForToken();
+    
+    const scrapeWithRetry = async () => {
+      try {
+        await page.goto(companyUrl, { waitUntil: 'networkidle2', timeout: 30000 });
         
-        return {
-          name: getText('h1'),
-          industry: getText('.org-top-card-summary__industry'),
-          size: getText('.org-top-card-summary__employees'),
-          location: getText('.org-top-card-summary__headquarter'),
-          website: getText('.org-about-company-module__company-details a'),
-          description: getText('.org-about-company-module__description'),
-          founded: getText('.org-about-company-module__company-details dd'),
-          specialties: getText('.org-about-company-module__specialties'),
-          companyUrl: window.location.href
-        };
+        // Wait for company content to load
+        await page.waitForSelector('h1', { timeout: 10000 });
+        
+        const companyData = await page.evaluate(() => {
+          const getText = (selector) => {
+            const element = document.querySelector(selector);
+            return element ? element.textContent.trim() : '';
+          };
+          
+          return {
+            name: getText('h1'),
+            industry: getText('.org-top-card-summary__industry'),
+            size: getText('.org-top-card-summary__employees'),
+            location: getText('.org-top-card-summary__headquarter'),
+            website: getText('.org-about-company-module__company-details a'),
+            description: getText('.org-about-company-module__description'),
+            founded: getText('.org-about-company-module__company-details dd'),
+            specialties: getText('.org-about-company-module__specialties'),
+            companyUrl: window.location.href
+          };
+        });
+        
+        return companyData;
+        
+      } catch (error) {
+        // Check if this is a LinkedIn-specific error
+        const pageContent = await page.content().catch(() => '');
+        const linkedInError = handleLinkedInResponse(null, pageContent);
+        
+        if (linkedInError.isLinkedInError) {
+          logLinkedInError('Company Scraping', linkedInError, companyUrl);
+          throw new Error(`LinkedIn error: ${linkedInError.errorType} - ${linkedInError.message}`);
+        }
+        
+        throw error;
+      }
+    };
+
+    try {
+      return await retryLinkedInRequest(scrapeWithRetry, {
+        maxRetries: 3,
+        baseDelay: linkedInRateLimiter.getLinkedInDelay()
       });
-      
-      return companyData;
-      
     } catch (error) {
-      console.error('Failed to scrape company:', error.message);
+      console.error('Failed to scrape company after retries:', error.message);
       return null;
     }
   }
@@ -474,24 +553,101 @@ class ScrapingService {
   }
 
   async saveResults(jobId, results) {
+    const DatabaseValidationService = require('./database-validation');
+    
     try {
       for (const result of results) {
-        const resultId = require('uuid').v4();
         const uniqueKey = result.profileUrl || result.companyUrl || `${result.name}-${Date.now()}`;
         
-        await this.db.execute(`
-          INSERT INTO results (
-            id, job_id, data, unique_key, source, quality, 
-            scraped_at, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())
-        `, [
-          resultId,
-          jobId,
-          JSON.stringify(result),
-          uniqueKey,
-          'linkedin',
-          'medium'
-        ]);
+        // Prepare job data for potential creation
+        const jobData = {
+          user_id: this.userId || 'system',
+          job_name: `Auto-created job for ${jobId}`,
+          job_type: result.companyUrl ? 'company_scraping' : 'profile_scraping'
+        };
+        
+        try {
+          if (result.companyUrl || result.companyName) {
+            // Save company result
+            await DatabaseValidationService.safeInsertCompanyResult(
+              {
+                url: result.companyUrl,
+                name: result.companyName || result.name,
+                industry: result.industry,
+                location: result.location || result.city,
+                follower_count: result.followers,
+                company_size: result.companySize,
+                website: result.website,
+                description: result.about || result.description,
+                content_validation: result.validation_status || 'unknown'
+              },
+              jobId,
+              jobData
+            );
+          } else {
+            // Save profile result
+            await DatabaseValidationService.safeInsertProfileResult(
+              {
+                url: result.profileUrl,
+                full_name: result.name || result.fullName,
+                first_name: result.firstName,
+                last_name: result.lastName,
+                headline: result.title || result.headline,
+                about: result.about || result.description,
+                country: result.country,
+                city: result.city || result.location,
+                industry: result.industry,
+                email: result.email,
+                phone: result.phone,
+                website: result.website,
+                current_job_title: result.currentJobTitle || result.title,
+                current_company_url: result.companyUrl,
+                current_company: result.companyName,
+                skills: result.skills || [],
+                education: result.education || [],
+                experience: result.experience || [],
+                content_validation: result.validation_status || 'unknown'
+              },
+              jobId,
+              jobData
+            );
+          }
+        } catch (validationError) {
+          console.error('Database validation failed, falling back to original method:', validationError);
+          
+          // Fallback to original method
+          const resultId = require('uuid').v4();
+          
+          await this.db.execute(`
+            INSERT INTO profile_results (
+              id, job_id, profile_url, full_name, first_name, last_name,
+              headline, about, country, city, industry, email, phone, website,
+              current_job_title, current_company_url, company_name,
+              skills, education, experience, status, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), NOW())
+          `, [
+            resultId,
+            jobId,
+            result.profileUrl || result.companyUrl,
+            result.name || result.fullName,
+            result.firstName,
+            result.lastName,
+            result.title || result.headline,
+            result.about || result.description,
+            result.country,
+            result.city || result.location,
+            result.industry,
+            result.email,
+            result.phone,
+            result.website,
+            result.currentJobTitle || result.title,
+            result.companyUrl,
+            result.companyName,
+            JSON.stringify(result.skills || []),
+            JSON.stringify(result.education || []),
+            JSON.stringify(result.experience || [])
+          ]);
+        }
       }
     } catch (error) {
       console.error('Failed to save results:', error.message);

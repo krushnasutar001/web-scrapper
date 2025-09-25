@@ -167,37 +167,42 @@ const createJob = async (req, res) => {
     console.log('📋 Content-Type:', req.headers['content-type']);
     console.log('📋 Request method:', req.method);
     
-    // Extract and map fields
+    // Extract and map fields with more flexible handling
     const {
-      type, jobType,
-      query, jobName,
-      maxResults, maxPages,
+      type, jobType, job_type,
+      query, jobName, job_name, name,
+      maxResults, maxPages, max_results,
       configuration,
-      urls, searchQuery,
-      accountSelectionMode,
-      selectedAccountIds
+      urls, searchQuery, search_query,
+      accountSelectionMode, account_selection_mode,
+      selectedAccountIds, selected_account_ids
     } = req.body;
     
-    // Map frontend fields to backend fields
-    const mappedType = type || jobType;
-    const mappedQuery = query || jobName || searchQuery;
-    const mappedMaxResults = maxResults || maxPages || 100;
+    // Map frontend fields to backend fields with multiple fallbacks
+    const mappedType = type || jobType || job_type || 'profile_scraping';
+    const mappedQuery = query || jobName || job_name || name || searchQuery || search_query || 'Default Job';
+    const mappedMaxResults = parseInt(maxResults || maxPages || max_results || 100);
+    const mappedAccountMode = accountSelectionMode || account_selection_mode || 'auto';
+    const mappedAccountIds = selectedAccountIds || selected_account_ids || [];
     
     console.log('📋 Mapped fields:', {
       type: mappedType,
       query: mappedQuery,
       maxResults: mappedMaxResults,
-      accountSelectionMode,
-      selectedAccountIds
+      accountSelectionMode: mappedAccountMode,
+      selectedAccountIds: mappedAccountIds
     });
     
-    // Validate required fields
-    if (!mappedType || !mappedQuery) {
+    // More lenient validation - only require type
+    if (!mappedType) {
       return res.status(400).json({
         success: false,
-        error: 'Job type and job name are required',
-        code: 'MISSING_FIELDS',
-        received: { type: mappedType, query: mappedQuery }
+        error: 'Job type is required',
+        code: 'MISSING_JOB_TYPE',
+        received: { 
+          type: mappedType,
+          availableFields: Object.keys(req.body)
+        }
       });
     }
     
@@ -208,7 +213,8 @@ const createJob = async (req, res) => {
         success: false,
         error: 'Invalid job type',
         code: 'INVALID_JOB_TYPE',
-        validTypes: validJobTypes
+        validTypes: validJobTypes,
+        received: mappedType
       });
     }
     
@@ -281,12 +287,12 @@ const createJob = async (req, res) => {
     
     // Validate selected accounts if specified
     let accountIds = [];
-    if (selectedAccountIds && selectedAccountIds.length > 0) {
+    if (mappedAccountIds && mappedAccountIds.length > 0) {
       // Ensure all selected accounts belong to the user and are available
       const availableAccounts = await LinkedInAccount.findAvailableByUserId(user.id);
       const availableAccountIds = availableAccounts.map(acc => acc.id);
       
-      accountIds = selectedAccountIds.filter(id => availableAccountIds.includes(id));
+      accountIds = mappedAccountIds.filter(id => availableAccountIds.includes(id));
       
       if (accountIds.length === 0) {
         return res.status(400).json({
@@ -300,12 +306,12 @@ const createJob = async (req, res) => {
     // Create enhanced configuration
     const jobConfig = {
       ...configuration,
-      accountSelectionMode: accountSelectionMode || 'rotation',
+      accountSelectionMode: mappedAccountMode,
       selectedAccountIds: accountIds,
       urls: validUrls,
       invalidUrls: invalidUrls,
-      originalJobName: jobName,
-      originalJobType: jobType,
+      originalJobName: mappedQuery,
+      originalJobType: mappedType,
       file: file ? file.originalname : null
     };
     

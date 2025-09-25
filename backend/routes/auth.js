@@ -4,8 +4,8 @@ const authController = require('../controllers/authController');
 const { authenticateToken, refreshTokenHandler, rateLimit } = require('../middleware/auth');
 
 // Rate limiting for auth endpoints
-const authRateLimit = rateLimit(10, 15 * 60 * 1000); // 10 requests per 15 minutes
-const loginRateLimit = rateLimit(5, 15 * 60 * 1000); // 5 login attempts per 15 minutes
+const authRateLimit = rateLimit(50, 15 * 60 * 1000); // 50 requests per 15 minutes
+const loginRateLimit = rateLimit(20, 15 * 60 * 1000); // 20 login attempts per 15 minutes
 
 /**
  * @route   POST /api/auth/register

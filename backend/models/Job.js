@@ -65,7 +65,7 @@ class Job {
         // Insert account assignments if specified
         if (configuration.selectedAccountIds && configuration.selectedAccountIds.length > 0) {
           const assignmentSql = `
-            INSERT INTO job_account_assignments (id, job_id, linkedin_account_id, created_at)
+            INSERT INTO job_account_assignments (id, job_id, linkedin_account_id, assigned_at)
             VALUES (?, ?, ?, NOW())
           `;
           
@@ -312,33 +312,231 @@ class Job {
   }
 
   /**
-   * Get job results
+   * Get job results based on job type
    */
   async getResults(limit = null, offset = 0) {
     try {
-      let sql = `
-        SELECT jr.*, ju.url as source_url 
-        FROM job_results jr
-        JOIN job_urls ju ON jr.job_url_id = ju.id
-        WHERE jr.job_id = ?
-        ORDER BY jr.created_at DESC
-      `;
-      const params = [this.id];
+      let sql, params;
       
-      if (limit) {
-        sql += ' LIMIT ? OFFSET ?';
-        params.push(limit, offset);
+      // Handle different job types with their specific tables
+      if (this.job_type === 'profile_scraping') {
+        sql = `
+          SELECT pr.*
+          FROM profile_results pr
+          WHERE pr.job_id = ?
+          ORDER BY pr.created_at DESC
+        `;
+        params = [this.id];
+        
+        if (limit) {
+          sql += ' LIMIT ? OFFSET ?';
+          params.push(limit, offset);
+        }
+        
+        const results = await query(sql, params);
+        console.log(`📊 Found ${results.length} profile results for job ${this.id}`);
+        return results;
+        
+      } else if (this.job_type === 'company_scraping') {
+        sql = `
+          SELECT cr.*
+          FROM company_results cr
+          WHERE cr.job_id = ?
+          ORDER BY cr.created_at DESC
+        `;
+        params = [this.id];
+        
+        if (limit) {
+          sql += ' LIMIT ? OFFSET ?';
+          params.push(limit, offset);
+        }
+        
+        const results = await query(sql, params);
+        return results;
+        
+      } else if (this.job_type === 'search_result_scraping') {
+        sql = `
+          SELECT sr.*
+          FROM search_results sr
+          WHERE sr.job_id = ?
+          ORDER BY sr.created_at DESC
+        `;
+        params = [this.id];
+        
+        if (limit) {
+          sql += ' LIMIT ? OFFSET ?';
+          params.push(limit, offset);
+        }
+        
+        const results = await query(sql, params);
+        
+        // Format search results for export
+        return results.map(result => {
+          let additionalData = {};
+          
+          try {
+            additionalData = typeof result.additional_data === 'string' 
+              ? JSON.parse(result.additional_data) 
+              : result.additional_data || {};
+          } catch (e) {
+            console.warn('Failed to parse additional_data JSON:', e);
+            additionalData = {};
+          }
+          
+          return {
+            ...result,
+            ...additionalData,
+            // Map fields for export compatibility
+            full_name: result.title || '',
+            company_name: result.subtitle || '',
+            headline: result.description || '',
+            profile_url: result.result_url || '',
+            linkedin_url: result.result_url || '',
+            location: result.location || '',
+            search_query: result.search_query || ''
+          };
+        });
+      } else {
+        // Fallback to original logic for legacy job types
+        sql = `
+          SELECT jr.*, ju.url as source_url
+          FROM job_results jr
+          LEFT JOIN job_urls ju ON jr.job_url_id = ju.id
+          WHERE jr.job_id = ?
+          ORDER BY jr.created_at DESC
+        `;
+        
+        params = [this.id];
+        
+        if (limit) {
+          sql += ' LIMIT ? OFFSET ?';
+          params.push(limit, offset);
+        }
+        
+        const results = await query(sql, params);
+        
+        // Parse JSON fields and format data based on job type
+        return results.map(result => {
+          let parsedData = {};
+          
+          try {
+            parsedData = typeof result.scraped_data === 'string' 
+              ? JSON.parse(result.scraped_data) 
+              : result.scraped_data || {};
+          } catch (e) {
+            console.warn('Failed to parse scraped_data JSON:', e);
+            parsedData = {};
+          }
+          
+          // Merge database fields with parsed JSON data
+          return {
+            ...result,
+            ...parsedData,
+            // Ensure these fields are available for export
+            full_name: result.name || parsedData.full_name || '',
+            first_name: parsedData.first_name || '',
+            last_name: parsedData.last_name || '',
+            headline: parsedData.headline || result.title || '',
+            about: parsedData.about || '',
+            country: parsedData.country || '',
+            city: parsedData.city || '',
+            industry: parsedData.industry || '',
+            email: result.email || parsedData.email || '',
+            phone: parsedData.phone || '',
+            website: parsedData.website || '',
+            current_job_title: parsedData.current_job_title || result.title || '',
+            current_company_url: parsedData.current_company_url || '',
+            company_name: result.company || parsedData.company_name || parsedData.current_company || '',
+            skills: parsedData.skills || [],
+            education: parsedData.education || [],
+            experience: parsedData.experience || [],
+            profile_url: result.linkedin_url || parsedData.profile_url || result.source_url || '',
+            linkedin_url: result.linkedin_url || parsedData.linkedin_url || result.source_url || ''
+          };
+        });
       }
-      
-      const results = await query(sql, params);
-      return results.map(result => ({
-        ...result,
-        scraped_data: typeof result.scraped_data === 'string' 
-          ? JSON.parse(result.scraped_data) 
-          : result.scraped_data
-      }));
     } catch (error) {
       console.error('❌ Error getting job results:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Add result to appropriate table based on job type
+   */
+  async addResult(resultData) {
+    try {
+      const resultId = uuidv4();
+      let sql, params;
+      
+      switch (this.job_type) {
+        case 'profile_scraping':
+          // Check if we need to reference scraping_jobs instead of jobs table
+          sql = `
+            INSERT INTO profile_results (
+              id, job_id, profile_url, full_name, first_name, last_name, headline, 
+              about, country, city, industry, email, phone, website, 
+              current_job_title, current_company_url, company_name, 
+              skills, education, experience, status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          `;
+          params = [
+            resultId, this.id, resultData.profile_url || null, resultData.full_name || null,
+            resultData.first_name || null, resultData.last_name || null, resultData.headline || null,
+            resultData.about || null, resultData.country || null, resultData.city || null,
+            resultData.industry || null, resultData.email || null, resultData.phone || null,
+            resultData.website || null, resultData.current_job_title || null,
+            resultData.current_company_url || null, resultData.company_name || null,
+            JSON.stringify(resultData.skills || []),
+            JSON.stringify(resultData.education || []),
+            JSON.stringify(resultData.experience || []),
+            resultData.status || 'completed'
+          ];
+          break;
+          
+        case 'company_scraping':
+          sql = `
+            INSERT INTO company_results (
+              id, job_id, company_name, company_url, company_industry, 
+              company_size, company_location, company_description, 
+              company_website, company_specialties, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          `;
+          params = [
+            resultId, this.id, resultData.company_name, resultData.company_url,
+            resultData.company_industry, resultData.company_size,
+            resultData.company_location, resultData.company_description,
+            resultData.company_website, resultData.company_specialties
+          ];
+          break;
+          
+        case 'search_result_scraping':
+          sql = `
+            INSERT INTO search_results (
+              id, job_id, search_url, result_type, result_url, 
+              title, subtitle, description, location, search_query, 
+              additional_data, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          `;
+          params = [
+            resultId, this.id, resultData.search_url || 'https://linkedin.com/search',
+            resultData.result_type || 'profile', resultData.url || resultData.result_url,
+            resultData.title, resultData.subtitle || resultData.company,
+            resultData.description, resultData.location,
+            resultData.search_query || 'General Search',
+            JSON.stringify(resultData.additional_info || {})
+          ];
+          break;
+          
+        default:
+          throw new Error(`Unknown job type: ${this.job_type}`);
+      }
+      
+      await query(sql, params);
+      console.log(`✅ Added ${this.job_type} result for job ${this.id}`);
+      return resultId;
+    } catch (error) {
+      console.error('❌ Error adding job result:', error);
       throw error;
     }
   }
@@ -356,7 +554,8 @@ class Job {
       `;
       
       const results = await query(sql, [this.id]);
-      return results;
+      const LinkedInAccount = require('./LinkedInAccount');
+      return results.map(account => new LinkedInAccount(account));
     } catch (error) {
       console.error('❌ Error getting assigned accounts:', error);
       throw error;
@@ -446,6 +645,61 @@ class Job {
    */
   canBePaused() {
     return this.status === 'running';
+  }
+
+  /**
+   * Get job statistics
+   */
+  async getStats() {
+    try {
+      // Get basic job stats
+      const basicStats = {
+        id: this.id,
+        job_name: this.job_name,
+        job_type: this.job_type,
+        status: this.status,
+        total_urls: this.total_urls || 0,
+        processed_urls: this.processed_urls || 0,
+        successful_urls: this.successful_urls || 0,
+        failed_urls: this.failed_urls || 0,
+        result_count: this.result_count || 0,
+        progress: this.getProgress(),
+        created_at: this.created_at,
+        started_at: this.started_at,
+        completed_at: this.completed_at
+      };
+
+      // Get detailed results stats if job has results
+      if (this.result_count > 0) {
+        const resultsSql = `
+          SELECT 
+            COUNT(*) as total_results,
+            COUNT(CASE WHEN name IS NOT NULL AND name != '' THEN 1 END) as results_with_name,
+            COUNT(CASE WHEN email IS NOT NULL AND email != '' THEN 1 END) as results_with_email,
+            COUNT(CASE WHEN company IS NOT NULL AND company != '' THEN 1 END) as results_with_company,
+            COUNT(CASE WHEN title IS NOT NULL AND title != '' THEN 1 END) as results_with_title
+          FROM job_results 
+          WHERE job_id = ?
+        `;
+        
+        const resultsStats = await query(resultsSql, [this.id]);
+        
+        if (resultsStats.length > 0) {
+          basicStats.results_breakdown = {
+            total_results: resultsStats[0].total_results || 0,
+            results_with_name: resultsStats[0].results_with_name || 0,
+            results_with_email: resultsStats[0].results_with_email || 0,
+            results_with_company: resultsStats[0].results_with_company || 0,
+            results_with_title: resultsStats[0].results_with_title || 0
+          };
+        }
+      }
+
+      return basicStats;
+    } catch (error) {
+      console.error('❌ Error getting job stats:', error);
+      throw error;
+    }
   }
 
   /**

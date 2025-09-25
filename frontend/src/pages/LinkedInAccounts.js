@@ -1,5 +1,5 @@
 import React from 'react';
-import LinkedInAccountManager from '../components/LinkedInAccountManager';
+import LinkedInAccountManager from '../components/LinkedInAccountManager.jsx';
 
 const LinkedInAccounts = () => {
   return (

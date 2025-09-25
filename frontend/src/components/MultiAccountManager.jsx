@@ -7,18 +7,10 @@ const MultiAccountManager = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
     accountName: '',
-    email: '',
-    username: '',
-    cookies: '',
-    proxyUrl: '',
-    cookieFormat: 'string' // 'string', 'json', 'individual'
-  });
-  const [individualCookies, setIndividualCookies] = useState({
-    li_at: '',
-    JSESSIONID: '',
-    bcookie: '',
-    bscookie: '',
-    li_gc: ''
+    mode: 'single', // 'single' or 'multiple'
+    cookieFile: null,
+    folderPath: '',
+    proxyUrl: ''
   });
 
   useEffect(() => {
@@ -48,77 +40,41 @@ const MultiAccountManager = () => {
 
     try {
       const token = localStorage.getItem('token');
+      const submitFormData = new FormData();
       
-      // Process cookies based on format
-      let finalCookies = formData.cookies;
+      submitFormData.append('account_name', formData.accountName);
+      submitFormData.append('mode', formData.mode);
       
-      if (formData.cookieFormat === 'individual') {
-        // Combine individual cookies
-        const cookieParts = [];
-        Object.entries(individualCookies).forEach(([name, value]) => {
-          if (value.trim()) {
-            cookieParts.push(`${name}=${value.trim()}`);
-          }
-        });
-        finalCookies = cookieParts.join('; ');
-      } else if (formData.cookieFormat === 'json') {
-        try {
-          const cookieObj = JSON.parse(formData.cookies);
-          if (Array.isArray(cookieObj)) {
-            // Array format from extension
-            finalCookies = cookieObj
-              .filter(c => ['li_at', 'JSESSIONID', 'bcookie', 'bscookie', 'li_gc'].includes(c.name))
-              .map(c => `${c.name}=${c.value}`)
-              .join('; ');
-          } else {
-            // Object format
-            finalCookies = Object.entries(cookieObj)
-              .filter(([name]) => ['li_at', 'JSESSIONID', 'bcookie', 'bscookie', 'li_gc'].includes(name))
-              .map(([name, value]) => `${name}=${value}`)
-              .join('; ');
-          }
-        } catch (jsonError) {
-          toast.error('Invalid JSON format for cookies');
-          setLoading(false);
-          return;
-        }
+      if (formData.mode === 'single' && formData.cookieFile) {
+        submitFormData.append('cookieFile', formData.cookieFile);
+      } else if (formData.mode === 'multiple' && formData.folderPath) {
+        submitFormData.append('folderPath', formData.folderPath);
+      }
+      
+      if (formData.proxyUrl) {
+        submitFormData.append('proxyUrl', formData.proxyUrl);
       }
 
-      const response = await fetch('/api/linkedin-accounts', {
+      const response = await fetch('/api/linkedin-accounts/add-with-cookies', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          accountName: formData.accountName,
-          email: formData.email,
-          username: formData.username,
-          cookies: finalCookies,
-          proxyUrl: formData.proxyUrl
-        })
+        body: submitFormData
       });
 
       const data = await response.json();
       
       if (data.success) {
-        toast.success('Account added successfully!');
+        const { successful, failed } = data.results;
+        if (successful.length > 0) {
+          toast.success(`Successfully added ${successful.length} account(s)!`);
+        }
+        if (failed.length > 0) {
+          toast.error(`Failed to add ${failed.length} account(s). Check cookie validity.`);
+        }
         setShowAddForm(false);
-        setFormData({
-          accountName: '',
-          email: '',
-          username: '',
-          cookies: '',
-          proxyUrl: '',
-          cookieFormat: 'string'
-        });
-        setIndividualCookies({
-          li_at: '',
-          JSESSIONID: '',
-          bcookie: '',
-          bscookie: '',
-          li_gc: ''
-        });
+        resetForm();
         fetchAccounts();
       } else {
         toast.error(data.message || 'Failed to add account');
@@ -129,6 +85,16 @@ const MultiAccountManager = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      accountName: '',
+      mode: 'single',
+      cookieFile: null,
+      folderPath: '',
+      proxyUrl: ''
+    });
   };
 
   const handleBulkUpload = async (event) => {
@@ -224,15 +190,19 @@ const MultiAccountManager = () => {
               <div className="flex-1">
                 <h3 className="font-semibold text-lg">{account.account_name}</h3>
                 <div className="text-sm text-gray-600 mt-1">
-                  <p>Email: {account.email || 'Not provided'}</p>
-                  <p>Username: {account.username || 'Not provided'}</p>
+                  <p>Validation Status: <span className={`px-2 py-1 rounded text-xs ${
+                    account.validation_status === 'valid' ? 'bg-green-100 text-green-800' :
+                    account.validation_status === 'invalid' ? 'bg-red-100 text-red-800' :
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>{account.validation_status || 'pending'}</span></p>
                   <p>Status: <span className={`px-2 py-1 rounded text-xs ${
                     account.status === 'active' ? 'bg-green-100 text-green-800' :
                     account.status === 'blocked' ? 'bg-red-100 text-red-800' :
                     'bg-yellow-100 text-yellow-800'
                   }`}>{account.status}</span></p>
                   <p>Daily Usage: {account.daily_request_count || 0}/{account.daily_request_limit || 150}</p>
-                  <p>Last Used: {account.last_used ? new Date(account.last_used).toLocaleString() : 'Never'}</p>
+                  <p>Added: {account.created_at ? new Date(account.created_at).toLocaleString() : 'Unknown'}</p>
+                  <p>Last Validated: {account.last_validated ? new Date(account.last_validated).toLocaleString() : 'Never'}</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -251,7 +221,7 @@ const MultiAccountManager = () => {
       {accounts.length === 0 && (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
           <p className="text-gray-500 text-lg mb-4">No LinkedIn accounts added yet</p>
-          <p className="text-gray-400">Add accounts to enable multi-account scraping with automatic rotation</p>
+          <p className="text-gray-400">Add accounts using cookie files to enable multi-account scraping</p>
         </div>
       )}
 
@@ -276,36 +246,58 @@ const MultiAccountManager = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Upload Mode *
+                </label>
+                <select
+                  value={formData.mode}
+                  onChange={(e) => setFormData({...formData, mode: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="single">Single Cookie File</option>
+                  <option value="multiple">Multiple Cookie Files (Folder)</option>
+                </select>
+              </div>
+
+              {formData.mode === 'single' ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
+                    Cookie File *
                   </label>
                   <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    type="file"
+                    accept=".json"
+                    onChange={(e) => setFormData({...formData, cookieFile: e.target.files[0]})}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="john@example.com"
+                    required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Upload a JSON file containing LinkedIn cookies
+                  </p>
                 </div>
+              ) : (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Username
+                    Folder Path *
                   </label>
                   <input
                     type="text"
-                    value={formData.username}
-                    onChange={(e) => setFormData({...formData, username: e.target.value})}
+                    value={formData.folderPath}
+                    onChange={(e) => setFormData({...formData, folderPath: e.target.value})}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="johndoe"
+                    placeholder="C:\path\to\cookie\files"
+                    required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Provide the full path to folder containing multiple JSON cookie files
+                  </p>
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Proxy URL
+                  Proxy URL (Optional)
                 </label>
                 <input
                   type="text"
@@ -316,67 +308,13 @@ const MultiAccountManager = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Cookie Format
-                </label>
-                <select
-                  value={formData.cookieFormat}
-                  onChange={(e) => setFormData({...formData, cookieFormat: e.target.value})}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="string">Cookie String (name=value; name2=value2)</option>
-                  <option value="json">JSON Format (Array or Object)</option>
-                  <option value="individual">Individual Cookie Fields</option>
-                </select>
-              </div>
-
-              {formData.cookieFormat === 'individual' ? (
-                <div className="space-y-3">
-                  <label className="block text-sm font-medium text-gray-700">
-                    LinkedIn Cookies *
-                  </label>
-                  {Object.entries(individualCookies).map(([name, value]) => (
-                    <div key={name}>
-                      <label className="block text-xs text-gray-500 mb-1">{name}</label>
-                      <input
-                        type="text"
-                        value={value}
-                        onChange={(e) => setIndividualCookies({...individualCookies, [name]: e.target.value})}
-                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder={`Enter ${name} cookie value`}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    LinkedIn Cookies *
-                  </label>
-                  <textarea
-                    value={formData.cookies}
-                    onChange={(e) => setFormData({...formData, cookies: e.target.value})}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32"
-                    placeholder={
-                      formData.cookieFormat === 'json' 
-                        ? '[{"name":"li_at","value":"AQE..."}, {"name":"JSESSIONID","value":"ajax:..."}]'
-                        : 'li_at=AQE...; JSESSIONID=ajax:...; bcookie=...'
-                    }
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formData.cookieFormat === 'json' 
-                      ? 'Paste JSON array or object with cookie data'
-                      : 'Paste cookies as "name=value; name2=value2" format'}
-                  </p>
-                </div>
-              )}
-
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowAddForm(false)}
+                  onClick={() => {
+                    setShowAddForm(false);
+                    resetForm();
+                  }}
                   className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   Cancel

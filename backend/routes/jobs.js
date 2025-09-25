@@ -247,8 +247,57 @@ router.post('/export/multiple', authenticateToken, jobRateLimit, async (req, res
 });
 
 /**
+ * @route   GET /api/jobs/:jobId/stats
+ * @desc    Get job statistics
+ * @access  Private
+ */
+router.get('/:jobId/stats', authenticateToken, jobRateLimit, async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const user = req.user;
+    
+    console.log(`📊 Getting stats for job ${jobId} by user ${user.id}`);
+    
+    // Find job and verify ownership
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        error: 'Job not found',
+        code: 'JOB_NOT_FOUND'
+      });
+    }
+    
+    if (job.user_id !== user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied to this job',
+        code: 'ACCESS_DENIED'
+      });
+    }
+    
+    // Get job statistics
+    const stats = await job.getStats();
+    
+    res.json({
+      success: true,
+      data: stats
+    });
+    
+  } catch (error) {
+    console.error('❌ Job stats error:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      code: 'JOB_STATS_ERROR'
+    });
+  }
+});
+
+/**
  * @route   GET /api/jobs/export/stats
- * @desc    Get export statistics for the user
+ * @desc    Get export statistics
  * @access  Private
  */
 router.get('/export/stats', authenticateToken, jobRateLimit, async (req, res) => {
@@ -267,7 +316,7 @@ router.get('/export/stats', authenticateToken, jobRateLimit, async (req, res) =>
     
     res.status(500).json({
       success: false,
-      error: 'Failed to get export statistics',
+      error: error.message,
       code: 'EXPORT_STATS_ERROR'
     });
   }

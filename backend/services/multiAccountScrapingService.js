@@ -457,18 +457,21 @@ class MultiAccountScrapingService {
   async updateJobResults(jobId, results) {
     try {
       // Store individual profiles
+      // Store profiles in profile_results table
       for (const profile of results.profiles) {
         await this.db.execute(`
-          INSERT INTO results (job_id, name, title, location, profile_url, image_url, scraped_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO profile_results (
+            id, job_id, profile_url, full_name, headline, 
+            city, current_job_title, status, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), NOW())
         `, [
+          require('uuid').v4(),
           jobId,
+          profile.profileUrl,
           profile.name,
           profile.title,
           profile.location,
-          profile.profileUrl,
-          profile.imageUrl,
-          profile.scrapedAt
+          profile.title,
         ]);
       }
       

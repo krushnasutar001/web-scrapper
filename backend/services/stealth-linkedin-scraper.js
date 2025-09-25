@@ -362,7 +362,7 @@ class StealthLinkedInScraper {
   async randomDelay(min = 1000, max = 3000) {
     const delay = Math.floor(Math.random() * (max - min + 1)) + min;
     console.log(`⏳ Random delay: ${delay}ms`);
-    await this.page.waitForTimeout(delay);
+    await new Promise(resolve => setTimeout(resolve, delay));
   }
 
   async humanLikeMouseMovement() {

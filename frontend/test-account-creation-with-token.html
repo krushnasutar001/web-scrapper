@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Account Creation with Real Token</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 20px; padding: 15px; border-radius: 4px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>Test Account Creation with Real Token</h1>
+    
+    <div id="token-status"></div>
+    
+    <form id="testForm">
+        <div class="form-group">
+            <label>Account Name:</label>
+            <input type="text" id="accountName" value="Test Account" required>
+        </div>
+        <div class="form-group">
+            <label>Cookies:</label>
+            <textarea id="cookies" placeholder="li_at=value; JSESSIONID=value" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Proxy URL:</label>
+            <input type="text" id="proxyUrl" placeholder="http://proxy.com:8080">
+        </div>
+        <button type="submit">Create Account</button>
+    </form>
+
+    <div id="result"></div>
+
+    <script>
+        // Check token status on load
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('token');
+            const statusDiv = document.getElementById('token-status');
+            
+            if (token) {
+                statusDiv.innerHTML = '<div class="info">✅ Token found in localStorage</div>';
+            } else {
+                statusDiv.innerHTML = '<div class="error">❌ No token found. Please login first at <a href="/">main app</a></div>';
+            }
+        });
+
+        document.getElementById('testForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                document.getElementById('result').innerHTML = '<div class="error">No token found. Please login first.</div>';
+                return;
+            }
+
+            const requestBody = {
+                account_name: document.getElementById('accountName').value,
+                cookies: document.getElementById('cookies').value,
+                proxyUrl: document.getElementById('proxyUrl').value
+            };
+
+            console.log('🚀 Test request body:', requestBody);
+            console.log('🔑 Using token:', token.substring(0, 50) + '...');
+
+            try {
+                const response = await fetch('/api/linkedin-accounts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+                console.log('📋 Response:', data);
+
+                const resultDiv = document.getElementById('result');
+                
+                if (response.ok && data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ Account Created Successfully!</h3>
+                            <p><strong>Status:</strong> ${response.status}</p>
+                            <p><strong>Message:</strong> ${data.message}</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h3>❌ Account Creation Failed</h3>
+                            <p><strong>Status:</strong> ${response.status}</p>
+                            <p><strong>Error:</strong> ${data.message || data.error}</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = `
+                    <div class="error">
+                        <h3>❌ Network Error</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

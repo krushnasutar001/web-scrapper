@@ -294,12 +294,63 @@ export const resultsAPI = {
   },
 };
 
+// LinkedIn Accounts API
+export const linkedinAccountsAPI = {
+  // Get all accounts
+  getAccounts: () => {
+    return api.get('/api/linkedin-accounts');
+  },
+  
+  // Get account statistics
+  getStats: () => {
+    return api.get('/api/linkedin-accounts/stats');
+  },
+  
+  // Add account with cookies
+  addWithCookies: (formData) => {
+    return api.post('/api/linkedin-accounts/add-with-cookies', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  
+  // Delete account
+  deleteAccount: (accountId) => {
+    return api.delete(`/api/linkedin-accounts/${accountId}`);
+  },
+  
+  // Bulk upload
+  bulkUpload: (formData) => {
+    return api.post('/api/linkedin-accounts/bulk', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+};
+
 // Health API for testing connectivity
 export const healthAPI = {
   check: () => api.get('/health'),
 };
 
 export default api;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
