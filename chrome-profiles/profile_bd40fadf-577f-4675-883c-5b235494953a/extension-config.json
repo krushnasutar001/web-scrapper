@@ -1,0 +1,8 @@
+{
+  "jwt": "eyJ1c2VySWQiOiJhZjc3NzcxYy02NTA0LTQ3MGYtYjA1ZS1kNjhlMDQ1NjUyYTIiLCJhY2NvdW50SWQiOiJiZDQwZmFkZi01NzdmLTQ2NzUtODgzYy01YjIzNTQ5NDk1M2EiLCJlbWFpbCI6bnVsbCwidGltZXN0YW1wIjoxNzU4OTUwNjE2OTE0fQ==",
+  "userId": "af77771c-6504-470f-b05e-d68e045652a2",
+  "accountId": "bd40fadf-577f-4675-883c-5b235494953a",
+  "email": null,
+  "apiEndpoint": "http://localhost:3000/api",
+  "websocketEndpoint": "ws://localhost:3000"
+}

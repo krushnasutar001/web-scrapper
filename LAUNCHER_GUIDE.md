@@ -1,11 +1,13 @@
-# 🚀 Scraze Launcher Guide
+# 🚀 Scralytics Hub Launcher Guide
+
+**Automate. Enrich. Analyze.**
 
 ## Quick Start
 
-To start the Scraze LinkedIn Automation System, simply run:
+To start the Scralytics Hub LinkedIn Automation System, simply run:
 
 ```powershell
-.\scraze-launcher.ps1
+.\scralytics-hub-launcher.ps1
 ```
 
 ## What it does:
@@ -49,4 +51,4 @@ Press `Ctrl+C` in the terminal to stop all services.
 
 ---
 
-**Scraze** - *Scrap with Craze* 🚀
+**Scralytics Hub** - *Automate. Enrich. Analyze.* 🚀

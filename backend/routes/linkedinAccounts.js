@@ -37,6 +37,41 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/linkedin-accounts/available
+ * @desc    Get available LinkedIn accounts for job creation (ACTIVE and PENDING only)
+ * @access  Private
+ */
+router.get('/available', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    console.log('🔍 Fetching available LinkedIn accounts for user:', userId);
+    
+    // Get accounts that are ACTIVE or PENDING (usable for jobs)
+    const accounts = await query(`
+      SELECT id, account_name, email, username, validation_status, 
+             last_validated_at, created_at, updated_at
+      FROM linkedin_accounts 
+      WHERE user_id = ? AND validation_status IN ('ACTIVE', 'PENDING')
+      ORDER BY validation_status DESC, last_validated_at DESC
+    `, [userId]);
+    
+    console.log(`📊 Found ${accounts.length} available accounts for user ${userId}`);
+    
+    res.json({
+      success: true,
+      data: accounts
+    });
+  } catch (error) {
+    console.error('❌ Error fetching available LinkedIn accounts:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch available LinkedIn accounts'
+    });
+  }
+});
+
+/**
  * @route   GET /api/linkedin-accounts/stats
  * @desc    Get LinkedIn accounts statistics
  * @access  Private

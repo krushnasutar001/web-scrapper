@@ -15,6 +15,7 @@ const authRoutes = require('./routes/auth');
 const accountRoutes = require('./routes/accounts');
 const jobRoutes = require('./routes/jobs');
 const dashboardRoutes = require('./routes/dashboard');
+const extensionRoutes = require('./routes/extension');
 
 // Create Express app
 const app = express();
@@ -85,6 +86,7 @@ app.use('/api/linkedin-accounts', accountRoutes);
 app.use('/api/accounts', accountRoutes); // Route alias for frontend compatibility
 app.use('/api/jobs', jobRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/extension', extensionRoutes); // Chrome extension API routes
 
 // Stats endpoint for LinkedInAccountManager compatibility
 app.get('/api/stats', async (req, res) => {

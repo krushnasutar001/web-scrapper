@@ -103,6 +103,18 @@ CREATE TABLE job_account_assignments (
     UNIQUE KEY unique_job_account (job_id, linkedin_account_id)
 );
 
+-- Scraping jobs table (for tracking active scraping operations)
+CREATE TABLE scraping_jobs (
+    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    user_id VARCHAR(36) NOT NULL,
+    job_name VARCHAR(255) NOT NULL,
+    job_type ENUM('profile_scraping', 'company_scraping', 'search_result_scraping') NOT NULL,
+    status ENUM('pending', 'running', 'paused', 'completed', 'failed', 'cancelled') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Indexes for performance (using ALTER TABLE to avoid MySQL compatibility issues)
 ALTER TABLE users ADD INDEX idx_users_email (email);
 ALTER TABLE linkedin_accounts ADD INDEX idx_linkedin_accounts_user_id (user_id);
@@ -114,6 +126,8 @@ ALTER TABLE job_urls ADD INDEX idx_job_urls_job_id (job_id);
 ALTER TABLE job_urls ADD INDEX idx_job_urls_status (status);
 ALTER TABLE job_results ADD INDEX idx_job_results_job_id (job_id);
 ALTER TABLE job_account_assignments ADD INDEX idx_job_account_assignments_job_id (job_id);
+ALTER TABLE scraping_jobs ADD INDEX idx_scraping_jobs_user_id (user_id);
+ALTER TABLE scraping_jobs ADD INDEX idx_scraping_jobs_status (status);
 
 -- Insert default admin user for testing
 INSERT INTO users (id, email, password_hash, name) VALUES 

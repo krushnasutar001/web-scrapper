@@ -1,0 +1,8 @@
+{
+  "jwt": "eyJ1c2VySWQiOiIyMDIiLCJhY2NvdW50SWQiOiJsaW5rZWRpbl8yMDJfMSIsImVtYWlsIjoibWFya2V0aW5nX3hAZ21haWwuY29tIiwidGltZXN0YW1wIjoxNzU4OTUwNjE2OTY4fQ==",
+  "userId": "202",
+  "accountId": "linkedin_202_1",
+  "email": "marketing_x@gmail.com",
+  "apiEndpoint": "http://localhost:3000/api",
+  "websocketEndpoint": "ws://localhost:3000"
+}

@@ -147,13 +147,13 @@ const Dashboard = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      {/* Scraze Branding */}
+      {/* Scralytics Hub Branding */}
       <div className="mb-6">
         <h1 className="text-4xl font-bold text-blue-600 mb-2">
-          SCRAZE
+          SCRALYTICS HUB
         </h1>
-        <p className="text-lg text-gray-600 italic">
-          scrap with craze
+        <p className="text-lg text-gray-600">
+          Automate. Enrich. Analyze.
         </p>
       </div>
 

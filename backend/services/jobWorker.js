@@ -4,6 +4,8 @@ const { query, transaction } = require('../utils/database');
 const { v4: uuidv4 } = require('uuid');
 const LinkedInScraper = require('./linkedin-scraper');
 const ScrapingService = require('./scrapingService');
+const accountRotationService = require('./accountRotationService');
+const { decryptCookies } = require('./cookieEncryption');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -103,9 +105,11 @@ const processNextJob = async () => {
 };
 
 /**
- * Process a single job
+ * Process a single job with enhanced account rotation and cookie injection
  */
 const processJob = async (jobId) => {
+  let currentAccount = null;
+  
   try {
     const job = await Job.findById(jobId);
     if (!job) {
@@ -128,124 +132,377 @@ const processJob = async (jobId) => {
     
     console.log(`📊 Processing ${jobUrls.length} URLs for job: ${jobId}`);
     
-    // Get assigned accounts or use available accounts
-    const assignedAccounts = await job.getAssignedAccounts();
-    let availableAccounts = assignedAccounts.length > 0 
-      ? assignedAccounts 
-      : await LinkedInAccount.findAvailableByUserId(job.user_id);
-    
-    if (availableAccounts.length === 0) {
-      throw new Error('No available LinkedIn accounts for scraping');
-    }
-    
-    console.log(`🔗 Using ${availableAccounts.length} LinkedIn accounts`);
-    
-    let accountIndex = 0;
     let processedCount = 0;
     let successfulCount = 0;
     let failedCount = 0;
+    let consecutiveFailures = 0;
+    const maxConsecutiveFailures = 5;
     
-    // Process each URL
-    for (const jobUrl of jobUrls) {
-      // Check if job is paused
-      while (pausedJobs.has(jobId)) {
-        console.log(`⏸️ Job ${jobId} is paused, waiting...`);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Check if job was cancelled while paused
-        if (cancelledJobs.has(jobId)) {
-          throw new Error('Job was cancelled');
-        }
-      }
-      
-      // Check if job was cancelled
-      if (cancelledJobs.has(jobId)) {
-        throw new Error('Job was cancelled');
-      }
-      
-      console.log(`🔍 Processing URL ${processedCount + 1}/${jobUrls.length}: ${jobUrl.url}`);
-      
-      // Select account for this URL (round-robin)
-      const selectedAccount = availableAccounts[accountIndex % availableAccounts.length];
-      accountIndex++;
-      
-      // Update URL status to processing
-      await query(
-        'UPDATE job_urls SET status = "processing", processed_at = NOW() WHERE id = ?',
-        [jobUrl.id]
-      );
-      
+    // Process each URL with intelligent account rotation
+    for (const urlData of jobUrls) {
       try {
-        // Perform actual scraping
-        const scrapingResult = await performRealScraping(jobUrl.url, selectedAccount, job.job_type);
+        // Check if job was paused or cancelled
+        if (pausedJobs.has(jobId)) {
+          console.log(`⏸️ Job paused: ${jobId}`);
+          await job.updateStatus('paused');
+          return;
+        }
         
-        if (scrapingResult.success) {
-          // Update URL status to completed
+        if (cancelledJobs.has(jobId)) {
+          console.log(`❌ Job cancelled: ${jobId}`);
+          await job.updateStatus('cancelled');
+          return;
+        }
+        
+        // Get next available account using rotation service
+        try {
+          currentAccount = await accountRotationService.getNextAvailableAccount(
+            job.user_id, 
+            job.job_type, 
+            'balanced'
+          );
+          console.log(`🔄 Using account: ${currentAccount.email} for URL: ${urlData.url}`);
+        } catch (accountError) {
+          console.error(`❌ No available accounts: ${accountError.message}`);
+          
+          // If no accounts available, wait and retry
+          if (accountError.message.includes('Next available in')) {
+            console.log(`⏳ Waiting for accounts to become available...`);
+            await new Promise(resolve => setTimeout(resolve, 60000)); // Wait 1 minute
+            continue; // Retry with same URL
+          } else {
+            throw accountError;
+          }
+        }
+        
+        // Decrypt and prepare cookies for scraping
+        let scrapingCookies = [];
+        try {
+          const encryptedCookies = JSON.parse(currentAccount.cookies_json || '[]');
+          scrapingCookies = decryptCookies(encryptedCookies);
+          console.log(`🍪 Decrypted ${scrapingCookies.length} cookies for account ${currentAccount.email}`);
+        } catch (cookieError) {
+          console.error(`❌ Cookie decryption failed for account ${currentAccount.email}:`, cookieError);
+          await accountRotationService.markAccountFailed(currentAccount.id, 'authentication');
+          continue; // Try next URL with different account
+        }
+        
+        // Perform scraping with retry logic
+        let scrapingResult = null;
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount < maxRetries && !scrapingResult) {
+          try {
+            console.log(`🔍 Scraping attempt ${retryCount + 1}/${maxRetries} for URL: ${urlData.url}`);
+            
+            // Create scraper instance with cookies
+            const scraper = new LinkedInScraper({
+              cookies: scrapingCookies,
+              userAgent: currentAccount.user_agent,
+              accountId: currentAccount.id
+            });
+            
+            // Perform scraping based on job type
+            if (job.job_type === 'profile') {
+              scrapingResult = await scraper.scrapeProfile(urlData.url);
+            } else if (job.job_type === 'company') {
+              scrapingResult = await scraper.scrapeCompany(urlData.url);
+            } else {
+              throw new Error(`Unsupported job type: ${job.job_type}`);
+            }
+            
+            // Mark account as successful
+            await accountRotationService.markAccountSuccess(currentAccount.id);
+            consecutiveFailures = 0;
+            
+            console.log(`✅ Successfully scraped: ${urlData.url}`);
+            break;
+            
+          } catch (scrapingError) {
+            retryCount++;
+            console.error(`❌ Scraping attempt ${retryCount} failed:`, scrapingError.message);
+            
+            // Determine error type for account management
+            let errorType = 'unknown';
+            if (scrapingError.message.includes('rate limit') || scrapingError.message.includes('429')) {
+              errorType = 'rate_limit';
+            } else if (scrapingError.message.includes('authentication') || scrapingError.message.includes('401')) {
+              errorType = 'authentication';
+            } else if (scrapingError.message.includes('blocked') || scrapingError.message.includes('403')) {
+              errorType = 'blocked';
+            }
+            
+            // Mark account as failed if it's an account-related error
+            if (['rate_limit', 'authentication', 'blocked'].includes(errorType)) {
+              await accountRotationService.markAccountFailed(currentAccount.id, errorType);
+              
+              // Try to get a different account for retry
+              if (retryCount < maxRetries) {
+                try {
+                  currentAccount = await accountRotationService.getNextAvailableAccount(
+                    job.user_id, 
+                    job.job_type, 
+                    'balanced'
+                  );
+                  
+                  // Update cookies for new account
+                  const encryptedCookies = JSON.parse(currentAccount.cookies_json || '[]');
+                  scrapingCookies = decryptCookies(encryptedCookies);
+                  
+                } catch (newAccountError) {
+                  console.error(`❌ Could not get new account for retry: ${newAccountError.message}`);
+                  break; // Exit retry loop
+                }
+              }
+            }
+            
+            // Wait before retry
+            if (retryCount < maxRetries) {
+              const waitTime = Math.min(5000 * Math.pow(2, retryCount), 30000); // Exponential backoff, max 30s
+              console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+            }
+          }
+        }
+        
+        // Save results or mark as failed
+        if (scrapingResult) {
+          try {
+            await saveScrapedData(scrapingResult, urlData.url, jobId, job);
+            successfulCount++;
+            
+            // Update URL status
+            await query(
+              'UPDATE job_urls SET status = "completed", completed_at = NOW() WHERE id = ?',
+              [urlData.id]
+            );
+            
+          } catch (saveError) {
+            console.error(`❌ Error saving scraped data:`, saveError);
+            failedCount++;
+            
+            await query(
+              'UPDATE job_urls SET status = "failed", error_message = ? WHERE id = ?',
+              [saveError.message, urlData.id]
+            );
+          }
+        } else {
+          failedCount++;
+          consecutiveFailures++;
+          
           await query(
-            'UPDATE job_urls SET status = "completed" WHERE id = ?',
-            [jobUrl.id]
+            'UPDATE job_urls SET status = "failed", error_message = ? WHERE id = ?',
+            ['Failed after maximum retries', urlData.id]
           );
           
-          // Save scraped data
-          await saveScrapedData(job.id, jobUrl.id, jobUrl.url, scrapingResult.data);
-          
-          successfulCount++;
-          console.log(`✅ Successfully scraped: ${jobUrl.url}`);
-        } else {
-          throw new Error(scrapingResult.error || 'Scraping failed');
+          // If too many consecutive failures, pause job
+          if (consecutiveFailures >= maxConsecutiveFailures) {
+            console.error(`❌ Too many consecutive failures (${consecutiveFailures}), pausing job: ${jobId}`);
+            await job.updateStatus('paused', { 
+              error_message: `Paused due to ${consecutiveFailures} consecutive failures` 
+            });
+            return;
+          }
         }
         
-      } catch (error) {
-        console.log(`❌ Failed to scrape: ${jobUrl.url} - ${error.message}`);
+        processedCount++;
         
-        // Update URL status to failed
+        // Update job progress
+        await job.updateProgress(processedCount, successfulCount, failedCount);
+        
+        // Add delay between URLs to avoid overwhelming LinkedIn
+        const delayTime = calculateDelay(successfulCount, failedCount);
+        if (delayTime > 0) {
+          console.log(`⏳ Waiting ${delayTime}ms before next URL...`);
+          await new Promise(resolve => setTimeout(resolve, delayTime));
+        }
+        
+      } catch (urlError) {
+        console.error(`❌ Error processing URL ${urlData.url}:`, urlError);
+        failedCount++;
+        processedCount++;
+        
         await query(
           'UPDATE job_urls SET status = "failed", error_message = ? WHERE id = ?',
-          [error.message, jobUrl.id]
+          [urlError.message, urlData.id]
         );
-        
-        failedCount++;
-      }
-      
-      processedCount++;
-      
-      // Update job progress
-      await job.updateProgress({
-        processed_urls: processedCount,
-        successful_urls: successfulCount,
-        failed_urls: failedCount,
-        result_count: successfulCount
-      });
-      
-      console.log(`📊 Progress: ${processedCount}/${jobUrls.length} (${successfulCount} success, ${failedCount} failed)`);
-      
-      // Increment account request count
-      await selectedAccount.incrementRequestCount();
-      
-      // Add delay between URLs to avoid rate limiting
-      if (processedCount < jobUrls.length) {
-        await new Promise(resolve => setTimeout(resolve, URL_PROCESSING_DELAY));
       }
     }
     
-    // Job completed
-    await job.updateStatus('completed', { 
-      completed_at: new Date(),
-      result_count: successfulCount
+    // Complete job
+    const finalStatus = failedCount === 0 ? 'completed' : 
+                       successfulCount > 0 ? 'completed_with_errors' : 'failed';
+    
+    await job.updateStatus(finalStatus, { 
+      completed_at: new Date()
     });
     
-    console.log(`✅ Job completed: ${jobId} - ${successfulCount}/${jobUrls.length} URLs scraped successfully`);
+    console.log(`✅ Job completed: ${jobId} - ${successfulCount}/${processedCount} successful`);
     
   } catch (error) {
     console.error(`❌ Job processing failed: ${jobId}`, error);
     
+    // Mark current account as failed if error is account-related
+    if (currentAccount && error.message.includes('account')) {
+      await accountRotationService.markAccountFailed(currentAccount.id, 'unknown');
+    }
+    
     // Update job status to failed
     const job = await Job.findById(jobId);
     if (job) {
-      await job.updateStatus('failed', {
-        completed_at: new Date(),
-        error_message: error.message
+      await job.updateStatus('failed', { 
+        error_message: error.message,
+        failed_at: new Date()
       });
+    }
+    
+    throw error;
+  }
+};
+/**
+ * Calculate dynamic delay between requests based on success/failure rate
+ */
+const calculateDelay = (successfulCount, failedCount) => {
+  const totalRequests = successfulCount + failedCount;
+  if (totalRequests === 0) return URL_PROCESSING_DELAY;
+  
+  const failureRate = failedCount / totalRequests;
+  
+  // Increase delay if failure rate is high
+  if (failureRate > 0.5) {
+    return URL_PROCESSING_DELAY * 3; // 6 seconds
+  } else if (failureRate > 0.3) {
+    return URL_PROCESSING_DELAY * 2; // 4 seconds
+  } else if (failureRate > 0.1) {
+    return URL_PROCESSING_DELAY * 1.5; // 3 seconds
+  }
+  
+  return URL_PROCESSING_DELAY; // 2 seconds
+};
+
+/**
+ * Save scraped data to database
+ */
+const saveScrapedData = async (scrapingResult, sourceUrl, jobId, job) => {
+  try {
+    // Use database validation service for safe insert
+    const DatabaseValidationService = require('./database-validation');
+    
+    try {
+      // Prepare job data for potential creation
+      const jobData = {
+        user_id: job.user_id || 'system',
+        job_name: job.job_name || `Auto-created job for ${jobId}`,
+        job_type: job.job_type || 'profile_scraping'
+      };
+      
+      // Use safe insert method that handles validation
+      const resultId = await DatabaseValidationService.safeInsertProfileResult(
+        {
+          url: scrapingResult.linkedin_url || sourceUrl,
+          full_name: scrapingResult.full_name || scrapingResult.name,
+          first_name: scrapingResult.first_name,
+          last_name: scrapingResult.last_name,
+          headline: scrapingResult.headline || scrapingResult.title || scrapingResult.current_job_title,
+          about: scrapingResult.about || scrapingResult.description,
+          country: scrapingResult.country,
+          city: scrapingResult.city || scrapingResult.location,
+          industry: scrapingResult.industry,
+          email: scrapingResult.email,
+          phone: scrapingResult.phone,
+          website: scrapingResult.website,
+          current_job_title: scrapingResult.current_job_title || scrapingResult.title,
+          current_company_url: scrapingResult.current_company_url,
+          current_company: scrapingResult.current_company || scrapingResult.company,
+          skills: scrapingResult.skills || [],
+          education: scrapingResult.education || [],
+          experience: scrapingResult.experience || [],
+          content_validation: scrapingResult.validation_status || 'unknown'
+        },
+        jobId,
+        jobData
+      );
+      
+      console.log(`✅ Successfully saved scraped data for job ${jobId}, result ID: ${resultId}`);
+      return resultId;
+    } catch (validationError) {
+      console.error('Database validation failed, falling back to original method:', validationError);
+      
+      // Fallback to original method if validation service fails
+      const jobCheckSql = 'SELECT id FROM scraping_jobs WHERE id = ?';
+      const jobExists = await query(jobCheckSql, [jobId]);
+      
+      if (!jobExists || jobExists.length === 0) {
+        console.error(`❌ Job ID ${jobId} does not exist in scraping_jobs table`);
+        throw new Error(`Foreign key constraint: job_id ${jobId} does not exist in scraping_jobs table`);
+      }
+      
+      const resultId = uuidv4();
+      
+      const sql = `
+        INSERT INTO profile_results (
+          id, job_id, profile_url, full_name, first_name, last_name,
+          headline, about, country, city, industry, email, phone, website,
+          current_job_title, current_company_url, company_name,
+          skills, education, experience, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), NOW())
+      `;
+      
+      // Map scraped data fields to database fields and handle undefined values
+      const fullName = scrapingResult.full_name || scrapingResult.name || null;
+      const firstName = scrapingResult.first_name || null;
+      const lastName = scrapingResult.last_name || null;
+      const headline = scrapingResult.headline || scrapingResult.title || scrapingResult.current_job_title || null;
+      const about = scrapingResult.about || scrapingResult.description || null;
+      const country = scrapingResult.country || null;
+      const city = scrapingResult.city || scrapingResult.location || null;
+      const industry = scrapingResult.industry || null;
+      const email = scrapingResult.email || null;
+      const phone = scrapingResult.phone || null;
+      const website = scrapingResult.website || null;
+      const currentJobTitle = scrapingResult.current_job_title || scrapingResult.title || null;
+      const companyUrl = scrapingResult.current_company_url || null;
+      const companyName = scrapingResult.current_company || scrapingResult.company || null;
+      const skills = JSON.stringify(scrapingResult.skills || []);
+      const education = JSON.stringify(scrapingResult.education || []);
+      const experience = JSON.stringify(scrapingResult.experience || []);
+      const profileUrl = scrapingResult.linkedin_url || sourceUrl || null;
+      
+      await query(sql, [
+        resultId,
+        jobId,
+        profileUrl,
+        fullName,
+        firstName,
+        lastName,
+        headline,
+        about,
+        country,
+        city,
+        industry,
+        email,
+        phone,
+        website,
+        currentJobTitle,
+        companyUrl,
+        companyName,
+        skills,
+        education,
+        experience
+      ]);
+      
+      console.log(`✅ Successfully saved scraped data for job ${jobId}, result ID: ${resultId}`);
+      return resultId;
+    }
+  } catch (error) {
+    console.error('❌ Error saving scraped data:', error);
+    
+    // Handle specific MySQL errors
+    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+      console.error(`❌ Foreign key constraint failed: job_id ${jobId} does not exist in scraping_jobs table`);
+    } else if (error.code === 'ER_DUP_ENTRY') {
+      console.error(`❌ Duplicate entry error: ${error.message}`);
     }
     
     throw error;
@@ -377,133 +634,7 @@ const simulateScraping = async (url, account) => {
   }
 };
 
-/**
- * Save scraped data to database
- */
-const saveScrapedData = async (jobId, jobUrlId, sourceUrl, scrapedData) => {
-  try {
-    // Use database validation service for safe insert
-    const DatabaseValidationService = require('./database-validation');
-    
-    try {
-      // Prepare job data for potential creation
-      const jobData = {
-        user_id: 'system',
-        job_name: `Auto-created job for ${jobId}`,
-        job_type: 'profile_scraping'
-      };
-      
-      // Use safe insert method that handles validation
-      const resultId = await DatabaseValidationService.safeInsertProfileResult(
-        {
-          url: scrapedData.linkedin_url || sourceUrl,
-          full_name: scrapedData.full_name || scrapedData.name,
-          first_name: scrapedData.first_name,
-          last_name: scrapedData.last_name,
-          headline: scrapedData.headline || scrapedData.title || scrapedData.current_job_title,
-          about: scrapedData.about || scrapedData.description,
-          country: scrapedData.country,
-          city: scrapedData.city || scrapedData.location,
-          industry: scrapedData.industry,
-          email: scrapedData.email,
-          phone: scrapedData.phone,
-          website: scrapedData.website,
-          current_job_title: scrapedData.current_job_title || scrapedData.title,
-          current_company_url: scrapedData.current_company_url,
-          current_company: scrapedData.current_company || scrapedData.company,
-          skills: scrapedData.skills || [],
-          education: scrapedData.education || [],
-          experience: scrapedData.experience || [],
-          content_validation: scrapedData.validation_status || 'unknown'
-        },
-        jobId,
-        jobData
-      );
-      
-      console.log(`✅ Successfully saved scraped data for job ${jobId}, result ID: ${resultId}`);
-      return resultId;
-    } catch (validationError) {
-      console.error('Database validation failed, falling back to original method:', validationError);
-      
-      // Fallback to original method if validation service fails
-      const jobCheckSql = 'SELECT id FROM scraping_jobs WHERE id = ?';
-      const jobExists = await query(jobCheckSql, [jobId]);
-      
-      if (!jobExists || jobExists.length === 0) {
-        console.error(`❌ Job ID ${jobId} does not exist in scraping_jobs table`);
-        throw new Error(`Foreign key constraint: job_id ${jobId} does not exist in scraping_jobs table`);
-      }
-      
-      const resultId = uuidv4();
-      
-      const sql = `
-        INSERT INTO profile_results (
-          id, job_id, profile_url, full_name, first_name, last_name,
-          headline, about, country, city, industry, email, phone, website,
-          current_job_title, current_company_url, company_name,
-          skills, education, experience, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), NOW())
-      `;
-      
-      // Map scraped data fields to database fields and handle undefined values
-      const fullName = scrapedData.full_name || scrapedData.name || null;
-      const firstName = scrapedData.first_name || null;
-      const lastName = scrapedData.last_name || null;
-      const headline = scrapedData.headline || scrapedData.title || scrapedData.current_job_title || null;
-      const about = scrapedData.about || scrapedData.description || null;
-      const country = scrapedData.country || null;
-      const city = scrapedData.city || scrapedData.location || null;
-      const industry = scrapedData.industry || null;
-      const email = scrapedData.email || null;
-      const phone = scrapedData.phone || null;
-      const website = scrapedData.website || null;
-      const currentJobTitle = scrapedData.current_job_title || scrapedData.title || null;
-      const companyUrl = scrapedData.current_company_url || null;
-      const companyName = scrapedData.current_company || scrapedData.company || null;
-      const skills = JSON.stringify(scrapedData.skills || []);
-      const education = JSON.stringify(scrapedData.education || []);
-      const experience = JSON.stringify(scrapedData.experience || []);
-      const profileUrl = scrapedData.linkedin_url || sourceUrl || null;
-      
-      await query(sql, [
-        resultId,
-        jobId,
-        profileUrl,
-        fullName,
-        firstName,
-        lastName,
-        headline,
-        about,
-        country,
-        city,
-        industry,
-        email,
-        phone,
-        website,
-        currentJobTitle,
-        companyUrl,
-        companyName,
-        skills,
-        education,
-        experience
-      ]);
-      
-      console.log(`✅ Successfully saved scraped data for job ${jobId}, result ID: ${resultId}`);
-      return resultId;
-    }
-  } catch (error) {
-    console.error('❌ Error saving scraped data:', error);
-    
-    // Handle specific MySQL errors
-    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
-      console.error(`❌ Foreign key constraint failed: job_id ${jobId} does not exist in scraping_jobs table`);
-    } else if (error.code === 'ER_DUP_ENTRY') {
-      console.error(`❌ Duplicate entry error: ${error.message}`);
-    }
-    
-    throw error;
-  }
-};
+
 
 /**
  * Pause a job

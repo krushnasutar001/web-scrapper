@@ -1,0 +1,38 @@
+<svg width="400" height="120" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="120" fill="#ffffff"/>
+  
+  <!-- Logo Icon -->
+  <g transform="translate(20, 20)">
+    <!-- Data cubes -->
+    <polygon points="10,25 20,20 30,25 30,35 20,40 10,35" fill="#1dd1a1"/>
+    <polygon points="25,15 35,10 45,15 45,25 35,30 25,25" fill="#00d2d3"/>
+    <polygon points="40,25 50,20 60,25 60,35 50,40 40,35" fill="#0abde3"/>
+    <polygon points="15,40 25,35 35,40 35,50 25,55 15,50" fill="#006ba6"/>
+    <polygon points="30,50 40,45 50,50 50,60 40,65 30,60" fill="#0582ca"/>
+    
+    <!-- Central analytics circle -->
+    <circle cx="35" cy="40" r="25" fill="none" stroke="#006ba6" stroke-width="3"/>
+    <circle cx="35" cy="40" r="15" fill="#f8f9fa" stroke="#0582ca" stroke-width="2"/>
+    
+    <!-- Chart icon inside circle -->
+    <path d="M28,45 L32,41 L36,43 L42,37" stroke="#ff6b6b" stroke-width="2" fill="none"/>
+    <circle cx="28" cy="45" r="1.5" fill="#ff6b6b"/>
+    <circle cx="32" cy="41" r="1.5" fill="#ff6b6b"/>
+    <circle cx="36" cy="43" r="1.5" fill="#ff6b6b"/>
+    <circle cx="42" cy="37" r="1.5" fill="#ff6b6b"/>
+    
+    <!-- Connecting lines -->
+    <path d="M20,30 Q35,25 50,30" stroke="#0582ca" stroke-width="1.5" fill="none" opacity="0.6"/>
+    <path d="M25,50 Q35,45 45,50" stroke="#0582ca" stroke-width="1.5" fill="none" opacity="0.6"/>
+  </g>
+  
+  <!-- Company Name -->
+  <text x="100" y="45" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#2c3e50">Scralytics</text>
+  
+  <!-- Tagline -->
+  <text x="100" y="70" font-family="Arial, sans-serif" font-size="14" fill="#7f8c8d">Automate. Enrich. Analyze.</text>
+  
+  <!-- Underline -->
+  <line x1="100" y1="75" x2="280" y2="75" stroke="#0582ca" stroke-width="2"/>
+</svg>

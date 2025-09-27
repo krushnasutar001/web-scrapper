@@ -1,0 +1,171 @@
+{
+  "testSuite": "Scralytics Hub Comprehensive Multi-User Test",
+  "startTime": "2025-09-27T04:45:24.475Z",
+  "endTime": "2025-09-27T04:45:24.808Z",
+  "duration": 333,
+  "summary": {
+    "totalPhases": 8,
+    "completedPhases": 0,
+    "failedPhases": 1,
+    "successRate": 0
+  },
+  "phases": {
+    "phase1": {
+      "name": "Environment Setup",
+      "status": "failed",
+      "results": [
+        {
+          "test": "Database Schema",
+          "status": "passed",
+          "message": "Database schema validation successful"
+        },
+        {
+          "test": "Test Users Creation",
+          "status": "passed",
+          "message": "Created/updated 2 test users"
+        },
+        {
+          "test": "LinkedIn Accounts Creation",
+          "status": "passed",
+          "message": "LinkedIn accounts created/validated successfully"
+        },
+        {
+          "test": "Worker Manager Initialization",
+          "status": "failed",
+          "message": "Unknown column 'chrome_profile_path' in 'field list'"
+        }
+      ],
+      "error": "Unknown column 'chrome_profile_path' in 'field list'"
+    },
+    "phase2": {
+      "name": "Job Creation",
+      "status": "pending",
+      "results": []
+    },
+    "phase3": {
+      "name": "Job Queue & Workers",
+      "status": "pending",
+      "results": []
+    },
+    "phase4": {
+      "name": "Extension Integration",
+      "status": "pending",
+      "results": []
+    },
+    "phase5": {
+      "name": "Error Handling",
+      "status": "pending",
+      "results": []
+    },
+    "phase6": {
+      "name": "Job Completion",
+      "status": "pending",
+      "results": []
+    },
+    "phase7": {
+      "name": "Multi-User Simulation",
+      "status": "pending",
+      "results": []
+    },
+    "phase8": {
+      "name": "Logging & Monitoring",
+      "status": "pending",
+      "results": []
+    }
+  },
+  "testUsers": [
+    {
+      "id": "101",
+      "email": "user_a@scralytics.com",
+      "name": "Test User A",
+      "credits": 5000,
+      "accounts": [
+        {
+          "id": "linkedin_101_1",
+          "email": "recruiter_a@company.com",
+          "name": "Recruiter A Account"
+        },
+        {
+          "id": "linkedin_101_2",
+          "email": "sales_b@company.com",
+          "name": "Sales B Account"
+        }
+      ]
+    },
+    {
+      "id": "202",
+      "email": "user_b@scralytics.com",
+      "name": "Test User B",
+      "credits": 3000,
+      "accounts": [
+        {
+          "id": "linkedin_202_1",
+          "email": "marketing_x@gmail.com",
+          "name": "Marketing X Account"
+        }
+      ]
+    }
+  ],
+  "testJobs": [
+    {
+      "id": "1001",
+      "userId": "101",
+      "jobName": "Profile Scraping - Recruiter A",
+      "jobType": "profile",
+      "maxResults": 50,
+      "accountId": "linkedin_101_1",
+      "urls": [
+        "https://linkedin.com/in/testuser1",
+        "https://linkedin.com/in/testuser2",
+        "https://linkedin.com/in/testuser3",
+        "https://linkedin.com/in/testuser4",
+        "https://linkedin.com/in/testuser5",
+        "https://linkedin.com/in/testuser6",
+        "https://linkedin.com/in/testuser7",
+        "https://linkedin.com/in/testuser8",
+        "https://linkedin.com/in/testuser9",
+        "https://linkedin.com/in/testuser10"
+      ]
+    },
+    {
+      "id": "1002",
+      "userId": "101",
+      "jobName": "Company Scraping - Sales B",
+      "jobType": "company",
+      "maxResults": 20,
+      "accountId": "linkedin_101_2",
+      "urls": [
+        "https://linkedin.com/company/testcompany1",
+        "https://linkedin.com/company/testcompany2",
+        "https://linkedin.com/company/testcompany3",
+        "https://linkedin.com/company/testcompany4",
+        "https://linkedin.com/company/testcompany5",
+        "https://linkedin.com/company/testcompany6",
+        "https://linkedin.com/company/testcompany7",
+        "https://linkedin.com/company/testcompany8"
+      ]
+    },
+    {
+      "id": "1003",
+      "userId": "202",
+      "jobName": "Job Post Scraping - Marketing X",
+      "jobType": "job_post",
+      "maxResults": 30,
+      "accountId": "linkedin_202_1",
+      "urls": [
+        "https://linkedin.com/jobs/view/123451",
+        "https://linkedin.com/jobs/view/123452",
+        "https://linkedin.com/jobs/view/123453",
+        "https://linkedin.com/jobs/view/123454",
+        "https://linkedin.com/jobs/view/123455",
+        "https://linkedin.com/jobs/view/123456",
+        "https://linkedin.com/jobs/view/123457",
+        "https://linkedin.com/jobs/view/123458",
+        "https://linkedin.com/jobs/view/123459",
+        "https://linkedin.com/jobs/view/1234510",
+        "https://linkedin.com/jobs/view/1234511",
+        "https://linkedin.com/jobs/view/1234512"
+      ]
+    }
+  ]
+}

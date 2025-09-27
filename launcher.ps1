@@ -1,5 +1,5 @@
 # ========================================
-#    SCRAZE SMART LAUNCHER v2.0 (PowerShell)
+#    SCRALYTICS HUB SMART LAUNCHER v2.0 (PowerShell)
 # ========================================
 
 Param(
@@ -8,7 +8,7 @@ Param(
 )
 
 # Set console title and colors
-$Host.UI.RawUI.WindowTitle = "Scraze Smart Launcher"
+$Host.UI.RawUI.WindowTitle = "Scralytics Hub Smart Launcher"
 
 function Write-Header {
     param([string]$Text)
@@ -180,7 +180,7 @@ function Update-FrontendConfig {
 
 # Main execution
 clear
-Write-Header "SCRAZE SMART LAUNCHER v2.0"
+Write-Header "SCRALYTICS HUB SMART LAUNCHER v2.0"
 
 Write-Host "Working directory: $(Get-Location)" -ForegroundColor Cyan
 Write-Host ""
@@ -279,12 +279,12 @@ Write-Success "Configuration updated"
 Write-Host ""
 
 # Step 7: Start services
-Write-Step "7/7" "Starting Scraze services..."
+Write-Step "7/7" "Starting Scralytics Hub services..."
 Write-Host ""
 
-Write-Header "SCRAZE SYSTEM STARTING"
+Write-Header "SCRALYTICS HUB SYSTEM STARTING"
 
-Write-Host "Starting Scraze Launcher..." -ForegroundColor Green
+Write-Host "Starting Scralytics Hub Launcher..." -ForegroundColor Green
 Write-Host "Frontend: http://localhost:3000" -ForegroundColor Cyan
 Write-Host "Backend: http://localhost:5001" -ForegroundColor Cyan
 Write-Host "Login: test@example.com / password123" -ForegroundColor Yellow
@@ -292,8 +292,8 @@ Write-Host ""
 Write-Host "Press Ctrl+C to stop all services" -ForegroundColor Red
 Write-Host ""
 
-Write-Header "SCRAZE - LinkedIn Automation"
-Write-Host "           Scrap with Craze!" -ForegroundColor Magenta
+Write-Header "SCRALYTICS HUB - LinkedIn Automation"
+Write-Host "           Automate. Enrich. Analyze." -ForegroundColor Magenta
 Write-Host ""
 
 # Start backend server
@@ -325,7 +325,7 @@ if (Wait-ForPort -Port 3000 -TimeoutSeconds 45) {
     Write-Success "Frontend server started successfully on port 3000"
     
     Write-Host ""
-    Write-Header "SCRAZE READY!"
+    Write-Header "SCRALYTICS HUB READY!"
     
     Write-Host "🚀 Frontend: http://localhost:3000" -ForegroundColor Green
     Write-Host "🔧 Backend API: http://localhost:5001" -ForegroundColor Green

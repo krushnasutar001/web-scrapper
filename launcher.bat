@@ -2,11 +2,11 @@
 setlocal enabledelayedexpansion
 
 REM ========================================
-REM    SCRAZE SMART LAUNCHER v2.0
+REM    SCRALYTICS HUB SMART LAUNCHER v2.0
 REM ========================================
 
 echo ========================================
-echo     SCRAZE SMART LAUNCHER v2.0
+echo     SCRALYTICS HUB SMART LAUNCHER v2.0
 echo ========================================
 echo.
 echo Working directory: %CD%
@@ -154,13 +154,13 @@ if exist "frontend\src\services\api.js" (
 echo.
 
 REM Start services
-echo [6/6] Starting Scraze services...
+echo [6/6] Starting Scralytics Hub services...
 echo.
 echo ========================================
-echo     SCRAZE SYSTEM STARTING
+echo     SCRALYTICS HUB SYSTEM STARTING
 echo ========================================
 echo.
-echo Starting Scraze Launcher...
+echo Starting Scralytics Hub Launcher...
 echo Frontend: http://localhost:3000
 echo Backend: http://localhost:5001
 echo Login: test@example.com / password123
@@ -168,14 +168,14 @@ echo.
 echo Press Ctrl+C to stop all services
 echo.
 echo ========================================
-echo     SCRAZE - LinkedIn Automation
-echo     Scrap with Craze!
+echo     SCRALYTICS HUB - LinkedIn Automation
+echo     Automate. Enrich. Analyze.
 echo ========================================
 echo.
 
 REM Start backend server
 echo Starting Backend Server on port 5001...
-start "Scraze Backend" cmd /k "cd /d %CD%\backend && npm start"
+start "Scralytics Hub Backend" cmd /k "cd /d %CD%\backend && npm start"
 
 REM Wait for backend to start
 echo Waiting for backend to initialize...
@@ -192,7 +192,7 @@ if errorlevel 1 (
 
 echo.
 echo Starting Frontend Server on port 3000...
-start "Scraze Frontend" cmd /k "cd /d %CD%\frontend && npm start"
+start "Scralytics Hub Frontend" cmd /k "cd /d %CD%\frontend && npm start"
 
 REM Wait for frontend to start
 echo Waiting for frontend to initialize...
@@ -207,7 +207,7 @@ if errorlevel 1 (
     echo Frontend server started successfully on port 3000
     echo.
     echo ========================================
-    echo     SCRAZE READY!
+    echo     SCRALYTICS HUB READY!
     echo ========================================
     echo.
     echo 🚀 Frontend: http://localhost:3000

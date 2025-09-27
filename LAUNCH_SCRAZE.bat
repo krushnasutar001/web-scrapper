@@ -1,79 +1,75 @@
 @echo off
-setlocal enabledelayedexpansion
-
 REM ========================================
-REM    SCRAZE SMART LAUNCHER
-REM    Intelligent Start/Restart System
+REM    SCRALYTICS HUB SMART LAUNCHER
+REM    Batch version with process cleanup
 REM ========================================
 
 echo.
 echo ========================================
-echo    SCRAZE SMART LAUNCHER
-echo    Kill existing + Fresh start
+echo    SCRALYTICS HUB SMART LAUNCHER
 echo ========================================
 echo.
 
-REM Change to the correct directory
+REM Change to script directory
 cd /d "%~dp0"
 
-echo [1/5] Checking for existing Scraze processes...
+REM Step 1: Check for existing processes
+echo [1/5] Checking for existing Scralytics Hub processes...
 
-REM Kill existing Node.js processes on ports 3000 and 3001
-echo Checking port 3000...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3000') do (
-    if not "%%a"=="" (
-        echo Found process %%a using port 3000, terminating...
-        taskkill /PID %%a /F >nul 2>&1
+REM Kill existing Node.js processes on our ports
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3000 "') do (
+    if not "%%a"=="0" (
+        echo Killing process on port 3000: %%a
+        taskkill /F /PID %%a >nul 2>&1
     )
 )
 
-echo Checking port 3001...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3001') do (
-    if not "%%a"=="" (
-        echo Found process %%a using port 3001, terminating...
-        taskkill /PID %%a /F >nul 2>&1
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5001 "') do (
+    if not "%%a"=="0" (
+        echo Killing process on port 5001: %%a
+        taskkill /F /PID %%a >nul 2>&1
     )
 )
 
-REM Kill any remaining Node.js processes that might be related to our app
-echo [2/5] Cleaning up any remaining Node.js processes...
-for /f "tokens=2" %%a in ('tasklist /FI "IMAGENAME eq node.exe" /FO CSV ^| findstr /V "INFO:"') do (
-    if not "%%a"=="" (
-        set "pid=%%a"
-        set "pid=!pid:"=!"
-        echo Terminating Node.js process !pid!...
-        taskkill /PID !pid! /F >nul 2>&1
-    )
-)
+REM Step 2: Clean up any remaining Node processes
+echo [2/5] Cleaning up Node.js processes...
+taskkill /F /IM node.exe >nul 2>&1
+taskkill /F /IM npm.exe >nul 2>&1
 
-REM Wait a moment for processes to fully terminate
-echo [3/5] Waiting for processes to terminate...
+REM Step 3: Wait for cleanup
+echo [3/5] Waiting for cleanup to complete...
 timeout /t 3 /nobreak >nul
 
-REM Clear any potential port locks
-echo [4/5] Clearing port locks...
-netsh int ipv4 reset >nul 2>&1
+REM Step 4: Verify ports are free
+echo [4/5] Verifying ports are available...
+netstat -an | findstr ":3000 " >nul
+if %errorlevel% equ 0 (
+    echo Warning: Port 3000 may still be in use
+)
 
-echo [5/5] Starting fresh Scraze instance...
+netstat -an | findstr ":5001 " >nul
+if %errorlevel% equ 0 (
+    echo Warning: Port 5001 may still be in use
+)
+
+REM Step 5: Launch fresh instance
+echo [5/5] Starting fresh Scralytics Hub instance...
 echo.
 echo ========================================
-echo    LAUNCHING SCRAZE
+echo    LAUNCHING SCRALYTICS HUB
 echo ========================================
 echo.
 
 REM Start the main launcher
-call START_SCRAZE.bat
+call start-scralytics-hub.bat
 
-REM If we reach here, the launcher has exited
 echo.
 echo ========================================
-echo    SCRAZE LAUNCHER EXITED
+echo    SCRALYTICS HUB LAUNCHER EXITED
 echo ========================================
 echo.
 echo Press any key to restart or close this window to exit...
 pause >nul
-
-REM Restart if user pressed a key
 goto :start
 
 :start

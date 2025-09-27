@@ -1,0 +1,8 @@
+{
+  "jwt": "eyJ1c2VySWQiOiIxMDEiLCJhY2NvdW50SWQiOiJsaW5rZWRpbl8xMDFfMSIsImVtYWlsIjoicmVjcnVpdGVyX2FAY29tcGFueS5jb20iLCJ0aW1lc3RhbXAiOjE3NTg5NTA2MTY5MzB9",
+  "userId": "101",
+  "accountId": "linkedin_101_1",
+  "email": "recruiter_a@company.com",
+  "apiEndpoint": "http://localhost:3000/api",
+  "websocketEndpoint": "ws://localhost:3000"
+}

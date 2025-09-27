@@ -7,7 +7,6 @@ class LinkedInAccount {
     this.user_id = data.user_id;
     this.account_name = data.account_name;
     this.email = data.email;
-    this.username = data.username;
     this.is_active = data.is_active;
     this.validation_status = data.validation_status;
     this.daily_request_limit = data.daily_request_limit;
@@ -24,24 +23,23 @@ class LinkedInAccount {
   /**
    * Create a new LinkedIn account
    */
-  static async create({ user_id, account_name, email, username, cookies_json }) {
+  static async create({ user_id, account_name, email, cookies_json }) {
     try {
       const id = uuidv4();
       
       // Handle optional email and provide fallbacks
       const safeEmail = email || null;
-      const safeUsername = username || email || account_name;
       const safeCookiesJson = cookies_json ? JSON.stringify(cookies_json) : null;
       
       const sql = `
         INSERT INTO linkedin_accounts (
-          id, user_id, account_name, email, username, cookies_json,
+          id, user_id, account_name, email, cookies_json,
           is_active, validation_status, daily_request_limit, 
           requests_today, consecutive_failures, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, TRUE, 'ACTIVE', 150, 0, 0, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, TRUE, 'ACTIVE', 150, 0, 0, NOW(), NOW())
       `;
       
-      await query(sql, [id, user_id, account_name, safeEmail, safeUsername, safeCookiesJson]);
+      await query(sql, [id, user_id, account_name, safeEmail, safeCookiesJson]);
       
       console.log(`✅ Created LinkedIn account: ${account_name} (${safeEmail || 'no email'}) for user ${user_id}`);
       return await LinkedInAccount.findById(id);
@@ -378,14 +376,25 @@ class LinkedInAccount {
       raw = JSON.stringify(this.cookies_json);
     }
 
-    console.log('🍪 Debug - Type:', typeof this.cookies_json, 'Raw length:', raw.length);
-    console.log('🍪 Debug - Raw preview:', raw.substring(0, 100));
+    console.log('🍪 Debug - Raw type:', typeof this.cookies_json);
+    console.log('🍪 Debug - Raw value:', raw.substring(0, 100) + '...');
 
     try {
-      const parsed = JSON.parse(raw);
-      console.log('🍪 Debug - Parsed type:', typeof parsed, 'Is array:', Array.isArray(parsed));
+      let parsed = JSON.parse(raw);
+      console.log('🍪 Debug - After first parse type:', typeof parsed, 'Is array:', Array.isArray(parsed));
+      
+      // Handle double-stringification: if we get a string after first parse, parse again
+      if (typeof parsed === 'string') {
+        console.log('🍪 Debug - Double-stringified detected, parsing again...');
+        parsed = JSON.parse(parsed);
+        console.log('🍪 Debug - After second parse type:', typeof parsed, 'Is array:', Array.isArray(parsed));
+      }
+      
       const result = Array.isArray(parsed) ? parsed : [];
-      console.log('🍪 Debug - Final result length:', result.length);
+      console.log('🍪 Final cookies count:', result.length);
+      if (result.length > 0) {
+        console.log('🍪 Cookie names:', result.map(c => c.name));
+      }
       return result;
     } catch (err) {
       console.warn('Failed to parse cookies_json:', err.message, 'Raw:', raw);

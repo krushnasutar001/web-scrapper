@@ -1,6 +1,8 @@
-# LinkedIn Automation SaaS Platform
+# Scralytics Hub - LinkedIn Automation Platform
 
-A comprehensive LinkedIn automation and scraping SaaS platform built with Node.js, React, and Docker. This platform allows users to automate LinkedIn data extraction for profiles, companies, job postings, and search results with a modern web dashboard.
+**Automate. Enrich. Analyze.**
+
+A comprehensive LinkedIn automation and data analytics SaaS platform built with Node.js, React, and Docker. Scralytics Hub empowers users to automate LinkedIn data extraction for profiles, companies, job postings, and search results with a modern web dashboard and powerful analytics capabilities.
 
 ## 🚀 Features
 
@@ -449,5 +451,8 @@ When reporting issues, please include:
 - [ ] Load balancing
 
 ---
+
+**Scralytics Hub** - *Automate. Enrich. Analyze.*  
+© 2024 Scralytics Hub Team. All rights reserved.
 
 **Built with ❤️ for LinkedIn automation and data extraction**

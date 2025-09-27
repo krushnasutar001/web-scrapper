@@ -8,8 +8,8 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Scraze Brand Colors
-        scraze: {
+        // Scralytics Hub Brand Colors
+        scralytics: {
           dark: '#0f172a',      // Dark mode base
           blue: '#38bdf8',      // Neon blue highlights  
           red: '#f43f5e',       // Accent red for warnings/errors

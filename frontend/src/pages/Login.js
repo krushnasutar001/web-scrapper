@@ -59,16 +59,16 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          {/* Scraze Logo */}
+          {/* Scralytics Hub Logo */}
           <div className="flex justify-center mb-6">
             <img 
-              src="/scraze-logo.svg" 
-              alt="Scraze - Scrap with Craze" 
+              src="/scralytics-hub-logo.svg" 
+              alt="Scralytics Hub - Automate. Enrich. Analyze." 
               className="h-16 w-auto"
             />
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-            Sign in to Scraze
+            Sign in to Scralytics Hub
           </h2>
           <p className="mt-2 text-center text-sm text-slate-400">
             Or{' '}
@@ -159,7 +159,7 @@ const Login = () => {
                   Signing in...
                 </div>
               ) : (
-                'Sign in to Scraze'
+                'Sign in to Scralytics Hub'
               )}
             </button>
           </div>

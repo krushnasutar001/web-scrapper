@@ -1,0 +1,22 @@
+{
+  "name": "Scralytics Hub",
+  "description": "Automate • Enrich • Analyze",
+  "version": "1.0",
+  "manifest_version": 3,
+  "permissions": ["cookies", "storage", "tabs", "alarms"],
+  "host_permissions": [
+    "https://*.linkedin.com/*",
+    "https://api.scralytics-hub.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "icons/extension-logo.svg",
+    "48": "icons/extension-logo.svg",
+    "128": "icons/extension-logo.svg"
+  }
+}

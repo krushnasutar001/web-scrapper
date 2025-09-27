@@ -40,7 +40,7 @@ const Layout = ({ children }) => {
         <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-slate-800 shadow-xl">
           <div className="flex h-16 items-center justify-between px-4">
             <div className="flex items-center">
-              <img src="/scraze-logo.svg" alt="Scraze" className="h-8 w-auto" />
+              <img src="/scralytics-hub-logo.svg" alt="Scralytics Hub" className="h-8 w-auto" />
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -76,7 +76,7 @@ const Layout = ({ children }) => {
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-col flex-grow bg-slate-800 border-r border-slate-700 shadow-sm">
           <div className="flex h-16 items-center px-4">
-            <img src="/scraze-logo.svg" alt="Scraze - Scrap with Craze" className="h-10 w-auto" />
+            <img src="/scralytics-hub-logo.svg" alt="Scralytics Hub - Automate. Enrich. Analyze." className="h-10 w-auto" />
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
             {navigation.map((item) => {
@@ -121,10 +121,10 @@ const Layout = ({ children }) => {
                 </button>
               </div>
             </div>
-            {/* Powered by Scraze footer */}
-            <div className="mt-4 pt-4 border-t border-slate-700">
-              <p className="text-xs text-slate-500 text-center">
-                Powered by <span className="text-sky-400 font-medium">Scraze</span>
+            {/* Powered by Scralytics Hub footer */}
+            <div className="mt-auto p-4 border-t border-slate-700">
+              <p className="text-xs text-slate-400 text-center">
+                Powered by <span className="text-sky-400 font-medium">Scralytics Hub</span>
               </p>
             </div>
           </div>
@@ -142,7 +142,7 @@ const Layout = ({ children }) => {
             <Bars3Icon className="h-6 w-6" />
           </button>
           <div className="flex flex-1 items-center justify-between px-4">
-            <img src="/scraze-logo.svg" alt="Scraze" className="h-8 w-auto" />
+            <img src="/scralytics-hub-logo.svg" alt="Scralytics Hub" className="h-8 w-auto" />
             <button
               onClick={handleLogout}
               className="text-slate-400 hover:text-slate-300 transition-colors duration-200"

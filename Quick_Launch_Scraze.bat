@@ -1,18 +1,18 @@
 @echo off
 REM ========================================
-REM    SCRAZE QUICK LAUNCHER
-REM    Double-click to start Scraze
+REM    SCRALYTICS HUB QUICK LAUNCHER
+REM    Double-click to start Scralytics Hub
 REM ========================================
 
 REM Set window title
-title Scraze LinkedIn Automation - Quick Launcher
+title Scralytics Hub LinkedIn Automation - Quick Launcher
 
 REM Change to the script directory
 cd /d "%~dp0"
 
 REM Check if we're in the right directory
-if not exist "START_SCRAZE.bat" (
-    echo ❌ Error: START_SCRAZE.bat not found!
+if not exist "start-scralytics-hub.bat" (
+    echo ❌ Error: start-scralytics-hub.bat not found!
     echo Please make sure this launcher is in the linkedin-automation-saas folder.
     echo Current directory: %CD%
     pause
@@ -21,38 +21,38 @@ if not exist "START_SCRAZE.bat" (
 
 echo.
 echo ========================================
-echo    🚀 SCRAZE QUICK LAUNCHER
-echo    LinkedIn Automation Made Easy
+echo    🚀 SCRALYTICS HUB QUICK LAUNCHER
+echo    Automate. Enrich. Analyze.
 echo ========================================
 echo.
 echo 📍 Directory: %CD%
-echo 🔄 Starting Scraze system...
+echo 🔄 Starting Scralytics Hub system...
 echo.
 
 REM Try PowerShell launcher first (more robust)
-if exist "LAUNCH_SCRAZE.ps1" (
+if exist "scralytics-hub-launcher.ps1" (
     echo 💡 Using PowerShell launcher for better process management...
-    powershell -ExecutionPolicy Bypass -File "LAUNCH_SCRAZE.ps1"
+    powershell -ExecutionPolicy Bypass -File "scralytics-hub-launcher.ps1"
 ) else (
     echo 💡 Using batch launcher...
-    call "LAUNCH_SCRAZE.bat"
+    call "start-scralytics-hub.bat"
 )
 
 REM If we reach here, the launcher has exited
 echo.
 echo ========================================
-echo    SCRAZE LAUNCHER FINISHED
+echo    SCRALYTICS HUB LAUNCHER FINISHED
 echo ========================================
 echo.
 echo Options:
-echo [R] Restart Scraze
+echo [R] Restart Scralytics Hub
 echo [D] Open Debug Tool
 echo [Any other key] Exit
 echo.
 set /p choice="Your choice: "
 
 if /i "%choice%"=="R" (
-    echo 🔄 Restarting Scraze...
+    echo 🔄 Restarting Scralytics Hub...
     goto :start
 )
 

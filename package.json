@@ -1,12 +1,12 @@
 {
-  "name": "scraze",
+  "name": "scralytics-hub",
   "version": "1.0.0",
-  "description": "Scraze - Scrap with Craze - LinkedIn Automation Made Easy",
-  "main": "scraze-launcher.js",
+  "description": "Scralytics Hub - Automate. Enrich. Analyze. LinkedIn automation and data scraping platform",
+  "main": "scralytics-hub-launcher.js",
   "scripts": {
-    "start": "node scraze-launcher.js",
-    "launch": "node scraze-launcher.js",
-    "scraze": "node scraze-launcher.js",
+    "start": "node scralytics-hub-launcher.js",
+    "launch": "node scralytics-hub-launcher.js",
+      "scralytics": "node scralytics-hub-launcher.js",
     "backend": "cd backend && node linkedin-account-manager.js",
     "frontend": "cd frontend && npm start",
     "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
@@ -15,10 +15,10 @@
     "linkedin",
     "automation",
     "scraping",
-    "scraze",
+    "scralytics-hub",
     "data-extraction"
   ],
-  "author": "Scraze Team",
+  "author": "Scralytics Hub Team",
   "license": "MIT",
   "dependencies": {
     "axios": "^1.11.0"
