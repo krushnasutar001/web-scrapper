@@ -6,33 +6,91 @@ const { body, validationResult } = require('express-validator');
  * Create a new scraping job
  */
 const createJob = asyncHandler(async (req, res) => {
-  const { type, query, maxResults, configuration } = req.body;
-  
-  // Basic validation
-  if (!type || !query) {
-    return res.status(400).json({
-      success: false,
-      message: 'Job type and query are required'
-    });
-  }
-  
+  // Support both application/json and multipart/form-data from frontend
+  // Accept field names in camelCase or snake_case
   try {
+    const body = req.body || {};
+
+    const type = body.type || body.jobType || body.job_type;
+    const query = body.query || body.searchQuery || body.jobName || body.job_name;
+    const maxResults = parseInt(body.maxResults || body.max_results || body.max_results || 100, 10) || 100;
+    let configuration = body.configuration || body.configuration || {};
+
+    // If URLs are sent as newline-separated string in form-data, convert to array
+    let urls = body.urls || body.urls_list || body.urls_array || [];
+    if (typeof urls === 'string') {
+      // split by newline or comma
+      urls = urls.split(/\r?\n|,/) .map(s => s.trim()).filter(Boolean);
+    }
+
+    // Basic validation
+    if (!type || !query) {
+      console.error('createJob validation failed - missing type or query', { type, query, body });
+      return res.status(400).json({
+        success: false,
+        message: 'Job type and query are required',
+        code: 'MISSING_FIELDS'
+      });
+    }
+
+    // Normalize job type mapping (frontend uses several labels)
+    const allowedTypes = ['profile', 'company', 'search', 'jobPosting', 'profile_scraping', 'company_scraping', 'search_result_scraping'];
+    let normalizedType = type;
+    const typeMap = {
+      profile_scraping: 'profile',
+      company_scraping: 'company',
+      search_result_scraping: 'search'
+    };
+    if (typeMap[type]) normalizedType = typeMap[type];
+
+    if (!allowedTypes.includes(type) && !Object.keys(typeMap).includes(type) && !['profile','company','search','jobPosting'].includes(type)) {
+      console.error('createJob invalid job type', { type });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid job type',
+        code: 'INVALID_JOB_TYPE',
+        validTypes: ['profile', 'company', 'search', 'jobPosting']
+      });
+    }
+
+    // Create job in DB
     const job = await Job.create({
       userId: req.user.id,
-      type,
-      query,
-      maxResults: maxResults || 100,
-      configuration: configuration || {},
+      type: normalizedType,
+      query: query,
+      maxResults: maxResults,
+      configuration: typeof configuration === 'string' ? JSON.parse(configuration || '{}') : configuration,
       status: 'queued'
     });
-    
+
+    // If URLs were provided and there's a JobUrl model, create entries (best-effort)
+    if (urls && Array.isArray(urls) && urls.length > 0) {
+      try {
+        const JobUrl = require('../models').JobUrl;
+        if (JobUrl) {
+          const urlInserts = urls.map(u => ({ jobId: job.id, url: u.trim(), status: 'pending' }));
+          await JobUrl.bulkCreate(urlInserts);
+        }
+      } catch (e) {
+        // Non-fatal - just log
+        console.warn('createJob: JobUrl model not available or failed to insert URLs', e.message);
+      }
+    }
+
+    // Return a response compatible with frontend expectations
+    const responseJob = Object.assign({}, job.get ? job.get({ plain: true }) : job);
+    // Add legacy snake_case fields used by some frontend code
+    responseJob.job_name = responseJob.jobName || responseJob.query;
+    responseJob.job_type = responseJob.type;
+
     res.status(201).json({
       success: true,
       message: 'Job created successfully',
-      data: job
+      job: responseJob
     });
   } catch (error) {
-    res.status(500).json({
+    console.error('createJob ERROR:', error && (error.stack || error.message));
+    return res.status(500).json({
       success: false,
       message: 'Failed to create job',
       error: error.message

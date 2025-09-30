@@ -55,6 +55,9 @@
     updateCookiesBtn: document.getElementById('updateCookiesBtn'),
     refreshAllBtn: document.getElementById('refreshAllBtn'),
     
+    // Navigation buttons
+    dashboardBtn: document.getElementById('dashboardBtn'),
+    
     // Status display
     identityStatus: document.getElementById('identityStatus'),
     cookieStatus: document.getElementById('cookieStatus')
@@ -129,6 +132,10 @@
     // Navigation buttons
     if (elements.logoutBtn) {
       elements.logoutBtn.addEventListener('click', handleLogout);
+    }
+    
+    if (elements.dashboardBtn) {
+      elements.dashboardBtn.addEventListener('click', handleDashboard);
     }
     
     // Identity management
@@ -206,6 +213,11 @@
       console.error('❌ Logout failed:', error);
       showError('Logout failed: ' + error.message);
     }
+  }
+  
+  // Handle dashboard navigation
+  function handleDashboard() {
+    chrome.tabs.create({ url: 'http://localhost:3000' });
   }
   
   // Load identities from storage
@@ -449,26 +461,41 @@
     if (elements.successMessage) elements.successMessage.classList.add('hidden');
   }
   
-  // Enhanced communication helper with retry logic
+  // Enhanced communication helper with retry logic and better error handling
   function sendMessage(message, retries = 3) {
     return new Promise((resolve, reject) => {
       const attemptSend = (attempt) => {
-        chrome.runtime.sendMessage(message, (response) => {
-          if (chrome.runtime.lastError) {
-            console.warn(`Message attempt ${attempt} failed:`, chrome.runtime.lastError.message);
-            
-            if (attempt < retries) {
-              // Retry after a short delay
-              setTimeout(() => attemptSend(attempt + 1), 1000);
+        try {
+          chrome.runtime.sendMessage(message, (response) => {
+            if (chrome.runtime.lastError) {
+              const errorMsg = chrome.runtime.lastError.message;
+              console.warn(`Message attempt ${attempt} failed:`, errorMsg);
+              
+              // Handle specific Chrome extension errors
+              if (errorMsg.includes('Extension context invalidated') || 
+                  errorMsg.includes('Receiving end does not exist')) {
+                reject(new Error('Extension context invalidated. Please reload the extension or refresh this page.'));
+                return;
+              }
+              
+              if (attempt < retries) {
+                // Retry after a short delay
+                setTimeout(() => attemptSend(attempt + 1), 1000);
+              } else {
+                reject(new Error(`Communication failed after ${retries} attempts: ${errorMsg}`));
+              }
+            } else if (response && response.success === false) {
+              reject(new Error(response.error || 'Unknown error'));
+            } else if (!response) {
+              reject(new Error('No response received from background script'));
             } else {
-              reject(new Error(chrome.runtime.lastError.message));
+              resolve(response);
             }
-          } else if (response && response.success === false) {
-            reject(new Error(response.error || 'Unknown error'));
-          } else {
-            resolve(response);
-          }
-        });
+          });
+        } catch (error) {
+          console.error('Error sending message:', error);
+          reject(new Error('Failed to send message to background script'));
+        }
       };
       
       attemptSend(1);
@@ -477,9 +504,15 @@
   
   // Initialize when DOM is loaded
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initialize);
+    document.addEventListener('DOMContentLoaded', () => {
+      initialize().catch(error => {
+        console.error('❌ Error during popup initialization:', error);
+      });
+    });
   } else {
-    initialize();
+    initialize().catch(error => {
+      console.error('❌ Error during popup initialization:', error);
+    });
   }
   
 })();

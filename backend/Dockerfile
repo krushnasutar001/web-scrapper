@@ -1,6 +1,6 @@
 FROM node:18-alpine
 
-# Install Puppeteer dependencies and system packages
+# Install Playwright/Puppeteer dependencies and system packages
 RUN apk add --no-cache \
     chromium \
     nss \
@@ -12,9 +12,11 @@ RUN apk add --no-cache \
     curl \
     && rm -rf /var/cache/apk/*
 
-# Tell Puppeteer to skip installing Chromium. We'll be using the installed package.
+# Tell Playwright/Puppeteer to use the installed Chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # Set working directory
 WORKDIR /app
@@ -25,12 +27,11 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci --only=production && npm cache clean --force
 
-# Copy source code
-COPY src/ ./src/
-COPY healthcheck.js ./
+# Copy application code
+COPY . .
 
-# Create logs directory
-RUN mkdir -p logs
+# Create necessary directories for job queue system
+RUN mkdir -p logs uploads tmp/chrome-data results
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \

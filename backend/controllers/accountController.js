@@ -1,6 +1,109 @@
 const LinkedInAccount = require('../models/LinkedInAccount');
 
 /**
+ * Detect and save LinkedIn accounts from browser extension
+ */
+const detectFromExtension = async (req, res) => {
+  try {
+    const user = req.user;
+    const { accounts } = req.body;
+    
+    console.log('🔍 Detecting LinkedIn accounts from extension for user:', user.id);
+    console.log('📋 Received accounts data:', accounts);
+    
+    if (!accounts || !Array.isArray(accounts) || accounts.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No accounts data provided',
+        code: 'NO_ACCOUNTS_DATA'
+      });
+    }
+    
+    const savedAccounts = [];
+    const errors = [];
+    
+    for (const accountData of accounts) {
+      try {
+        const {
+          name,
+          email,
+          profileUrl,
+          cookies,
+          chromeProfileId,
+          browserFingerprint,
+          sessionInfo
+        } = accountData;
+        
+        // Validate required fields
+        if (!cookies || !Array.isArray(cookies) || cookies.length === 0) {
+          errors.push(`Account ${name || email || 'Unknown'}: No cookies provided`);
+          continue;
+        }
+        
+        // Check if account already exists
+        const existingAccount = await LinkedInAccount.findByEmail(user.id, email);
+        if (existingAccount) {
+          console.log(`⚠️ Account already exists for email: ${email}`);
+          // Update existing account with new cookies and session info
+          await LinkedInAccount.updateCookies(existingAccount.id, cookies);
+          savedAccounts.push(existingAccount);
+          continue;
+        }
+        
+        // Create new account
+        const accountName = name || email || `LinkedIn Account ${Date.now()}`;
+        const newAccount = await LinkedInAccount.create({
+          user_id: user.id,
+          account_name: accountName,
+          email: email,
+          profile_url: profileUrl,
+          cookies: JSON.stringify(cookies),
+          chrome_profile_id: chromeProfileId,
+          browser_fingerprint: browserFingerprint,
+          session_info: JSON.stringify(sessionInfo),
+          is_active: 1,
+          validation_status: 'pending'
+        });
+        
+        console.log(`✅ Created new LinkedIn account: ${accountName} (${email})`);
+        savedAccounts.push(newAccount);
+        
+        // Validate the account immediately
+        try {
+          await LinkedInAccount.validate(newAccount.id);
+          console.log(`✅ Account validated: ${accountName}`);
+        } catch (validateError) {
+          console.warn(`⚠️ Account created but validation failed: ${validateError.message}`);
+        }
+        
+      } catch (accountError) {
+        console.error('❌ Error processing account:', accountError);
+        errors.push(`Account ${accountData.name || accountData.email || 'Unknown'}: ${accountError.message}`);
+      }
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        saved: savedAccounts.length,
+        accounts: savedAccounts.map(account => account.toJSON()),
+        errors: errors
+      },
+      message: `Successfully processed ${savedAccounts.length} accounts${errors.length > 0 ? ` with ${errors.length} errors` : ''}`
+    });
+    
+  } catch (error) {
+    console.error('❌ Error detecting accounts from extension:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to detect accounts from extension',
+      code: 'EXTENSION_DETECTION_ERROR'
+    });
+  }
+};
+
+/**
  * Get all LinkedIn accounts for the authenticated user
  */
 const getAccounts = async (req, res) => {
@@ -110,11 +213,12 @@ const getAccountById = async (req, res) => {
 
 /**
  * Create a new LinkedIn account
+ * Enhanced to support extension-managed accounts
  */
 const createAccount = async (req, res) => {
   try {
     // Handle both regular form data and multipart form data
-    const { name, account_name, email, username, cookies, proxy_url, user_agent } = req.body;
+    const { name, account_name, email, username, cookies, cookies_json, proxy_url, user_agent, source = 'manual' } = req.body;
     const user = req.user;
     
     // Use 'name' field if 'account_name' is not provided (for frontend compatibility)
@@ -126,7 +230,9 @@ const createAccount = async (req, res) => {
       username, 
       userId: user.id,
       hasCookiesFile: !!req.file,
-      hasCookiesJson: !!cookies
+      hasCookiesJson: !!cookies,
+      hasCookiesJsonDirect: !!cookies_json,
+      source
     });
     
     // Validate required fields - only account name is required now
@@ -139,9 +245,23 @@ const createAccount = async (req, res) => {
       });
     }
     
-    // Process cookies if provided (file or JSON)
+    // Process cookies from different sources
     let cookiesData = null;
-    if (req.file) {
+    
+    if (cookies_json) {
+      // Direct cookies from extension
+      try {
+        cookiesData = typeof cookies_json === 'string' ? JSON.parse(cookies_json) : cookies_json;
+        console.log('📋 Processed cookies from extension');
+      } catch (error) {
+        console.error('❌ Error parsing cookies_json:', error);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid cookies JSON format',
+          code: 'INVALID_COOKIES_JSON'
+        });
+      }
+    } else if (req.file) {
       // Handle uploaded cookies file
       try {
         const fs = require('fs');
@@ -160,7 +280,7 @@ const createAccount = async (req, res) => {
         });
       }
     } else if (cookies) {
-      // Handle cookies JSON string
+      // Handle cookies JSON string (legacy)
       try {
         cookiesData = typeof cookies === 'string' ? JSON.parse(cookies) : cookies;
         console.log('📋 Processed cookies from JSON string');
@@ -202,7 +322,8 @@ const createAccount = async (req, res) => {
       user_id: user.id,
       account_name: finalAccountName,
       email,
-      username
+      username,
+      cookies_json: cookiesData
     });
     
     // If cookies are provided, automatically set validation status to ACTIVE
@@ -214,19 +335,33 @@ const createAccount = async (req, res) => {
       });
     }
     
-    console.log(`✅ LinkedIn account created: ${finalAccountName} (${email || 'no email'})${cookiesData ? ' with cookies' : ''}`);
+    // Log account creation source
+    console.log(`✅ Account created via ${source}: ${finalAccountName} (${email || 'no email'}) for user ${user.id}${cookiesData ? ' with cookies' : ''}`);
     
     res.status(201).json({
       success: true,
       message: cookiesData ? 
         'LinkedIn account created and validated successfully with cookies' : 
         'LinkedIn account created successfully',
+      account: {
+        id: newAccount.id,
+        account_name: newAccount.account_name,
+        email: newAccount.email,
+        validation_status: newAccount.validation_status,
+        is_active: newAccount.is_active,
+        created_at: newAccount.created_at
+      },
       data: newAccount.toJSON(),
       validated: !!cookiesData
     });
     
   } catch (error) {
     console.error('❌ Error creating LinkedIn account:', error);
+    
+    // Clean up uploaded file if it exists
+    if (req.file && require('fs').existsSync(req.file.path)) {
+      require('fs').unlinkSync(req.file.path);
+    }
     
     if (error.message.includes('already exists')) {
       return res.status(409).json({
@@ -238,6 +373,7 @@ const createAccount = async (req, res) => {
     
     res.status(500).json({
       success: false,
+      message: error.message || 'Failed to create LinkedIn account',
       error: 'Failed to create LinkedIn account',
       code: 'CREATE_ACCOUNT_ERROR'
     });
@@ -246,14 +382,15 @@ const createAccount = async (req, res) => {
 
 /**
  * Update a LinkedIn account
+ * Enhanced to support extension-managed accounts
  */
 const updateAccount = async (req, res) => {
   try {
     const { accountId } = req.params;
-    const { account_name, email, username, is_active, validation_status, daily_request_limit } = req.body;
+    const { account_name, email, username, cookies_json, is_active, validation_status, daily_request_limit, source = 'manual' } = req.body;
     const user = req.user;
     
-    console.log('📋 Updating LinkedIn account:', { accountId, userId: user.id });
+    console.log(`🔄 Updating account ${accountId} via ${source} for user ${user.id}`);
     
     // Find the account
     const account = await LinkedInAccount.findById(accountId);
@@ -308,15 +445,39 @@ const updateAccount = async (req, res) => {
     if (validation_status !== undefined) updates.validation_status = validation_status;
     if (daily_request_limit !== undefined) updates.daily_request_limit = daily_request_limit;
     
+    // Handle cookies update
+    if (cookies_json) {
+      try {
+        const cookiesData = typeof cookies_json === 'string' ? JSON.parse(cookies_json) : cookies_json;
+        updates.cookies_json = cookiesData;
+        updates.validation_status = 'pending'; // Reset validation when cookies change
+        console.log('📋 Updated cookies from extension');
+      } catch (error) {
+        console.error('❌ Error parsing cookies_json:', error);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid cookies JSON format',
+          code: 'INVALID_COOKIES_JSON'
+        });
+      }
+    }
+    
     // Update the account
     await account.update(updates);
     
-    console.log(`✅ LinkedIn account updated: ${accountId}`);
+    console.log(`✅ Account updated via ${source}: ${account.account_name} for user ${user.id}`);
     
     res.json({
       success: true,
       message: 'LinkedIn account updated successfully',
-      data: account.toJSON()
+      account: {
+        id: account.id,
+        account_name: account.account_name,
+        email: account.email,
+        validation_status: account.validation_status,
+        is_active: account.is_active,
+        updated_at: account.updated_at
+      }
     });
     
   } catch (error) {
@@ -324,6 +485,7 @@ const updateAccount = async (req, res) => {
     
     res.status(500).json({
       success: false,
+      message: error.message || 'Failed to update LinkedIn account',
       error: 'Failed to update LinkedIn account',
       code: 'UPDATE_ACCOUNT_ERROR'
     });
@@ -685,5 +847,6 @@ module.exports = {
   refreshAccounts,
   getStats,
   addWithCookies,
-  validateAccount
+  validateAccount,
+  detectFromExtension
 };

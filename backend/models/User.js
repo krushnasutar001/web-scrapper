@@ -22,8 +22,8 @@ class User {
       const password_hash = await bcrypt.hash(password, 10);
       
       const sql = `
-        INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
-        VALUES (?, ?, ?, ?, NOW(), NOW())
+        INSERT INTO users (id, email, password, name, created_at, updated_at)
+        VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
       `;
       
       await query(sql, [id, email, password_hash, name]);
@@ -40,19 +40,17 @@ class User {
    * Find user by ID
    */
   static async findById(id) {
-    try {
-      const sql = 'SELECT id, email, name, is_active, created_at, updated_at, last_login_at FROM users WHERE id = ?';
-      const results = await query(sql, [id]);
-      
-      if (results.length === 0) {
-        return null;
-      }
-      
-      return new User(results[0]);
-    } catch (error) {
-      console.error('❌ Error finding user by ID:', error);
-      throw error;
+    const results = await query(
+      'SELECT id, email, name, password_hash, is_active, created_at, updated_at, last_login_at FROM users WHERE id = ?',
+      [id]
+    );
+    
+    if (results.length === 0) {
+      return null;
     }
+    
+    const userData = results[0];
+    return new User(userData);
   }
 
   /**

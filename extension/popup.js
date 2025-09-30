@@ -6,6 +6,20 @@
 (function() {
   'use strict';
   
+  // Account Management UI Elements
+  const accountsSection = document.getElementById('accounts-section');
+  const accountsList = document.getElementById('accounts-list');
+  const addAccountBtn = document.getElementById('add-account-btn');
+  const refreshAccountsBtn = document.getElementById('refresh-accounts-btn');
+  const accountModal = document.getElementById('account-modal');
+  const accountForm = document.getElementById('account-form');
+  const closeModalBtn = document.getElementById('close-modal');
+  const saveAccountBtn = document.getElementById('save-account');
+
+  // Account management state
+  let currentAccounts = [];
+  let editingAccountId = null;
+  
   // State variables
   let isLoggedIn = false;
   let currentAccount = null;
@@ -78,7 +92,204 @@
     openDashboard: document.getElementById('openDashboard')
   };
   
-  // Initialize popup
+  // Account Management Functions
+async function loadAccounts() {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'getAccounts' });
+    if (response.success) {
+      currentAccounts = response.accounts;
+      renderAccountsList();
+    } else {
+      console.error('Failed to load accounts:', response.error);
+    }
+  } catch (error) {
+    console.error('Error loading accounts:', error);
+  }
+}
+
+function renderAccountsList() {
+  if (!accountsList) return;
+  
+  accountsList.innerHTML = '';
+  
+  if (currentAccounts.length === 0) {
+    accountsList.innerHTML = '<div class="no-accounts">No LinkedIn accounts added yet</div>';
+    return;
+  }
+  
+  currentAccounts.forEach(account => {
+    const accountItem = document.createElement('div');
+    accountItem.className = 'account-item';
+    accountItem.innerHTML = `
+      <div class="account-info">
+        <div class="account-name">${account.account_name}</div>
+        <div class="account-email">${account.email || 'No email'}</div>
+        <div class="account-status ${account.validation_status.toLowerCase()}">${account.validation_status}</div>
+      </div>
+      <div class="account-actions">
+        <button class="btn-small validate-btn" data-id="${account.id}">Validate</button>
+        <button class="btn-small edit-btn" data-id="${account.id}">Edit</button>
+        <button class="btn-small delete-btn" data-id="${account.id}">Delete</button>
+      </div>
+    `;
+    
+    // Add event listeners
+    const validateBtn = accountItem.querySelector('.validate-btn');
+    const editBtn = accountItem.querySelector('.edit-btn');
+    const deleteBtn = accountItem.querySelector('.delete-btn');
+    
+    validateBtn.addEventListener('click', () => validateAccount(account.id));
+    editBtn.addEventListener('click', () => editAccount(account));
+    deleteBtn.addEventListener('click', () => deleteAccount(account.id));
+    
+    accountsList.appendChild(accountItem);
+  });
+}
+
+async function validateAccount(accountId) {
+  try {
+    const response = await chrome.runtime.sendMessage({ 
+      type: 'validateAccount', 
+      accountId 
+    });
+    
+    if (response.success) {
+      await loadAccounts(); // Refresh the list
+      showNotification('Account validated successfully', 'success');
+    } else {
+      showNotification(`Validation failed: ${response.error}`, 'error');
+    }
+  } catch (error) {
+    console.error('Error validating account:', error);
+    showNotification('Error validating account', 'error');
+  }
+}
+
+function editAccount(account) {
+  editingAccountId = account.id;
+  
+  // Populate form with account data
+  document.getElementById('account-name').value = account.account_name;
+  document.getElementById('account-email').value = account.email || '';
+  
+  // Show modal
+  if (accountModal) {
+    accountModal.style.display = 'block';
+  }
+}
+
+async function deleteAccount(accountId) {
+  if (!confirm('Are you sure you want to delete this account?')) {
+    return;
+  }
+  
+  try {
+    const response = await chrome.runtime.sendMessage({ 
+      type: 'deleteAccount', 
+      accountId 
+    });
+    
+    if (response.success) {
+      await loadAccounts(); // Refresh the list
+      showNotification('Account deleted successfully', 'success');
+    } else {
+      showNotification(`Delete failed: ${response.error}`, 'error');
+    }
+  } catch (error) {
+    console.error('Error deleting account:', error);
+    showNotification('Error deleting account', 'error');
+  }
+}
+
+async function saveAccount() {
+  const accountName = document.getElementById('account-name').value.trim();
+  const accountEmail = document.getElementById('account-email').value.trim();
+  
+  if (!accountName) {
+    showNotification('Account name is required', 'error');
+    return;
+  }
+  
+  try {
+    const accountData = {
+      account_name: accountName,
+      email: accountEmail || null
+    };
+    
+    let response;
+    if (editingAccountId) {
+      // Update existing account
+      response = await chrome.runtime.sendMessage({
+        type: 'updateAccount',
+        accountId: editingAccountId,
+        updateData: accountData
+      });
+    } else {
+      // Add new account
+      response = await chrome.runtime.sendMessage({
+        type: 'addAccount',
+        accountData
+      });
+    }
+    
+    if (response.success) {
+      closeAccountModal();
+      await loadAccounts(); // Refresh the list
+      showNotification(editingAccountId ? 'Account updated successfully' : 'Account added successfully', 'success');
+    } else {
+      showNotification(`Save failed: ${response.error}`, 'error');
+    }
+  } catch (error) {
+    console.error('Error saving account:', error);
+    showNotification('Error saving account', 'error');
+  }
+}
+
+function closeAccountModal() {
+  if (accountModal) {
+    accountModal.style.display = 'none';
+  }
+  
+  // Reset form
+  if (accountForm) {
+    accountForm.reset();
+  }
+  
+  editingAccountId = null;
+}
+
+async function refreshAccounts() {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'syncAccounts' });
+    if (response.success) {
+      currentAccounts = response.accounts;
+      renderAccountsList();
+      showNotification('Accounts refreshed successfully', 'success');
+    } else {
+      showNotification(`Refresh failed: ${response.error}`, 'error');
+    }
+  } catch (error) {
+    console.error('Error refreshing accounts:', error);
+    showNotification('Error refreshing accounts', 'error');
+  }
+}
+
+function showNotification(message, type = 'info') {
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.textContent = message;
+  
+  // Add to page
+  document.body.appendChild(notification);
+  
+  // Remove after 3 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  }, 3000);
+}
   async function initialize() {
     console.log('🚀 Popup initializing...');
     
@@ -86,8 +297,31 @@
       // Check authentication status
       await checkAuthStatus();
       
+      // Load accounts if authenticated
+      if (isLoggedIn) {
+        await loadAccounts();
+      }
+      
       // Setup event listeners
       setupEventListeners();
+      
+      // Listen for authentication status changes from background script
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.action === 'authStatusChanged') {
+          console.log('🔄 Auth status changed:', message);
+          isLoggedIn = message.isLoggedIn;
+          
+          if (message.isLoggedIn && message.userInfo) {
+            currentAccount = message.userInfo;
+            updateUI();
+            checkLinkedInStatus();
+            loadAccounts();
+          } else {
+            currentAccount = null;
+            updateUI();
+          }
+        }
+      });
       
       // Check LinkedIn status if logged in
       if (isLoggedIn) {
@@ -106,7 +340,7 @@
     try {
       updateConnectionStatus('checking', 'Checking authentication...', 'Connecting to background script...');
       
-      const response = await sendMessage({ action: 'getAuthStatus' });
+      const response = await sendMessage({ type: 'getAuthStatus' });
       
       if (response.isLoggedIn) {
         isLoggedIn = true;
@@ -187,6 +421,37 @@
     // Navigation buttons
     elements.logoutBtn.addEventListener('click', handleLogout);
     elements.openDashboard.addEventListener('click', handleOpenDashboard);
+    
+    // Account management event listeners
+    if (addAccountBtn) {
+      addAccountBtn.addEventListener('click', () => {
+        editingAccountId = null;
+        if (accountModal) {
+          accountModal.style.display = 'block';
+        }
+      });
+    }
+    
+    if (refreshAccountsBtn) {
+      refreshAccountsBtn.addEventListener('click', refreshAccounts);
+    }
+    
+    if (closeModalBtn) {
+      closeModalBtn.addEventListener('click', closeAccountModal);
+    }
+    
+    if (saveAccountBtn) {
+      saveAccountBtn.addEventListener('click', saveAccount);
+    }
+    
+    // Close modal when clicking outside
+    if (accountModal) {
+      accountModal.addEventListener('click', (e) => {
+        if (e.target === accountModal) {
+          closeAccountModal();
+        }
+      });
+    }
   }
   
   // Handle login
@@ -206,17 +471,18 @@
       hideMessages();
       
       const response = await sendMessage({
-        action: 'login',
+        type: 'login',
         credentials: { email, password }
       });
       
-      if (response.success) {
+      if (response && response.success) {
         isLoggedIn = true;
         showSuccess('Login successful!');
         showMainSection();
         await checkLinkedInStatus();
+        await loadAccounts();
       } else {
-        throw new Error(response.error || 'Login failed');
+        throw new Error(response?.error || 'Login failed');
       }
     } catch (error) {
       console.error('❌ Login failed:', error);
@@ -244,11 +510,11 @@
       }
       
       const response = await sendMessage({ 
-        action: 'collectCookies',
+        type: 'collectCookies',
         tabId: tab.id
       });
       
-      if (response.success) {
+      if (response && response.success) {
         collectedCookies = response.cookies;
         currentAccount = {
           ...currentAccount,
@@ -263,7 +529,7 @@
         // Update account info
         showAccountInfo();
       } else {
-        throw new Error(response.error || 'Failed to collect cookies');
+        throw new Error(response?.error || 'Failed to collect cookies');
       }
     } catch (error) {
       console.error('❌ Cookie collection failed:', error);
@@ -346,20 +612,20 @@
       hideMessages();
       
       const response = await sendMessage({
-        action: 'validateAccount',
+        type: 'validateAccount',
         cookies: collectedCookies
       });
       
-      if (response.success) {
+      if (response && response.success) {
         if (response.isValid) {
           isValidated = true;
           showSuccess('Account validation successful! Cookies are valid.');
           elements.saveBtn.disabled = false;
         } else {
-          showError('Account validation failed: ' + response.message);
+          showError('Account validation failed: ' + (response.message || 'Invalid cookies'));
         }
       } else {
-        throw new Error(response.error || 'Validation failed');
+        throw new Error(response?.error || 'Validation failed');
       }
     } catch (error) {
       console.error('❌ Validation failed:', error);
@@ -371,8 +637,13 @@
   
   // Handle save account
   async function handleSaveAccount() {
-    if (!collectedCookies || !isValidated) {
-      showError('Please collect and validate cookies first');
+    if (!collectedCookies) {
+      showError('Please collect cookies first');
+      return;
+    }
+    
+    if (!isValidated) {
+      showError('Please validate the account first');
       return;
     }
     
@@ -380,26 +651,19 @@
       setButtonLoading(elements.saveBtn, elements.saveBtnText, elements.saveSpinner, true);
       hideMessages();
       
-      // Save account via background script
       const response = await sendMessage({
-        action: 'saveAccount',
-        accountData: {
-          accountName: currentAccount?.name || 'LinkedIn User',
-          cookies: collectedCookies,
-          email: currentAccount?.email,
-          username: currentAccount?.username
-        }
+        type: 'saveAccount',
+        cookies: collectedCookies,
+        accountName: currentAccount?.name || 'LinkedIn Account'
       });
       
-      if (response.success) {
+      if (response && response.success) {
         savedAccountId = response.accountId;
-        showSuccess('Account saved successfully to database!');
-        elements.scrapingBtn.disabled = false;
-        
-        // Update account details
-        elements.accountDetails.textContent = `Saved to database (ID: ${savedAccountId.substring(0, 8)}...)`;
+        showSuccess('Account saved successfully!');
+        elements.startScrapingBtn.disabled = false;
+        await loadAccounts();
       } else {
-        throw new Error(response.error || 'Failed to save account');
+        throw new Error(response?.error || 'Save failed');
       }
     } catch (error) {
       console.error('❌ Save failed:', error);
@@ -421,33 +685,27 @@
       hideMessages();
       
       const response = await sendMessage({
-        action: 'startScraping',
-        accountId: savedAccountId,
-        taskType: 'profile_scraping'
+        type: 'startScraping',
+        accountId: savedAccountId
       });
       
-      if (response.success) {
-        showSuccess(`Scraping task started! Job ID: ${response.jobId.substring(0, 8)}...`);
-        
-        // Open dashboard to monitor progress
-        setTimeout(() => {
-          handleOpenDashboard();
-        }, 2000);
+      if (response && response.success) {
+        showSuccess('Scraping started successfully!');
       } else {
-        throw new Error(response.error || 'Failed to start scraping');
+        throw new Error(response?.error || 'Failed to start scraping');
       }
     } catch (error) {
-      console.error('❌ Scraping start failed:', error);
-      showError('Failed to start scraping: ' + error.message);
+      console.error('❌ Start scraping failed:', error);
+      showError('Start scraping failed: ' + error.message);
     } finally {
-      setButtonLoading(elements.scrapingBtn, elements.scrapingBtnText, elements.scrapingSpinner, false);
+      setButtonLoading(elements.startScrapingBtn, elements.startScrapingBtnText, elements.startScrapingSpinner, false);
     }
   }
   
   // Handle logout
   async function handleLogout() {
     try {
-      await sendMessage({ action: 'logout' });
+      await sendMessage({ type: 'logout' });
       isLoggedIn = false;
       currentAccount = null;
       collectedCookies = null;
@@ -549,26 +807,47 @@
     }
   }
   
-  // Communication helper
+  // Communication helper with context validation
   function sendMessage(message) {
     return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(message, (response) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else if (response && response.success === false) {
-          reject(new Error(response.error || 'Unknown error'));
-        } else {
-          resolve(response);
-        }
-      });
+      // Check if extension context is valid
+      if (!chrome.runtime?.id) {
+        reject(new Error('Extension context invalidated. Please reload the extension.'));
+        return;
+      }
+      
+      try {
+        chrome.runtime.sendMessage(message, (response) => {
+          if (chrome.runtime.lastError) {
+            const error = chrome.runtime.lastError.message;
+            if (error.includes('Extension context invalidated') || error.includes('receiving end does not exist')) {
+              reject(new Error('Extension context invalidated. Please reload the extension.'));
+            } else {
+              reject(new Error(error));
+            }
+          } else if (response && response.success === false) {
+            reject(new Error(response.error || 'Unknown error'));
+          } else {
+            resolve(response);
+          }
+        });
+      } catch (error) {
+        reject(new Error('Extension context invalidated. Please reload the extension.'));
+      }
     });
   }
   
   // Initialize when DOM is loaded
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initialize);
+    document.addEventListener('DOMContentLoaded', () => {
+      initialize().catch(error => {
+        console.error('❌ Error during popup initialization:', error);
+      });
+    });
   } else {
-    initialize();
+    initialize().catch(error => {
+      console.error('❌ Error during popup initialization:', error);
+    });
   }
   
 })();

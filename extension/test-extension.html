@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Testing Guide</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .step {
+            background: #f5f5f5;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #007cba;
+        }
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+        .error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+        code {
+            background: #e9ecef;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .checklist {
+            list-style-type: none;
+            padding: 0;
+        }
+        .checklist li {
+            padding: 5px 0;
+        }
+        .checklist li:before {
+            content: "☐ ";
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 LinkedIn Automation Extension - Testing Guide</h1>
+    
+    <div class="success">
+        <h2>✅ Fixes Applied</h2>
+        <ul>
+            <li>Fixed API URL from port 5000 to 5001</li>
+            <li>Removed inline onclick handler (CSP violation)</li>
+            <li>Added proper authentication error handling</li>
+            <li>Improved extension context error handling</li>
+            <li>Added missing cookie refresh handlers</li>
+        </ul>
+    </div>
+
+    <h2>📋 Testing Steps</h2>
+
+    <div class="step">
+        <h3>Step 1: Load Extension in Chrome</h3>
+        <ol>
+            <li>Open Chrome and go to <code>chrome://extensions/</code></li>
+            <li>Enable "Developer mode" (toggle in top right)</li>
+            <li>Click "Load unpacked"</li>
+            <li>Select the extension folder: <code>C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\extension</code></li>
+            <li>Verify the extension appears in the list</li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h3>Step 2: Verify Backend Connection</h3>
+        <ol>
+            <li>Ensure backend is running on <code>http://localhost:5001</code></li>
+            <li>Click the extension icon in Chrome toolbar</li>
+            <li>Check if popup opens without CSP errors in console</li>
+            <li>Try logging in with test credentials</li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h3>Step 3: Test Core Functionality</h3>
+        <ul class="checklist">
+            <li>Login/logout functionality</li>
+            <li>Identity selection dropdown</li>
+            <li>Integration selection dropdown</li>
+            <li>Cookie update button</li>
+            <li>Refresh all button</li>
+            <li>Dashboard button (opens localhost:3000)</li>
+        </ul>
+    </div>
+
+    <div class="step">
+        <h3>Step 4: Test LinkedIn Integration</h3>
+        <ol>
+            <li>Open LinkedIn.com in a new tab</li>
+            <li>Log into LinkedIn</li>
+            <li>Go back to extension popup</li>
+            <li>Try updating cookies for a selected identity</li>
+            <li>Check console for success/error messages</li>
+        </ol>
+    </div>
+
+    <div class="warning">
+        <h3>⚠️ Common Issues to Check</h3>
+        <ul>
+            <li><strong>CSP Errors:</strong> Should be resolved with inline handler removal</li>
+            <li><strong>Authentication Errors:</strong> Check if backend is running on port 5001</li>
+            <li><strong>Extension Context Errors:</strong> Should have better error messages now</li>
+            <li><strong>Cookie Collection:</strong> Requires active LinkedIn tab</li>
+        </ul>
+    </div>
+
+    <div class="error">
+        <h3>🚨 If Issues Persist</h3>
+        <ol>
+            <li>Check Chrome DevTools Console (F12) for errors</li>
+            <li>Check Extension Service Worker logs in <code>chrome://extensions/</code></li>
+            <li>Verify backend logs for API call errors</li>
+            <li>Ensure all files are saved and extension is reloaded</li>
+        </ol>
+    </div>
+
+    <h2>🎯 Expected Results</h2>
+    <div class="success">
+        <ul>
+            <li>Extension loads without CSP violations</li>
+            <li>Authentication works with backend on port 5001</li>
+            <li>All buttons function without inline event handlers</li>
+            <li>Cookie refresh mechanism works properly</li>
+            <li>Error messages are clear and helpful</li>
+        </ul>
+    </div>
+
+    <p><strong>Note:</strong> Make sure the backend server is running before testing the extension!</p>
+</body>
+</html>

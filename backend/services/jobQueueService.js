@@ -6,6 +6,7 @@
 const { query, transaction } = require('../utils/database');
 const { v4: uuidv4 } = require('uuid');
 const EventEmitter = require('events');
+const transactionService = require('./transactionService');
 
 class JobQueueService extends EventEmitter {
   constructor() {

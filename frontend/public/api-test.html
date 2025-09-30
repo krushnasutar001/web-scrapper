@@ -111,11 +111,11 @@
             const urls = urlsText.split(',').map(u => u.trim()).filter(Boolean);
             
             const payload = {
-                type: jobType,
-                query: jobName,
-                maxResults: 100,
+                job_type: jobType,
+                job_name: jobName,
+                max_results: 100,
+                urls: urls,
                 configuration: {
-                    urls: urls,
                     accountSelectionMode: 'rotation',
                     selectedAccountIds: []
                 }
@@ -170,9 +170,9 @@
             const jobType = document.getElementById('jobType').value;
             
             const formData = new FormData();
-            formData.append('type', jobType);
-            formData.append('query', jobName);
-            formData.append('maxResults', '100');
+            formData.append('job_type', jobType);
+            formData.append('job_name', jobName);
+            formData.append('max_results', '100');
             formData.append('accountSelectionMode', 'rotation');
             
             try {

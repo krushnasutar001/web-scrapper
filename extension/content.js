@@ -225,6 +225,16 @@
           sendResponse({ success: true });
           break;
           
+        case 'ping':
+          sendResponse({ success: true, message: 'Content script is active' });
+          break;
+          
+        case 'executeJob':
+          executeJob(request.job)
+            .then(sendResponse)
+            .catch(error => sendResponse({ success: false, error: error.message }));
+          return true;
+          
         default:
           sendResponse({ success: false, error: 'Unknown action' });
       }
@@ -366,6 +376,245 @@
   // Also initialize after a short delay to catch dynamic content
   setTimeout(initialize, 2000);
   
+  // Execute job function
+  async function executeJob(job) {
+    try {
+      console.log(`🔄 Executing job ${job.id}: ${job.type}`);
+      
+      // Ensure user is logged in
+      if (!isLinkedInLoggedIn) {
+        throw new Error('User not logged in to LinkedIn');
+      }
+      
+      let results = {};
+      
+      switch (job.type) {
+        case 'profile_scrape':
+          results = await scrapeProfile(job.parameters);
+          break;
+          
+        case 'connection_request':
+          results = await sendConnectionRequest(job.parameters);
+          break;
+          
+        case 'message_send':
+          results = await sendMessage(job.parameters);
+          break;
+          
+        case 'search_scrape':
+          results = await scrapeSearch(job.parameters);
+          break;
+          
+        case 'post_engagement':
+          results = await engageWithPost(job.parameters);
+          break;
+          
+        default:
+          throw new Error(`Unknown job type: ${job.type}`);
+      }
+      
+      return {
+        success: true,
+        data: {
+          jobId: job.id,
+          type: job.type,
+          results: results,
+          timestamp: new Date().toISOString()
+        }
+      };
+      
+    } catch (error) {
+      console.error(`❌ Error executing job ${job.id}:`, error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+  
+  // Profile scraping function
+  async function scrapeProfile(parameters) {
+    try {
+      const profileUrl = parameters.profileUrl;
+      
+      // Navigate to profile if not already there
+      if (!window.location.href.includes(profileUrl)) {
+        window.location.href = profileUrl;
+        await waitForPageLoad();
+      }
+      
+      // Wait for profile to load
+      await waitForElement('.pv-text-details__left-panel', 10000);
+      
+      const profile = {
+        name: extractText('.text-heading-xlarge'),
+        headline: extractText('.text-body-medium.break-words'),
+        location: extractText('.text-body-small.inline.t-black--light.break-words'),
+        about: extractText('.pv-about__text .inline-show-more-text__text'),
+        experience: extractExperience(),
+        education: extractEducation(),
+        skills: extractSkills(),
+        profileUrl: window.location.href,
+        scrapedAt: new Date().toISOString()
+      };
+      
+      return profile;
+      
+    } catch (error) {
+      throw new Error(`Profile scraping failed: ${error.message}`);
+    }
+  }
+  
+  // Send connection request function
+  async function sendConnectionRequest(parameters) {
+    try {
+      const { profileUrl, message } = parameters;
+      
+      // Navigate to profile
+      if (!window.location.href.includes(profileUrl)) {
+        window.location.href = profileUrl;
+        await waitForPageLoad();
+      }
+      
+      // Find and click connect button
+      const connectButton = await waitForElement('button[aria-label*="Connect"], button[data-control-name="connect"]', 5000);
+      connectButton.click();
+      
+      // Wait for modal
+      await waitForElement('.send-invite', 3000);
+      
+      // Add note if provided
+      if (message) {
+        const addNoteButton = document.querySelector('button[aria-label="Add a note"]');
+        if (addNoteButton) {
+          addNoteButton.click();
+          await sleep(500);
+          
+          const messageBox = document.querySelector('#custom-message');
+          if (messageBox) {
+            messageBox.value = message;
+            messageBox.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }
+      }
+      
+      // Send invitation
+      const sendButton = document.querySelector('button[aria-label="Send invitation"], button[aria-label="Send now"]');
+      if (sendButton && !sendButton.disabled) {
+        sendButton.click();
+        await sleep(2000);
+        
+        return {
+          success: true,
+          profileUrl: profileUrl,
+          message: message || 'No message',
+          sentAt: new Date().toISOString()
+        };
+      } else {
+        throw new Error('Send button not available or disabled');
+      }
+      
+    } catch (error) {
+      throw new Error(`Connection request failed: ${error.message}`);
+    }
+  }
+  
+  // Helper functions
+  function extractText(selector) {
+    const element = document.querySelector(selector);
+    return element ? element.textContent.trim() : '';
+  }
+  
+  function extractExperience() {
+    const experiences = [];
+    const experienceItems = document.querySelectorAll('.pv-entity__summary-info');
+    
+    experienceItems.forEach(item => {
+      const title = extractText('.pv-entity__summary-info h3');
+      const company = extractText('.pv-entity__secondary-title');
+      const duration = extractText('.pv-entity__bullet-item-v2');
+      
+      if (title) {
+        experiences.push({ title, company, duration });
+      }
+    });
+    
+    return experiences;
+  }
+  
+  function extractEducation() {
+    const education = [];
+    const educationItems = document.querySelectorAll('.pv-education-entity');
+    
+    educationItems.forEach(item => {
+      const school = extractText('.pv-entity__school-name');
+      const degree = extractText('.pv-entity__degree-name');
+      const field = extractText('.pv-entity__fos');
+      
+      if (school) {
+        education.push({ school, degree, field });
+      }
+    });
+    
+    return education;
+  }
+  
+  function extractSkills() {
+    const skills = [];
+    const skillItems = document.querySelectorAll('.pv-skill-category-entity__name span');
+    
+    skillItems.forEach(item => {
+      const skill = item.textContent.trim();
+      if (skill) {
+        skills.push(skill);
+      }
+    });
+    
+    return skills;
+  }
+  
+  function waitForElement(selector, timeout = 5000) {
+    return new Promise((resolve, reject) => {
+      const element = document.querySelector(selector);
+      if (element) {
+        resolve(element);
+        return;
+      }
+      
+      const observer = new MutationObserver(() => {
+        const element = document.querySelector(selector);
+        if (element) {
+          observer.disconnect();
+          resolve(element);
+        }
+      });
+      
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      
+      setTimeout(() => {
+        observer.disconnect();
+        reject(new Error(`Element ${selector} not found within ${timeout}ms`));
+      }, timeout);
+    });
+  }
+  
+  function waitForPageLoad() {
+    return new Promise(resolve => {
+      if (document.readyState === 'complete') {
+        resolve();
+      } else {
+        window.addEventListener('load', resolve, { once: true });
+      }
+    });
+  }
+  
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
 })();
 
 // Export for testing

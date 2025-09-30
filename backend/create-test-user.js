@@ -1,34 +1,60 @@
 require('dotenv').config();
-const { initializeDatabase, query } = require('./utils/database');
+const mysql = require('mysql2/promise');
+const bcrypt = require('bcrypt');
+const { v4: uuidv4 } = require('uuid');
 
 async function createTestUser() {
+  let connection;
   try {
-    await initializeDatabase();
+    // Create MySQL connection
+    connection = await mysql.createConnection({
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME || 'linkedin_automation_saas',
+      port: process.env.DB_PORT || 3306
+    });
     
-    const testUserId = 'test-user-123';
+    console.log('✅ MySQL database connected successfully');
+    
+    const testUserId = uuidv4();
+    const testEmail = 'test@example.com';
+    const testPassword = 'testpassword123';
+    const testName = 'Test User';
     
     // Check if user already exists
-    const existingUser = await query(
-      'SELECT id FROM users WHERE id = ?',
-      [testUserId]
+    const [existingUsers] = await connection.execute(
+      'SELECT id FROM users WHERE email = ?',
+      [testEmail]
     );
     
-    if (existingUser.length > 0) {
+    if (existingUsers.length > 0) {
       console.log('✅ Test user already exists');
       return;
     }
     
-    // Create test user with INSERT IGNORE to avoid duplicate errors
-    await query(`
-      INSERT IGNORE INTO users (id, email, name, password_hash, created_at, updated_at)
-      VALUES (?, ?, ?, ?, NOW(), NOW())
-    `, [testUserId, 'test@example.com', 'Test User', 'dummy_hash']);
+    // Hash the password
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(testPassword, saltRounds);
     
-    console.log('✅ Test user created successfully (or already exists)');
+    // Create test user
+    await connection.execute(`
+      INSERT INTO users (id, email, name, password_hash, credits, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 100, NOW(), NOW())
+    `, [testUserId, testEmail, testName, passwordHash]);
+    
+    console.log('✅ Test user created successfully');
+    console.log(`   Email: ${testEmail}`);
+    console.log(`   Password: ${testPassword}`);
+    console.log(`   User ID: ${testUserId}`);
     
   } catch (error) {
     console.error('❌ Error creating test user:', error);
     throw error;
+  } finally {
+    if (connection) {
+      await connection.end();
+    }
   }
 }
 

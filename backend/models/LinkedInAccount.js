@@ -21,6 +21,68 @@ class LinkedInAccount {
   }
 
   /**
+   * Find account by email for a specific user
+   */
+  static async findByEmail(user_id, email) {
+    try {
+      if (!email) return null;
+      
+      const sql = 'SELECT * FROM linkedin_accounts WHERE user_id = ? AND email = ?';
+      const results = await query(sql, [user_id, email]);
+      
+      if (results.length === 0) {
+        return null;
+      }
+      
+      return new LinkedInAccount(results[0]);
+    } catch (error) {
+      console.error('❌ Error finding LinkedIn account by email:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update cookies for an account
+   */
+  static async updateCookies(accountId, cookies) {
+    try {
+      const cookiesJson = JSON.stringify(cookies);
+      const sql = `
+        UPDATE linkedin_accounts 
+        SET cookies_json = ?, updated_at = NOW()
+        WHERE id = ?
+      `;
+      await query(sql, [cookiesJson, accountId]);
+      
+      console.log(`✅ Updated cookies for LinkedIn account: ${accountId}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Error updating cookies:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Validate account (placeholder for actual validation logic)
+   */
+  static async validate(accountId) {
+    try {
+      const sql = `
+        UPDATE linkedin_accounts 
+        SET validation_status = 'ACTIVE', updated_at = NOW()
+        WHERE id = ?
+      `;
+      await query(sql, [accountId]);
+      
+      console.log(`✅ Validated LinkedIn account: ${accountId}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Error validating account:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Create a new LinkedIn account
    */
   static async create({ user_id, account_name, email, cookies_json }) {
@@ -292,6 +354,40 @@ class LinkedInAccount {
       return this;
     } catch (error) {
       console.error('❌ Error setting cooldown:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Static method to update account by ID
+   */
+  static async update(id, updates) {
+    try {
+      const account = await LinkedInAccount.findById(id);
+      if (!account) {
+        throw new Error('Account not found');
+      }
+      
+      return await account.update(updates);
+    } catch (error) {
+      console.error('❌ Error updating LinkedIn account (static):', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Static method to delete account by ID
+   */
+  static async delete(id) {
+    try {
+      const account = await LinkedInAccount.findById(id);
+      if (!account) {
+        throw new Error('Account not found');
+      }
+      
+      return await account.delete();
+    } catch (error) {
+      console.error('❌ Error deleting LinkedIn account (static):', error);
       throw error;
     }
   }

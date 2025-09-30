@@ -167,9 +167,9 @@ const Jobs = () => {
         const formData = new FormData();
         formData.append('file', jobData.file);
         // Map to backend expected field names
-        formData.append('type', jobData.jobType);           // Backend expects 'type'
-        formData.append('query', jobData.jobName || jobData.searchQuery); // Backend expects 'query'
-        formData.append('maxResults', jobData.maxPages || 100);
+        formData.append('job_type', jobData.jobType);           // Backend expects 'job_type'
+        formData.append('job_name', jobData.jobName || jobData.searchQuery); // Backend expects 'job_name'
+        formData.append('max_results', jobData.maxPages || 100);
         formData.append('accountSelectionMode', jobData.accountSelectionMode || 'rotation');
         
         // Add URLs if provided (for mixed input)
@@ -178,8 +178,8 @@ const Jobs = () => {
         }
         
         console.log('🚀 FormData details:');
-        console.log('  - type:', jobData.jobType);
-        console.log('  - query:', jobData.jobName || jobData.searchQuery);
+        console.log('  - job_type:', jobData.jobType);
+        console.log('  - job_name:', jobData.jobName || jobData.searchQuery);
         console.log('  - file:', jobData.file.name);
         console.log('  - urls count:', jobData.urls?.length || 0);
         
@@ -199,25 +199,20 @@ const Jobs = () => {
         });
       } else {
         // Use JSON for manual URL input (no file)
-        // Map frontend fields to backend expected fields
+        // Map frontend fields to backend expected fields (camelCase)
         const payload = {
-          type: jobData.jobType,                    // Backend expects 'type'
-          query: jobData.jobName || jobData.searchQuery, // Backend expects 'query'
-          maxResults: jobData.maxPages || 100,      // Backend expects 'maxResults'
-          urls: jobData.urls || [],                 // Backend expects 'urls' as direct field
+          jobType: jobData.jobType,                    // Backend expects 'jobType'
+          jobName: jobData.jobName || jobData.searchQuery, // Backend expects 'jobName'
+          searchQuery: jobData.searchQuery,            // Backend expects 'searchQuery'
+          urls: jobData.urls || [],                    // Backend expects 'urls' as direct field
           accountSelectionMode: jobData.accountSelectionMode || 'rotation',
-          selectedAccountIds: jobData.selectedAccountIds || [],
-          configuration: {
-            jobType: jobData.jobType,               // Keep original for reference
-            jobName: jobData.jobName,               // Keep original for reference
-            searchQuery: jobData.searchQuery        // Keep search query for reference
-          }
+          selectedAccountIds: jobData.selectedAccountIds || []
         };
         
         console.log('🚀 Payload details:');
-        console.log('  - type:', payload.type);
-        console.log('  - query:', payload.query);
-        console.log('  - maxResults:', payload.maxResults);
+        console.log('  - jobType:', payload.jobType);
+        console.log('  - jobName:', payload.jobName);
+        console.log('  - searchQuery:', payload.searchQuery);
         console.log('  - urls count:', payload.urls.length);
         console.log('  - urls sample:', payload.urls.slice(0, 3));
         console.log('  - accountSelectionMode:', payload.accountSelectionMode);

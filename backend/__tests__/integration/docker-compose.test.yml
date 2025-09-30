@@ -1,0 +1,258 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Testing
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: linkedin-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: linkedin_automation_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d linkedin_automation_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # Redis for BullMQ Testing
+  redis-test:
+    image: redis:7-alpine
+    container_name: linkedin-redis-test
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_test_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - test-network
+
+  # Backend API for Testing
+  backend-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: linkedin-backend-test
+    restart: unless-stopped
+    environment:
+      NODE_ENV: test
+      PORT: 5000
+      
+      # Database Configuration
+      DATABASE_URL: postgresql://postgres:postgres@postgres-test:5432/linkedin_automation_test
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_NAME: linkedin_automation_test
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      
+      # Redis Configuration
+      REDIS_URL: redis://redis-test:6379
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      
+      # JWT Configuration
+      JWT_SECRET: test-jwt-secret-key-for-integration-tests
+      JWT_EXPIRES_IN: 24h
+      
+      # Encryption
+      ENCRYPTION_KEY: test-encryption-key-32-characters
+      
+      # BullMQ Configuration
+      BULLMQ_REDIS_URL: redis://redis-test:6379
+      QUEUE_NAME: scraping-test
+      
+      # LinkedIn Configuration
+      LINKEDIN_EMAIL: test@example.com
+      LINKEDIN_PASSWORD: test-password
+      
+      # File Upload Configuration
+      UPLOAD_DIR: /app/uploads
+      MAX_FILE_SIZE: 52428800
+      MAX_FILES: 5
+      
+      # Browser Configuration
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: true
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      
+      # Logging
+      LOG_LEVEL: info
+      LOG_FILE: /app/logs/app.log
+      
+      # Rate Limiting
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX_REQUESTS: 100
+      
+      # Credits System
+      DEFAULT_CREDITS: 100
+      PROFILE_SCRAPING_COST: 1
+      COMPANY_SCRAPING_COST: 2
+      SEARCH_SCRAPING_COST: 5
+      
+      # Job Configuration
+      MAX_CONCURRENT_JOBS: 5
+      JOB_TIMEOUT_MS: 1800000
+      MAX_RETRIES: 3
+      
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - ./results:/app/results
+      - ./tmp:/app/tmp
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - test-network
+
+  # BullMQ Worker for Testing
+  worker-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: linkedin-worker-test
+    restart: unless-stopped
+    command: ["npm", "run", "worker"]
+    environment:
+      NODE_ENV: test
+      
+      # Database Configuration
+      DATABASE_URL: postgresql://postgres:postgres@postgres-test:5432/linkedin_automation_test
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_NAME: linkedin_automation_test
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      
+      # Redis Configuration
+      REDIS_URL: redis://redis-test:6379
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      
+      # BullMQ Configuration
+      BULLMQ_REDIS_URL: redis://redis-test:6379
+      QUEUE_NAME: scraping-test
+      WORKER_CONCURRENCY: 2
+      
+      # LinkedIn Configuration
+      LINKEDIN_EMAIL: test@example.com
+      LINKEDIN_PASSWORD: test-password
+      
+      # Browser Configuration
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: true
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      
+      # File Configuration
+      UPLOAD_DIR: /app/uploads
+      RESULTS_DIR: /app/results
+      
+      # Logging
+      LOG_LEVEL: info
+      LOG_FILE: /app/logs/worker.log
+      
+      # Job Configuration
+      JOB_TIMEOUT_MS: 1800000
+      MAX_RETRIES: 3
+      
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - ./results:/app/results
+      - ./tmp:/app/tmp
+      - ./cookies:/app/cookies
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    networks:
+      - test-network
+
+  # BullMQ Dashboard for Testing (Optional)
+  bullmq-dashboard-test:
+    image: deadly0/bull-board
+    container_name: linkedin-bullmq-dashboard-test
+    restart: unless-stopped
+    environment:
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_USE_TLS: "false"
+    ports:
+      - "3001:3000"
+    depends_on:
+      - redis-test
+    networks:
+      - test-network
+
+  # Test Runner Service
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: linkedin-test-runner
+    environment:
+      NODE_ENV: test
+      
+      # Test Configuration
+      DATABASE_URL: postgresql://postgres:postgres@postgres-test:5432/linkedin_automation_test
+      REDIS_URL: redis://redis-test:6379
+      API_BASE_URL: http://backend-test:5000
+      JWT_SECRET: test-jwt-secret-key-for-integration-tests
+      
+      # Test Timeouts
+      JEST_TIMEOUT: 30000
+      TEST_TIMEOUT: 60000
+      
+    command: ["npm", "run", "test:integration"]
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./test-results:/app/test-results
+    depends_on:
+      backend-test:
+        condition: service_healthy
+      worker-test:
+        condition: service_started
+    networks:
+      - test-network
+
+volumes:
+  postgres_test_data:
+    driver: local
+  redis_test_data:
+    driver: local
+
+networks:
+  test-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

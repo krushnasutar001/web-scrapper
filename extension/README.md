@@ -1,6 +1,6 @@
-# LinkedIn Automation Cookie Collector Extension
+# Scralytics LinkedIn Automation Extension
 
-🔗 **A Chrome extension that automatically collects LinkedIn cookies and manages multiple accounts for automation tasks.**
+🔗 **A Chrome extension for automating LinkedIn tasks and data collection for the Scralytics platform.**
 
 ## 🚀 Features
 
@@ -21,9 +21,9 @@
 ## 📋 **Prerequisites**
 
 - **Chrome Browser**: Version 88 or higher
-- **LinkedIn Automation Backend**: Running on `http://localhost:5000`
+- **Scralytics Backend**: Running on `http://localhost:5003`
 - **LinkedIn Account**: Valid LinkedIn account(s) for automation
-- **Backend Authentication**: User account in the automation system
+- **Scralytics Account**: User account in the Scralytics system
 
 ## 🛠️ **Installation**
 
@@ -40,13 +40,12 @@ ls -la
 ### **Step 2: Load Extension in Chrome**
 1. **Open Chrome** and navigate to `chrome://extensions/`
 2. **Enable Developer Mode** (toggle in top-right corner)
-3. **Click "Load unpacked"**
-4. **Select the extension folder**: `linkedin-automation-saas/extension`
-5. **Verify installation**: Extension should appear in the list
+3. **Select the extension folder**: `linkedin-automation-saas/extension`
+4. **Verify installation**: Extension should appear as "Scralytics LinkedIn Automation"
 
 ### **Step 3: Pin Extension**
 1. **Click the Extensions icon** (puzzle piece) in Chrome toolbar
-2. **Find "LinkedIn Automation Cookie Collector"**
+2. **Find "Scralytics LinkedIn Automation"**
 3. **Click the pin icon** to pin it to toolbar
 
 ## 🎯 **Usage Guide**

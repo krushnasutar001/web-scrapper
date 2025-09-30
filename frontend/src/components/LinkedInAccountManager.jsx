@@ -38,82 +38,54 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-// Add Account Form Component
-const AddAccountForm = ({ onAccountAdded, onClose }) => {
-  const [formData, setFormData] = useState({
-    name: '',
-    proxy_url: '',
-    user_agent: ''
-  });
-  const [cookiesFile, setCookiesFile] = useState(null);
-  const [cookiesJson, setCookiesJson] = useState('');
-  const [useFileUpload, setUseFileUpload] = useState(true);
+// Extension Detection Component
+const ExtensionDetection = ({ onAccountDetected, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [detectedAccounts, setDetectedAccounts] = useState([]);
+  const [isExtensionInstalled, setIsExtensionInstalled] = useState(false);
 
-  const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+  useEffect(() => {
+    checkExtensionInstalled();
+  }, []);
+
+  const checkExtensionInstalled = () => {
+    // Check if extension is installed by looking for the extension's content script
+    if (window.chrome && window.chrome.runtime) {
+      setIsExtensionInstalled(true);
+    } else {
+      setError('LinkedIn Automation Extension is not installed. Please install the extension first.');
+    }
   };
 
-  const handleFileChange = (e) => {
-    setCookiesFile(e.target.files[0]);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const detectAccounts = async () => {
     setLoading(true);
     setError('');
-
+    
     try {
-      const submitData = new FormData();
-      submitData.append('name', formData.name);
-      
-      if (formData.proxy_url) {
-        submitData.append('proxy_url', formData.proxy_url);
-      }
-      
-      if (formData.user_agent) {
-        submitData.append('user_agent', formData.user_agent);
-      }
-
-      if (useFileUpload && cookiesFile) {
-        submitData.append('cookiesFile', cookiesFile);
-      } else if (!useFileUpload && cookiesJson) {
-        submitData.append('cookies', cookiesJson);
-      } else {
-        throw new Error('Please provide cookies either as file or JSON');
-      }
-
-      const response = await api.post('/api/accounts', submitData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-
-      if (response.success) {
-        // Validate the account immediately after adding
-        try {
-          const validateResponse = await api.post(`/api/accounts/${response.data.id}/validate`);
-          if (validateResponse.success) {
-            console.log('Account validated successfully');
-          } else {
-            console.warn('Account added but validation failed:', validateResponse.error);
+      // Request account detection from extension
+      if (window.chrome && window.chrome.runtime) {
+        window.chrome.runtime.sendMessage(
+          { type: 'DETECT_ACCOUNTS' },
+          (response) => {
+            if (response && response.success) {
+              setDetectedAccounts(response.accounts || []);
+              if (response.accounts && response.accounts.length > 0) {
+                onAccountDetected();
+              } else {
+                setError('No LinkedIn accounts detected. Please make sure you are logged into LinkedIn in this browser.');
+              }
+            } else {
+              setError(response?.error || 'Failed to detect accounts from extension');
+            }
+            setLoading(false);
           }
-        } catch (validateError) {
-          console.warn('Account added but validation failed:', validateError.message);
-        }
-        
-        onAccountAdded();
-        onClose();
+        );
       } else {
-        setError(response.error || 'Failed to add account');
+        throw new Error('Extension not available');
       }
     } catch (error) {
-      setError(error.response?.data?.error || error.message || 'Failed to add account');
-    } finally {
+      setError('Failed to communicate with extension: ' + error.message);
       setLoading(false);
     }
   };
@@ -123,7 +95,7 @@ const AddAccountForm = ({ onAccountAdded, onClose }) => {
       <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
         <div className="mt-3">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Add LinkedIn Account</h3>
+            <h3 className="text-lg font-medium text-gray-900">Detect LinkedIn Accounts</h3>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600"
@@ -132,98 +104,58 @@ const AddAccountForm = ({ onAccountAdded, onClose }) => {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Account Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Account Name *
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., John Doe LinkedIn"
-              />
-            </div>
-
-            {/* Cookies Input Method Toggle */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Cookies *
-              </label>
-              <div className="flex space-x-4 mb-3">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    checked={useFileUpload}
-                    onChange={() => setUseFileUpload(true)}
-                    className="mr-2 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-900">Upload cookies.json file</span>
-                </label>
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    checked={!useFileUpload}
-                    onChange={() => setUseFileUpload(false)}
-                    className="mr-2 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-900">Paste JSON</span>
-                </label>
+          <div className="space-y-4">
+            {/* Extension Status */}
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  {isExtensionInstalled ? (
+                    <span className="text-green-600 text-xl">✅</span>
+                  ) : (
+                    <span className="text-red-600 text-xl">❌</span>
+                  )}
+                </div>
+                <div className="ml-3">
+                  <h4 className="text-sm font-medium text-blue-900">
+                    {isExtensionInstalled ? 'Extension Installed' : 'Extension Required'}
+                  </h4>
+                  <p className="text-sm text-blue-700">
+                    {isExtensionInstalled 
+                      ? 'LinkedIn Automation Extension is ready to detect accounts'
+                      : 'Please install the LinkedIn Automation Extension to continue'
+                    }
+                  </p>
+                </div>
               </div>
-
-              {useFileUpload ? (
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleFileChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              ) : (
-                <textarea
-                  value={cookiesJson}
-                  onChange={(e) => setCookiesJson(e.target.value)}
-                  required
-                  rows={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder='[{"name":"li_at","value":"cookie_value","domain":".linkedin.com"}]'
-                />
-              )}
             </div>
 
-            {/* Proxy URL */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Proxy URL (Optional)
-              </label>
-              <input
-                type="text"
-                name="proxy_url"
-                value={formData.proxy_url}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="http://proxy.example.com:8080"
-              />
+            {/* Instructions */}
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
+              <h4 className="text-sm font-medium text-gray-900 mb-2">Instructions:</h4>
+              <ol className="text-sm text-gray-700 space-y-1 list-decimal list-inside">
+                <li>Make sure you are logged into LinkedIn in this browser</li>
+                <li>Click "Detect Accounts" to automatically find your LinkedIn accounts</li>
+                <li>The extension will securely capture your session cookies</li>
+                <li>Accounts will be validated and saved to your dashboard</li>
+              </ol>
             </div>
 
-            {/* User Agent */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                User Agent (Optional)
-              </label>
-              <input
-                type="text"
-                name="user_agent"
-                value={formData.user_agent}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64)..."
-              />
-            </div>
+            {/* Detected Accounts */}
+            {detectedAccounts.length > 0 && (
+              <div className="bg-green-50 border border-green-200 rounded-md p-4">
+                <h4 className="text-sm font-medium text-green-900 mb-2">
+                  Detected Accounts ({detectedAccounts.length})
+                </h4>
+                <div className="space-y-2">
+                  {detectedAccounts.map((account, index) => (
+                    <div key={index} className="text-sm text-green-700">
+                      <strong>{account.name || 'LinkedIn User'}</strong>
+                      {account.email && <span className="text-green-600"> ({account.email})</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Error Message */}
             {error && (
@@ -232,7 +164,7 @@ const AddAccountForm = ({ onAccountAdded, onClose }) => {
               </div>
             )}
 
-            {/* Submit Button */}
+            {/* Action Buttons */}
             <div className="flex justify-end space-x-3 pt-4">
               <button
                 type="button"
@@ -242,14 +174,15 @@ const AddAccountForm = ({ onAccountAdded, onClose }) => {
                 Cancel
               </button>
               <button
-                type="submit"
-                disabled={loading}
+                type="button"
+                onClick={detectAccounts}
+                disabled={loading || !isExtensionInstalled}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50"
               >
-                {loading ? 'Adding...' : 'Add Account'}
+                {loading ? 'Detecting...' : 'Detect Accounts'}
               </button>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>
@@ -583,8 +516,8 @@ const LinkedInAccountManager = () => {
                 onClick={() => setShowAddForm(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                <span className="mr-2">+</span>
-                Add Single Account
+                <span className="mr-2">🔍</span>
+                Detect Accounts
               </button>
               <button
                 onClick={() => setShowBulkImport(true)}
@@ -657,8 +590,8 @@ const LinkedInAccountManager = () => {
 
         {/* Add Account Modal */}
         {showAddForm && (
-          <AddAccountForm
-            onAccountAdded={handleAccountAdded}
+          <ExtensionDetection
+            onAccountDetected={handleAccountAdded}
             onClose={() => setShowAddForm(false)}
           />
         )}

@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const jwt = require('jsonwebtoken');
+const { getConnection } = require('../utils/database');
+const config = require('../config');
 const jobController = require('../controllers/jobController');
 const exportService = require('../services/exportService');
 const { authenticateToken, rateLimit } = require('../middleware/auth');
@@ -49,6 +52,210 @@ const jobRateLimit = rateLimit(30, 15 * 60 * 1000); // 30 requests per 15 minute
 const createJobRateLimit = rateLimit(10, 15 * 60 * 1000); // 10 job creations per 15 minutes
 
 /**
+ * Generate job token (JWT with short expiry)
+ */
+const generateJobToken = (jobId, userId) => {
+  return jwt.sign(
+    { 
+      job_id: jobId, 
+      user_id: userId,
+      type: 'job_token'
+    },
+    config.JOB_SIGN_SECRET,
+    { 
+      expiresIn: config.JOB_TOKEN_EXPIRY,
+      issuer: 'linkedin-automation-saas',
+      audience: 'job-worker'
+    }
+  );
+};
+
+/**
+ * Validate job token
+ */
+const validateJobToken = (token) => {
+  try {
+    return jwt.verify(token, config.JOB_SIGN_SECRET, {
+      issuer: 'linkedin-automation-saas',
+      audience: 'job-worker'
+    });
+  } catch (error) {
+    throw new Error('Invalid job token');
+  }
+};
+
+/**
+ * Transactional job creation with credit deduction
+ */
+const createJobTransactional = async (req, res) => {
+  const connection = await getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    const user = req.user;
+    
+    // Add detailed logging for debugging
+    console.log('🔍 DEBUG: Full request body:', JSON.stringify(req.body, null, 2));
+    console.log('🔍 DEBUG: Request headers:', JSON.stringify(req.headers, null, 2));
+    console.log('🔍 DEBUG: File upload info:', req.file ? {
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    } : 'No file uploaded');
+    
+    const { 
+      job_name, 
+      job_type, 
+      max_results = 100, 
+      configuration = {},
+      urls = []
+    } = req.body;
+    
+    console.log(`🔄 Creating job transactionally for user ${user.id}`);
+    console.log('🔍 DEBUG: Extracted values:');
+    console.log('  - job_name:', job_name);
+    console.log('  - job_type:', job_type);
+    console.log('  - max_results:', max_results);
+    console.log('  - configuration:', configuration);
+    console.log('  - urls:', urls);
+    console.log('  - urls type:', typeof urls);
+    console.log('  - urls length:', Array.isArray(urls) ? urls.length : 'Not an array');
+    
+    // Validate required fields
+    if (!job_name || !job_type) {
+      console.log('❌ DEBUG: Missing required fields - job_name:', !!job_name, 'job_type:', !!job_type);
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        error: 'Job name and type are required',
+        code: 'MISSING_REQUIRED_FIELDS',
+        debug: {
+          job_name_provided: !!job_name,
+          job_type_provided: !!job_type,
+          received_body: req.body
+        }
+      });
+    }
+    
+    // Validate job type
+    const validJobTypes = ['profile_scraping', 'company_scraping', 'search_result_scraping'];
+    if (!validJobTypes.includes(job_type)) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid job type',
+        code: 'INVALID_JOB_TYPE',
+        validTypes: validJobTypes
+      });
+    }
+    
+    // Calculate credits needed based on URLs and job type (1 credit per URL, minimum 1)
+    const creditsNeeded = Math.max(urls.length, 1);
+    
+    // Check user credits
+    const creditQuery = 'SELECT credits FROM users WHERE id = ?';
+    const [creditResult] = await connection.execute(creditQuery, [user.id]);
+    
+    if (!creditResult.length) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+    
+    const userCredits = creditResult[0].credits;
+    if (userCredits < creditsNeeded) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient credits. Required: ${creditsNeeded}, Available: ${userCredits}`,
+        code: 'INSUFFICIENT_CREDITS',
+        required: creditsNeeded,
+        available: userCredits
+      });
+    }
+    
+    // Deduct credits from user
+    const updateCreditsQuery = 'UPDATE users SET credits = credits - ? WHERE id = ?';
+    await connection.execute(updateCreditsQuery, [creditsNeeded, user.id]);
+    
+    // Generate a UUID for the job
+    const jobId = require('crypto').randomUUID();
+    
+    // Create job
+    const createJobQuery = `
+      INSERT INTO jobs (
+        id, user_id, job_name, job_type, status, max_results, 
+        configuration, created_at
+      ) VALUES (?, ?, ?, ?, 'pending', ?, ?, NOW())
+    `;
+    
+    const [jobResult] = await connection.execute(createJobQuery, [
+      jobId,
+      user.id,
+      job_name,
+      job_type,
+      max_results,
+      JSON.stringify(configuration)
+    ]);
+    
+    // Insert URLs if provided
+    if (urls && urls.length > 0) {
+      const insertUrlsQuery = `
+        INSERT INTO job_urls (job_id, url, status, created_at) 
+        VALUES ${urls.map(() => '(?, ?, "pending", NOW())').join(', ')}
+      `;
+      const urlParams = urls.flatMap(url => [jobId, url]);
+      await connection.execute(insertUrlsQuery, urlParams);
+    }
+    
+    await connection.commit();
+    
+    console.log(`✅ Job ${jobId} created successfully for user ${user.id}`);
+    console.log(`💰 Credits deducted: ${creditsNeeded}, Remaining: ${userCredits - creditsNeeded}`);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Job created successfully',
+      data: {
+        job_id: jobId,
+        job_name,
+        job_type,
+        status: 'pending',
+        max_results,
+        configuration,
+        urls_count: urls.length,
+        credits_deducted: creditsNeeded,
+        remaining_credits: userCredits - creditsNeeded,
+        created_at: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating job:', error);
+    
+    try {
+      await connection.rollback();
+    } catch (rollbackError) {
+      console.error('❌ Error rolling back transaction:', rollbackError);
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create job',
+      code: 'JOB_CREATION_FAILED',
+      details: error.message
+    });
+  } finally {
+    connection.release();
+  }
+};
+
+/**
  * @route   GET /api/jobs
  * @desc    Get all jobs for the authenticated user
  * @access  Private
@@ -64,7 +271,7 @@ router.get('/:jobId', authenticateToken, jobRateLimit, jobController.getJobById)
 
 /**
  * @route   POST /api/jobs
- * @desc    Create a new job
+ * @desc    Create a new job with transactional credit deduction
  * @access  Private
  */
 router.post('/', 
@@ -82,7 +289,7 @@ router.post('/',
     }
     next();
   },
-  jobController.createJob
+  createJobTransactional
 );
 
 /**
@@ -242,122 +449,6 @@ router.post('/export/multiple', authenticateToken, jobRateLimit, async (req, res
       success: false,
       error: error.message,
       code: 'EXPORT_ERROR'
-    });
-  }
-});
-
-/**
- * @route   GET /api/jobs/:jobId/stats
- * @desc    Get job statistics
- * @access  Private
- */
-router.get('/:jobId/stats', authenticateToken, jobRateLimit, async (req, res) => {
-  try {
-    const { jobId } = req.params;
-    const user = req.user;
-    
-    console.log(`📊 Getting stats for job ${jobId} by user ${user.id}`);
-    
-    // Find job and verify ownership
-    const job = await Job.findById(jobId);
-    if (!job) {
-      return res.status(404).json({
-        success: false,
-        error: 'Job not found',
-        code: 'JOB_NOT_FOUND'
-      });
-    }
-    
-    if (job.user_id !== user.id) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied to this job',
-        code: 'ACCESS_DENIED'
-      });
-    }
-    
-    // Get job statistics
-    const stats = await job.getStats();
-    
-    res.json({
-      success: true,
-      data: stats
-    });
-    
-  } catch (error) {
-    console.error('❌ Job stats error:', error);
-    
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      code: 'JOB_STATS_ERROR'
-    });
-  }
-});
-
-/**
- * @route   GET /api/jobs/export/stats
- * @desc    Get export statistics
- * @access  Private
- */
-router.get('/export/stats', authenticateToken, jobRateLimit, async (req, res) => {
-  try {
-    const user = req.user;
-    
-    const stats = await exportService.getExportStats(user.id);
-    
-    res.json({
-      success: true,
-      data: stats
-    });
-    
-  } catch (error) {
-    console.error('❌ Export stats error:', error);
-    
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      code: 'EXPORT_STATS_ERROR'
-    });
-  }
-});
-
-/**
- * @route   POST /api/jobs/process-queue
- * @desc    Manual job processing trigger
- * @access  Private
- */
-router.post('/process-queue', authenticateToken, async (req, res) => {
-  try {
-    const jobWorker = require('../services/jobWorker');
-    
-    // Get queue status
-    const status = jobWorker.getQueueStatus();
-    
-    console.log('🔄 Manual job processing triggered by user:', req.user.email);
-    console.log('📊 Current queue status:', status);
-    
-    // Force load pending jobs
-    await jobWorker.loadPendingJobs();
-    
-    // Get updated status
-    const updatedStatus = jobWorker.getQueueStatus();
-    
-    res.json({
-      success: true,
-      message: 'Job processing triggered successfully',
-      queue_status: {
-        before: status,
-        after: updatedStatus
-      }
-    });
-    
-  } catch (error) {
-    console.error('❌ Manual job processing error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to trigger job processing',
-      code: 'PROCESS_ERROR'
     });
   }
 });

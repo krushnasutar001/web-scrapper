@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Cookie Collection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border-left: 4px solid #007cba;
+        }
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+        .error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+        .test-button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #005a8b;
+        }
+        .test-results {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .status {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 3px;
+            display: inline-block;
+            margin: 5px 0;
+        }
+        .status.pending { background: #ffc107; color: #000; }
+        .status.success { background: #28a745; color: #fff; }
+        .status.error { background: #dc3545; color: #fff; }
+    </style>
+</head>
+<body>
+    <h1>🧪 LinkedIn Cookie Collection Test Suite</h1>
+    
+    <div class="test-section">
+        <h2>📋 Test Prerequisites</h2>
+        <ul>
+            <li>✅ Backend server running on http://localhost:5003</li>
+            <li>✅ Frontend server running on http://localhost:3001</li>
+            <li>⚠️ Extension loaded in Chrome (check chrome://extensions/)</li>
+            <li>⚠️ LinkedIn tab open and logged in</li>
+            <li>⚠️ Test user authenticated in extension</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🔐 Authentication Test</h2>
+        <p>Test the extension authentication with the backend.</p>
+        <button class="test-button" onclick="testAuthentication()">Test Authentication</button>
+        <div id="auth-results" class="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🍪 Cookie Collection Test</h2>
+        <p>Test LinkedIn cookie collection functionality.</p>
+        <button class="test-button" onclick="testCookieCollection()">Test Cookie Collection</button>
+        <div id="cookie-results" class="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>✅ Account Validation Test</h2>
+        <p>Test account validation with collected cookies.</p>
+        <button class="test-button" onclick="testAccountValidation()">Test Account Validation</button>
+        <div id="validation-results" class="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>💾 Account Saving Test</h2>
+        <p>Test saving validated account to database.</p>
+        <button class="test-button" onclick="testAccountSaving()">Test Account Saving</button>
+        <div id="saving-results" class="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔄 End-to-End Test</h2>
+        <p>Run complete workflow: collect → validate → save.</p>
+        <button class="test-button" onclick="runEndToEndTest()">Run E2E Test</button>
+        <div id="e2e-results" class="test-results"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5003';
+        let testToken = null;
+
+        // Helper function to update test results
+        function updateResults(elementId, message, status = 'pending') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            element.innerHTML += `[${timestamp}] <span class="status ${status}">${status.toUpperCase()}</span> ${message}\n`;
+            element.scrollTop = element.scrollHeight;
+        }
+
+        // Test authentication
+        async function testAuthentication() {
+            const resultsId = 'auth-results';
+            document.getElementById(resultsId).innerHTML = '';
+            
+            updateResults(resultsId, 'Starting authentication test...');
+            
+            try {
+                // Test login with known credentials
+                const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'testuser@scralytics.com',
+                        password: 'password123'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    testToken = data.token;
+                    updateResults(resultsId, `Authentication successful! Token: ${testToken.substring(0, 20)}...`, 'success');
+                } else {
+                    const error = await response.text();
+                    updateResults(resultsId, `Authentication failed: ${error}`, 'error');
+                }
+            } catch (error) {
+                updateResults(resultsId, `Authentication error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test cookie collection (simulated)
+        async function testCookieCollection() {
+            const resultsId = 'cookie-results';
+            document.getElementById(resultsId).innerHTML = '';
+            
+            updateResults(resultsId, 'Starting cookie collection test...');
+            
+            if (!testToken) {
+                updateResults(resultsId, 'Please run authentication test first!', 'error');
+                return;
+            }
+
+            try {
+                // Simulate cookie collection
+                const mockCookies = 'li_at=test_value; JSESSIONID=test_session; bcookie=test_bcookie';
+                const mockAccountName = 'Test LinkedIn User';
+                
+                updateResults(resultsId, `Simulated cookie collection:`, 'success');
+                updateResults(resultsId, `Account Name: ${mockAccountName}`);
+                updateResults(resultsId, `Cookies: ${mockCookies.substring(0, 50)}...`);
+                updateResults(resultsId, `Cookie count: 3 essential cookies found`, 'success');
+                
+                // Store for next test
+                window.testCookies = mockCookies;
+                window.testAccountName = mockAccountName;
+                
+            } catch (error) {
+                updateResults(resultsId, `Cookie collection error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test account validation
+        async function testAccountValidation() {
+            const resultsId = 'validation-results';
+            document.getElementById(resultsId).innerHTML = '';
+            
+            updateResults(resultsId, 'Starting account validation test...');
+            
+            if (!testToken) {
+                updateResults(resultsId, 'Please run authentication test first!', 'error');
+                return;
+            }
+
+            if (!window.testCookies) {
+                updateResults(resultsId, 'Please run cookie collection test first!', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/extension/account/validate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${testToken}`
+                    },
+                    body: JSON.stringify({
+                        cookies: window.testCookies
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    updateResults(resultsId, `Validation response: ${JSON.stringify(data, null, 2)}`, 'success');
+                    window.validationResult = data;
+                } else {
+                    const error = await response.text();
+                    updateResults(resultsId, `Validation failed: ${error}`, 'error');
+                }
+            } catch (error) {
+                updateResults(resultsId, `Validation error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test account saving
+        async function testAccountSaving() {
+            const resultsId = 'saving-results';
+            document.getElementById(resultsId).innerHTML = '';
+            
+            updateResults(resultsId, 'Starting account saving test...');
+            
+            if (!testToken) {
+                updateResults(resultsId, 'Please run authentication test first!', 'error');
+                return;
+            }
+
+            if (!window.testCookies || !window.testAccountName) {
+                updateResults(resultsId, 'Please run cookie collection test first!', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/extension/cookies/sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${testToken}`
+                    },
+                    body: JSON.stringify({
+                        cookies: window.testCookies,
+                        accountName: window.testAccountName
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    updateResults(resultsId, `Account saved successfully: ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    const error = await response.text();
+                    updateResults(resultsId, `Account saving failed: ${error}`, 'error');
+                }
+            } catch (error) {
+                updateResults(resultsId, `Account saving error: ${error.message}`, 'error');
+            }
+        }
+
+        // Run end-to-end test
+        async function runEndToEndTest() {
+            const resultsId = 'e2e-results';
+            document.getElementById(resultsId).innerHTML = '';
+            
+            updateResults(resultsId, 'Starting end-to-end test...');
+            
+            try {
+                updateResults(resultsId, '1/4 Testing authentication...');
+                await testAuthentication();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                updateResults(resultsId, '2/4 Testing cookie collection...');
+                await testCookieCollection();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                updateResults(resultsId, '3/4 Testing account validation...');
+                await testAccountValidation();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                updateResults(resultsId, '4/4 Testing account saving...');
+                await testAccountSaving();
+                
+                updateResults(resultsId, '✅ End-to-end test completed!', 'success');
+                
+            } catch (error) {
+                updateResults(resultsId, `E2E test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🧪 LinkedIn Cookie Collection Test Suite loaded');
+        });
+    </script>
+</body>
+</html>

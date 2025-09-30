@@ -69,6 +69,13 @@ router.get('/refresh', authenticateToken, accountRateLimit, accountController.re
 router.get('/:accountId', authenticateToken, accountRateLimit, accountController.getAccountById);
 
 /**
+ * @route   POST /api/linkedin-accounts/detect-from-extension
+ * @desc    Detect and save LinkedIn accounts from browser extension
+ * @access  Private
+ */
+router.post('/detect-from-extension', authenticateToken, accountRateLimit, accountController.detectFromExtension);
+
+/**
  * @route   POST /api/linkedin-accounts
  * @desc    Create a new LinkedIn account (supports file upload for cookies)
  * @access  Private

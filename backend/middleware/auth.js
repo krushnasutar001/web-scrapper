@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { query } = require('../utils/database');
 
 // JWT configuration
 const JWT_SECRET = process.env.JWT_SECRET || 'linkedin-automation-jwt-secret-key';
@@ -54,12 +55,15 @@ const generateTokens = (user) => {
  */
 const verifyAccessToken = (token) => {
   try {
+    console.log('🔍 Verifying token with secret:', JWT_SECRET.substring(0, 10) + '...');
     const decoded = jwt.verify(token, JWT_SECRET);
+    console.log('🔍 Token verified successfully:', decoded);
     if (decoded.type !== 'access') {
       throw new Error('Invalid token type');
     }
     return decoded;
   } catch (error) {
+    console.log('❌ Token verification failed:', error.message);
     throw error;
   }
 };
@@ -83,72 +87,96 @@ const verifyRefreshToken = (token) => {
  * Authentication middleware
  */
 const authenticateToken = async (req, res, next) => {
+  console.log('🔍 authenticateToken middleware called');
+  console.log('🔍 Request path:', req.path);
+  console.log('🔍 Request method:', req.method);
+  
   try {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    console.log('🔍 Auth header received:', authHeader ? authHeader.substring(0, 50) + '...' : 'None');
     
-    console.log('🔐 Auth Debug - Header:', authHeader ? 'Present' : 'Missing');
-    console.log('🔐 Auth Debug - Token:', token ? 'Present' : 'Missing');
-    
-    if (!token) {
-      console.log('❌ No token provided');
-      return res.status(401).json({ 
+    if (!authHeader) {
+      console.log('❌ No authorization header found');
+      return res.status(401).json({
         success: false,
-        error: 'Access token required',
+        error: 'Access token is required',
         code: 'NO_TOKEN'
       });
     }
-    
-    // Verify token
+
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : null;
+
+    if (!token) {
+      console.log('❌ No Bearer token found');
+      return res.status(401).json({
+        success: false,
+        error: 'Access token is required',
+        code: 'NO_TOKEN'
+      });
+    }
+
+    console.log('🔍 Token extracted:', token.substring(0, 20) + '...');
+
+    // Verify the token
     const decoded = verifyAccessToken(token);
-    console.log('✅ Token decoded successfully for user:', decoded.id);
+    console.log('🔍 Token decoded successfully:', decoded);
     
-    // Get user from database to ensure they still exist and are active
-    const user = await User.findById(decoded.id);
-    if (!user) {
-      console.log('❌ User not found:', decoded.id);
-      return res.status(401).json({ 
+    if (!decoded) {
+      console.log('❌ Token verification failed');
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid or expired token',
+        code: 'INVALID_TOKEN'
+      });
+    }
+
+    // Get user from database
+    console.log('🔍 Looking up user with ID:', decoded.id);
+    const userResult = await query(
+      'SELECT id, email, name, is_active FROM users WHERE id = ?',
+      [decoded.id]
+    );
+
+    if (!userResult || userResult.length === 0) {
+      console.log('❌ User not found in database');
+      return res.status(401).json({
         success: false,
         error: 'User not found',
         code: 'USER_NOT_FOUND'
       });
     }
-    
-    if (!user.is_active) {
-      console.log('❌ User is inactive:', decoded.id);
-      return res.status(401).json({ 
+
+    const user = userResult[0];
+    console.log('🔍 User found:', user);
+    console.log('🔍 User is_active value:', user.is_active);
+    console.log('🔍 User is_active type:', typeof user.is_active);
+
+    // Check if user is active
+    if (!user.is_active || user.is_active === 0) {
+      console.log('❌ User is inactive');
+      console.log('🔍 DEBUG - User ID:', user.id);
+      console.log('🔍 DEBUG - is_active value:', user.is_active);
+      console.log('🔍 DEBUG - is_active type:', typeof user.is_active);
+      
+      return res.status(401).json({
         success: false,
-        error: 'User account is inactive',
+        error: 'Account is inactive',
         code: 'USER_INACTIVE'
       });
     }
-    
-    // Attach user to request
+
+    console.log('✅ User authenticated successfully');
     req.user = user;
     next();
-    
   } catch (error) {
-    console.log('❌ Token verification failed:', error.message);
-    
-    // Handle different JWT errors
-    let errorResponse = {
+    console.error('❌ Authentication error:', error);
+    return res.status(401).json({
       success: false,
       error: 'Invalid or expired token',
       code: 'INVALID_TOKEN'
-    };
-    
-    if (error.name === 'TokenExpiredError') {
-      errorResponse.error = 'Token has expired';
-      errorResponse.code = 'TOKEN_EXPIRED';
-    } else if (error.name === 'JsonWebTokenError') {
-      errorResponse.error = 'Invalid token format';
-      errorResponse.code = 'INVALID_TOKEN_FORMAT';
-    } else if (error.name === 'NotBeforeError') {
-      errorResponse.error = 'Token not active yet';
-      errorResponse.code = 'TOKEN_NOT_ACTIVE';
-    }
-    
-    return res.status(403).json(errorResponse);
+    });
   }
 };
 
@@ -208,8 +236,6 @@ const refreshTokenHandler = async (req, res) => {
     
     // Generate new tokens
     const tokens = generateTokens(user);
-    
-    console.log(`✅ Refreshed tokens for user: ${user.id}`);
     
     res.json({
       success: true,

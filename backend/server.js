@@ -7,8 +7,13 @@ const path = require('path');
 const fs = require('fs');
 
 // Import utilities and services
-const { initializeDatabase, healthCheck } = require('./utils/database');
+// Database connection - using SQLite fallback
+const { initializeDatabase, closeDatabase, healthCheck } = require('./utils/database');
 const jobWorker = require('./services/jobWorker');
+
+// Import middleware
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { validateRateLimit } = require('./middleware/validation');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -19,13 +24,14 @@ const extensionRoutes = require('./routes/extension');
 
 // Create Express app
 const app = express();
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
-    'http://localhost:3001'
+    'http://localhost:3001',
+    'http://localhost:3002'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -111,19 +117,8 @@ app.get('/api/stats', async (req, res) => {
 });
 
 // Enhanced error handling middleware
-app.use((err, req, res, next) => {
-  console.error('❌ Unhandled Error:', err);
-  console.error('❌ Stack Trace:', err.stack);
-  console.error('❌ Request URL:', req.url);
-  console.error('❌ Request Method:', req.method);
-  console.error('❌ Request Headers:', req.headers);
-  
-  res.status(500).json({
-    success: false,
-    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error',
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-  });
-});
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // Legacy route compatibility (for existing frontend)
 app.get('/api/linkedin-accounts/available', (req, res, next) => {

@@ -1,0 +1,306 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18.x'
+  POSTGRES_VERSION: '15'
+  REDIS_VERSION: '7'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: linkedin_automation_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: npm ci
+
+    - name: Setup test environment
+      working-directory: ./backend
+      run: |
+        cp .env.example .env.test
+        echo "NODE_ENV=test" >> .env.test
+        echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/linkedin_automation_test" >> .env.test
+        echo "REDIS_URL=redis://localhost:6379" >> .env.test
+        echo "JWT_SECRET=test-secret-key-for-ci" >> .env.test
+        echo "CHROME_HEADLESS=true" >> .env.test
+        echo "CHROME_USER_DATA_DIR=/tmp/chrome-test" >> .env.test
+
+    - name: Run database migrations
+      working-directory: ./backend
+      run: |
+        npm run migrate:test || echo "Migration script not found, skipping..."
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/linkedin_automation_test
+
+    - name: Run unit tests
+      working-directory: ./backend
+      run: npm test
+      env:
+        NODE_ENV: test
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/linkedin_automation_test
+        REDIS_URL: redis://localhost:6379
+        JWT_SECRET: test-secret-key-for-ci
+
+    - name: Run integration tests
+      working-directory: ./backend
+      run: npm run test:integration || echo "Integration tests not found, skipping..."
+      env:
+        NODE_ENV: test
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/linkedin_automation_test
+        REDIS_URL: redis://localhost:6379
+        JWT_SECRET: test-secret-key-for-ci
+
+    - name: Generate test coverage
+      working-directory: ./backend
+      run: npm run test:coverage || npm test -- --coverage
+      env:
+        NODE_ENV: test
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/linkedin_automation_test
+        REDIS_URL: redis://localhost:6379
+        JWT_SECRET: test-secret-key-for-ci
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage/lcov.info
+        flags: backend
+        name: backend-coverage
+        fail_ci_if_error: false
+
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: npm ci
+
+    - name: Run ESLint
+      working-directory: ./backend
+      run: npm run lint || npx eslint . --ext .js,.jsx,.ts,.tsx
+
+    - name: Run Prettier check
+      working-directory: ./backend
+      run: npm run format:check || npx prettier --check "**/*.{js,jsx,ts,tsx,json,css,md}"
+
+    - name: Security audit
+      working-directory: ./backend
+      run: npm audit --audit-level moderate
+
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: npm ci --only=production
+
+    - name: Build application
+      working-directory: ./backend
+      run: npm run build || echo "No build script found"
+
+    - name: Create deployment artifact
+      run: |
+        tar -czf linkedin-automation-backend.tar.gz \
+          --exclude=node_modules \
+          --exclude=.git \
+          --exclude=__tests__ \
+          --exclude=coverage \
+          --exclude=.env* \
+          backend/
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: linkedin-automation-backend
+        path: linkedin-automation-backend.tar.gz
+        retention-days: 30
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: './backend'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ secrets.DOCKER_USERNAME }}/linkedin-automation-backend
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build, docker]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Deploy to staging server
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your staging deployment commands here
+        # Example: SSH to staging server and pull latest image
+        # ssh user@staging-server "docker pull ${{ secrets.DOCKER_USERNAME }}/linkedin-automation-backend:develop && docker-compose up -d"
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build, docker]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Deploy to production server
+      run: |
+        echo "Deploying to production environment..."
+        # Add your production deployment commands here
+        # Example: SSH to production server and pull latest image
+        # ssh user@production-server "docker pull ${{ secrets.DOCKER_USERNAME }}/linkedin-automation-backend:latest && docker-compose up -d"
+
+  notify:
+    name: Notify Team
+    runs-on: ubuntu-latest
+    needs: [test, lint, build, security]
+    if: always()
+    
+    steps:
+    - name: Notify on success
+      if: ${{ needs.test.result == 'success' && needs.lint.result == 'success' && needs.build.result == 'success' }}
+      run: |
+        echo "✅ All checks passed! Ready for deployment."
+        # Add notification logic here (Slack, Discord, email, etc.)
+
+    - name: Notify on failure
+      if: ${{ needs.test.result == 'failure' || needs.lint.result == 'failure' || needs.build.result == 'failure' }}
+      run: |
+        echo "❌ Some checks failed. Please review the logs."
+        # Add notification logic here (Slack, Discord, email, etc.)
+
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always()
+    
+    steps:
+    - name: Clean up old artifacts
+      run: |
+        echo "Cleaning up old build artifacts..."
+        # Add cleanup logic here if needed

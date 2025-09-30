@@ -182,6 +182,8 @@ class ScrapingService {
   }
 
   async launchBrowser(proxyUrl) {
+    const config = require('../config');
+    
     const args = [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -189,17 +191,70 @@ class ScrapingService {
       '--disable-accelerated-2d-canvas',
       '--no-first-run',
       '--no-zygote',
-      '--disable-gpu'
+      '--disable-gpu',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      '--disable-features=TranslateUI',
+      '--disable-ipc-flooding-protection'
     ];
     
     if (proxyUrl) {
       args.push(`--proxy-server=${proxyUrl}`);
     }
     
-    return await puppeteer.launch({
-      headless: true,
-      args
-    });
+    const launchOptions = {
+      headless: config.BROWSER_HEADLESS,
+      args,
+      timeout: config.BROWSER_TIMEOUT_MS,
+      defaultViewport: {
+        width: 1366,
+        height: 768
+      },
+      ignoreHTTPSErrors: true,
+      slowMo: config.IS_DEVELOPMENT ? 50 : 0
+    };
+
+    // Set user data directory if profiles base is configured
+    if (config.PROFILES_BASE) {
+      const userDataDir = path.join(config.PROFILES_BASE, 'chrome-data');
+      
+      // Ensure directory exists
+      try {
+        await fs.access(userDataDir);
+      } catch {
+        await fs.mkdir(userDataDir, { recursive: true });
+      }
+      
+      launchOptions.userDataDir = userDataDir;
+    }
+
+    try {
+      console.log('🚀 Launching browser with options:', {
+        headless: launchOptions.headless,
+        proxy: proxyUrl || 'none',
+        userDataDir: launchOptions.userDataDir || 'default'
+      });
+      
+      return await puppeteer.launch(launchOptions);
+    } catch (error) {
+      console.error('❌ Browser launch failed:', error.message);
+      
+      // Try fallback launch without user data directory
+      if (launchOptions.userDataDir) {
+        console.log('🔄 Retrying browser launch without user data directory...');
+        delete launchOptions.userDataDir;
+        
+        try {
+          return await puppeteer.launch(launchOptions);
+        } catch (fallbackError) {
+          console.error('❌ Fallback browser launch also failed:', fallbackError.message);
+          throw new Error(`Failed to launch browser: ${fallbackError.message}`);
+        }
+      }
+      
+      throw new Error(`Failed to launch browser: ${error.message}`);
+    }
   }
 
   async setLinkedInCookie(page, cookieValue, accountId = null) {

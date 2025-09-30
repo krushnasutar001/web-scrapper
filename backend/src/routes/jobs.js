@@ -1,11 +1,19 @@
 const express = require('express');
 const jobController = require('../controllers/jobController');
 const { authenticate, userRateLimit } = require('../middleware/auth');
+const multer = require('multer');
 
 const router = express.Router();
 
 // Apply authentication to all job routes
 router.use(authenticate);
+
+// Configure multer for handling multipart/form-data on job creation only
+const memoryStorage = multer.memoryStorage();
+const upload = multer({
+	storage: memoryStorage,
+	limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+});
 
 // Apply rate limiting for job creation
 const jobCreationRateLimit = userRateLimit(10, 60 * 1000); // 10 jobs per minute
@@ -174,7 +182,9 @@ const jobCreationRateLimit = userRateLimit(10, 60 * 1000); // 10 jobs per minute
  *       429:
  *         description: Rate limit exceeded
  */
-router.post('/', jobCreationRateLimit, jobController.createJob);
+// Accept both JSON and multipart/form-data. If a file is uploaded, multer will
+// populate `req.file` and `req.body` will contain the form fields (as strings).
+router.post('/', jobCreationRateLimit, upload.single('file'), jobController.createJob);
 
 /**
  * @swagger

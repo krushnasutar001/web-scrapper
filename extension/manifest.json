@@ -1,48 +1,52 @@
 {
   "manifest_version": 3,
-  "name": "Multi-Identity Cookie Manager",
-  "version": "2.0.0",
-  "description": "Advanced session cookie management for multiple accounts across LinkedIn, Sales Navigator, and Twitter",
+  "name": "Scralytics LinkedIn Automation",
+  "version": "1.0.0",
+  "description": "Chrome extension for Scralytics platform to automate LinkedIn data scraping",
   
   "permissions": [
-    "activeTab",
     "cookies",
     "storage",
     "tabs",
+    "activeTab",
     "scripting",
-    "background",
     "alarms"
   ],
   
   "host_permissions": [
-    "https://*.linkedin.com/*",
-    "https://*.twitter.com/*",
-    "https://*.x.com/*",
-    "http://localhost:*/*"
+    "https://scralytics.com/*",
+    "http://localhost:3000/*",
+    "http://localhost:5000/*",
+    "http://localhost:5001/*",
+    "https://*.linkedin.com/*"
   ],
   
   "background": {
-    "service_worker": "enhanced-background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["crypto.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   
   "content_scripts": [
     {
-      "matches": ["https://*.linkedin.com/*", "https://*.twitter.com/*", "https://*.x.com/*"],
-      "js": ["content.js"],
+      "matches": ["https://scralytics.com/*", "http://localhost:3000/*"],
+      "js": ["content_scralytics.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["https://*.linkedin.com/*"],
+      "js": ["content_linkedin.js"],
       "run_at": "document_end"
     }
   ],
   
   "action": {
-    "default_popup": "enhanced-popup.html",
-    "default_title": "Cookie Manager",
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "32": "icons/icon32.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-    }
+    "default_popup": "popup.html",
+    "default_title": "Scralytics Extension"
   },
   
   "icons": {
@@ -57,5 +61,9 @@
       "resources": ["injected.js"],
       "matches": ["https://*.linkedin.com/*", "https://*.twitter.com/*", "https://*.x.com/*"]
     }
-  ]
+  ],
+  
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
 }
