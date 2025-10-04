@@ -232,11 +232,18 @@ class LinkedInMultiAccountBackground {
     try {
       console.log('Syncing account to backend:', account.email);
       
-      const response = await fetch(`${CONFIG.BACKEND_URL}/api/linkedin-accounts`, {
+      // Include Authorization if token is available
+      const token = await new Promise((resolve) => {
+        try {
+          chrome.storage.local.get(['authToken'], (items) => resolve(items?.authToken || null));
+        } catch { resolve(null); }
+      });
+
+      let response = await fetch(`${CONFIG.BACKEND_URL}/api/accounts`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
-          // Note: Add authentication headers in production
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           accountName: account.name,
@@ -249,8 +256,33 @@ class LinkedInMultiAccountBackground {
         })
       });
 
+      // Fallback to extension endpoint if legacy route is missing
       if (!response.ok) {
-        throw new Error(`Backend sync failed: ${response.status} ${response.statusText}`);
+        if (response.status === 404) {
+          try {
+            const token = await new Promise((resolve) => {
+              try {
+                chrome.storage.local.get(['authToken'], (items) => resolve(items?.authToken || null));
+              } catch { resolve(null); }
+            });
+            response = await fetch(`${CONFIG.BACKEND_URL}/api/extension/accounts`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({
+                account_name: account.name || account.account_name || 'LinkedIn Account',
+                cookies: account.cookies.array || account.cookies || []
+              })
+            });
+          } catch (fallbackErr) {
+            throw new Error(`Backend sync failed: ${response.status} ${response.statusText}; Fallback error: ${String(fallbackErr.message || fallbackErr)}`);
+          }
+        }
+        if (!response.ok) {
+          throw new Error(`Backend sync failed: ${response.status} ${response.statusText}`);
+        }
       }
 
       const result = await response.json();

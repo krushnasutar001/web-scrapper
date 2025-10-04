@@ -38,11 +38,56 @@
     console.log('🚀 Initializing Scralytics content script');
     isInitialized = true;
     
+    // Signal readiness to the page (for web app detection)
+    try {
+      window.dispatchEvent(new CustomEvent('SCRALYTICS_EXTENSION_READY', { detail: { ts: Date.now() } }));
+      window.__SCRALYTICS_EXTENSION_READY__ = true;
+    } catch (e) {
+      // ignore
+    }
+    
+    // Also notify background for debugging/diagnostics
+    try {
+      // Use safeSendMessage to avoid throwing if extension context is invalidated
+      safeSendMessage({ type: 'PING', source: 'content_scralytics', url: window.location.href })
+        .catch(() => {});
+    } catch {}
+    
     // Start monitoring for login changes
     startLoginMonitoring();
     
     // Listen for messages from background script
     chrome.runtime.onMessage.addListener(handleMessage);
+
+    // Listen for messages from the web app (window.postMessage) to bridge actions to background
+    try {
+      window.addEventListener('message', async (event) => {
+        // Only accept messages from the same window context
+        if (event.source !== window || !event.data || typeof event.data !== 'object') return;
+        const msgType = event.data.type;
+        if (msgType === 'DETECT_ACCOUNTS') {
+          // Ask background to detect/refresh LinkedIn accounts, then respond back to the page
+          try {
+            const response = await safeSendMessage({ type: 'detectLinkedInAccounts', source: 'content_scralytics', ts: Date.now() });
+            const resultPayload = response && typeof response === 'object' ? response : { success: false, error: 'No response from background' };
+            window.postMessage({ type: 'DETECT_ACCOUNTS_RESULT', source: 'extension', ts: Date.now(), ...resultPayload }, '*');
+          } catch (err) {
+            window.postMessage({ type: 'DETECT_ACCOUNTS_RESULT', source: 'extension', ts: Date.now(), success: false, error: String(err.message || err) }, '*');
+          }
+        } else if (msgType === 'GET_LOCAL_LINKEDIN_ACCOUNTS') {
+          // Return accounts saved in extension local storage
+          try {
+            const response = await safeSendMessage({ type: 'GET_LOCAL_LINKEDIN_ACCOUNTS', source: 'content_scralytics', ts: Date.now() });
+            const resultPayload = response && typeof response === 'object' ? response : { success: false, error: 'No response from background' };
+            window.postMessage({ type: 'LOCAL_LINKEDIN_ACCOUNTS_RESULT', source: 'extension', ts: Date.now(), ...resultPayload }, '*');
+          } catch (err) {
+            window.postMessage({ type: 'LOCAL_LINKEDIN_ACCOUNTS_RESULT', source: 'extension', ts: Date.now(), success: false, error: String(err.message || err) }, '*');
+          }
+        }
+      });
+    } catch (err) {
+      console.warn('Failed to attach window message listener:', err);
+    }
     
     // Initial login check
     checkLoginStatus();
@@ -72,12 +117,14 @@
       lastLoginState = loginData;
       
       // Notify background script
-      chrome.runtime.sendMessage({
-        type: 'SCRALYTICS_LOGIN_STATUS',
-        data: loginData,
-        url: window.location.href,
-        timestamp: Date.now()
-      });
+      try {
+        safeSendMessage({
+          type: 'SCRALYTICS_LOGIN_STATUS',
+          data: loginData,
+          url: window.location.href,
+          timestamp: Date.now()
+        }).catch(() => {});
+      } catch {}
     }
   }
   
@@ -97,41 +144,29 @@
       const authToken = extractAuthToken();
       if (authToken) {
         loginData.authToken = authToken;
-        loginData.isLoggedIn = true;
       }
       
       // Method 2: Check for user data in DOM
       const userData = extractUserData();
-      if (userData.userId || userData.userEmail) {
-        loginData.isLoggedIn = true;
-        Object.assign(loginData, userData);
-      }
+      Object.assign(loginData, userData);
       
       // Method 3: Check localStorage/sessionStorage for auth data
       const storageData = extractStorageData();
-      if (storageData.authToken || storageData.userId) {
-        loginData.isLoggedIn = true;
-        Object.assign(loginData, storageData);
-      }
+      Object.assign(loginData, storageData);
       
       // Method 4: Check for cookies (accessible ones)
       const cookieData = extractCookieData();
-      if (cookieData.authToken) {
-        loginData.isLoggedIn = true;
-        Object.assign(loginData, cookieData);
-      }
+      Object.assign(loginData, cookieData);
       
       // Method 5: Check for specific UI elements that indicate logged-in state
       const uiIndicators = checkUIIndicators();
-      if (uiIndicators.isLoggedIn) {
-        loginData.isLoggedIn = true;
-        Object.assign(loginData, uiIndicators);
-      }
+      Object.assign(loginData, uiIndicators);
       
     } catch (error) {
       console.error('❌ Error detecting login status:', error);
     }
-    
+    // Enforce: only logged in when authToken is present
+    loginData.isLoggedIn = !!loginData.authToken;
     return loginData;
   }
   
@@ -383,19 +418,57 @@
   function handleMessage(request, sender, sendResponse) {
     console.log('📨 Scralytics content script received message:', request);
     
-    switch (request.type) {
+    // Support both `type` and legacy `action` fields
+    const msgType = request.type || request.action;
+    
+    switch (msgType) {
       case 'GET_LOGIN_STATUS':
+      case 'getLoginStatus':
         const loginData = detectLoginStatus();
         sendResponse({ success: true, data: loginData });
         break;
         
       case 'FORCE_LOGIN_CHECK':
+      case 'forceLoginCheck':
         checkLoginStatus();
+        sendResponse({ success: true });
+        break;
+
+      case 'accountDetected':
+        // Forward detection info to the web app (for optional UI feedback)
+        try {
+          window.postMessage({
+            type: 'DETECT_ACCOUNTS_RESULT',
+            source: 'extension',
+            ts: Date.now(),
+            response: { success: true, accounts: [request.account], count: request.count || 1, message: 'Account detected' }
+          }, '*');
+        } catch (_) {}
+        sendResponse({ success: true });
+        break;
+
+      case 'accountSaved':
+        // Notify the web app that an account was saved so it can refresh automatically
+        try {
+          window.dispatchEvent(new CustomEvent('SCRALYTICS_EXTENSION_ACCOUNT_SAVED', {
+            detail: { account: request.account, saved: request.saved, error: request.error, ts: Date.now() }
+          }));
+        } catch (_) {}
+        // Also emit a detection-style message for components listening to window.postMessage
+        try {
+          const acc = request.account ? [request.account] : [];
+          window.postMessage({
+            type: 'DETECT_ACCOUNTS_RESULT',
+            source: 'extension',
+            ts: Date.now(),
+            response: { success: !!request.saved, accounts: acc, message: request.saved ? 'Account saved' : (request.error || 'Failed to save account') }
+          }, '*');
+        } catch (_) {}
         sendResponse({ success: true });
         break;
         
       default:
-        console.log('❓ Unknown message type:', request.type);
+        console.log('❓ Unknown message type:', msgType);
         sendResponse({ success: false, error: 'Unknown message type' });
     }
   }
@@ -419,3 +492,25 @@
   }).observe(document, { subtree: true, childList: true });
   
 })();
+
+// Safe messaging wrapper to handle invalidated extension context and avoid uncaught errors
+function safeSendMessage(message) {
+  return new Promise((resolve) => {
+    try {
+      if (!chrome?.runtime?.id) {
+        resolve({ success: false, error: 'Extension context invalidated' });
+        return;
+      }
+      chrome.runtime.sendMessage(message, (response) => {
+        const lastErr = chrome.runtime.lastError && chrome.runtime.lastError.message;
+        if (lastErr) {
+          resolve({ success: false, error: lastErr });
+        } else {
+          resolve(response);
+        }
+      });
+    } catch (err) {
+      resolve({ success: false, error: String(err.message || err) });
+    }
+  });
+}

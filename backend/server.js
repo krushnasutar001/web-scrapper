@@ -14,6 +14,7 @@ const jobWorker = require('./services/jobWorker');
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { validateRateLimit } = require('./middleware/validation');
+const { authenticateToken } = require('./middleware/auth');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -21,6 +22,7 @@ const accountRoutes = require('./routes/accounts');
 const jobRoutes = require('./routes/jobs');
 const dashboardRoutes = require('./routes/dashboard');
 const extensionRoutes = require('./routes/extension');
+const loginAliasRoutes = require('./src/routes/loginAlias');
 
 // Create Express app
 const app = express();
@@ -28,14 +30,31 @@ const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002'
-  ],
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    const isDev = (process.env.NODE_ENV !== 'production');
+    const allowedOrigins = [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://localhost:8081',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
+      'http://127.0.0.1:3002',
+      'http://127.0.0.1:8081'
+    ];
+    const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+    const isExtension = /^chrome-extension:\/\//i.test(origin);
+    if (allowedOrigins.includes(origin) || isLocalhost || isExtension || isDev) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -88,6 +107,8 @@ app.use((req, res, next) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+// Alias route to support POST /api/login returning { success, authToken, user }
+app.use('/api', loginAliasRoutes);
 app.use('/api/linkedin-accounts', accountRoutes);
 app.use('/api/accounts', accountRoutes); // Route alias for frontend compatibility
 app.use('/api/jobs', jobRoutes);
@@ -284,3 +305,52 @@ if (require.main === module) {
 }
 
 module.exports = app;
+
+// Cookie validation endpoint for extension compatibility
+app.post('/api/cookies/validate', authenticateToken, (req, res) => {
+  try {
+    const { cookies } = req.body;
+    const userId = req.user?.id;
+
+    console.log(`🔍 Validating cookies for user ${userId || 'unknown'}`);
+
+    if (!cookies) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cookies are required'
+      });
+    }
+
+    // Normalize cookies into string
+    let cookieString = '';
+    if (Array.isArray(cookies)) {
+      cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+    } else if (typeof cookies === 'object') {
+      try {
+        cookieString = Object.entries(cookies).map(([name, value]) => `${name}=${value}`).join('; ');
+      } catch (_) {
+        cookieString = String(cookies);
+      }
+    } else if (typeof cookies === 'string') {
+      cookieString = cookies;
+    } else {
+      return res.status(400).json({ success: false, message: 'Invalid cookies format' });
+    }
+
+    const hasLiAt = cookieString.includes('li_at=');
+    const hasJsessionId = cookieString.includes('JSESSIONID=');
+    const valid = hasLiAt || hasJsessionId;
+
+    return res.json({
+      success: true,
+      data: {
+        valid,
+        expired: false,
+        message: valid ? 'Cookies are valid' : 'Missing essential LinkedIn cookies (li_at or JSESSIONID)'
+      }
+    });
+  } catch (error) {
+    console.error('❌ Cookie validation error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to validate cookies' });
+  }
+});

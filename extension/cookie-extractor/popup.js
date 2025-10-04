@@ -343,11 +343,19 @@ class LinkedInMultiAccountManager {
 
   async syncAccountToBackend(account) {
     try {
-      const response = await fetch(`${this.backendUrl}/api/linkedin-accounts`, {
+      // Try to include JWT if available
+      let token = null;
+      try {
+        token = await new Promise((resolve) => {
+          try { chrome.storage.local.get(['authToken'], (items) => resolve(items?.authToken || null)); } catch { resolve(null); }
+        });
+      } catch { token = null; }
+
+      const response = await fetch(`${this.backendUrl}/api/accounts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Note: In production, you'd need proper authentication
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           accountName: account.name,

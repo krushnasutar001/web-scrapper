@@ -91,12 +91,9 @@
       margin-top: 4px;
     }
     
+    /* Login removed: extension no longer handles authentication */
     .login-section {
-      display: none;
-    }
-    
-    .login-section.active {
-      display: block;
+      display: none !important;
     }
     
     .form-group {
@@ -555,23 +552,15 @@
       <div id="errorMessage" class="error-message hidden"></div>
       <div id="successMessage" class="success-message hidden"></div>
       
-      <!-- Login Section -->
+      <!-- Login Removed: authentication is handled in the main tool UI -->
       <div id="loginSection" class="login-section">
-        <h3 style="margin-bottom: 16px; font-size: 16px;">Login to Backend</h3>
-        <form id="loginForm">
-          <div class="form-group">
-            <label class="form-label" for="email">Email</label>
-            <input type="email" id="email" class="form-input" placeholder="Enter your email" required>
+        <div class="status-card">
+          <div class="status-indicator">
+            <div class="status-dot connected" id="connectionStatus"></div>
+            <span class="status-text">Extension Ready</span>
           </div>
-          <div class="form-group">
-            <label class="form-label" for="password">Password</label>
-            <input type="password" id="password" class="form-input" placeholder="Enter your password" required>
-          </div>
-          <button type="submit" class="btn btn-primary btn-full" id="loginBtn">
-            <span id="loginBtnText">Login</span>
-            <div class="spinner hidden" id="loginSpinner"></div>
-          </button>
-        </form>
+          <div class="status-details">Login is handled in the tool. This extension auto-detects LinkedIn accounts.</div>
+        </div>
       </div>
       
       <!-- Main Section (shown when logged in) -->

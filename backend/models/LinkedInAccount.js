@@ -1,4 +1,5 @@
 const { query, transaction } = require('../utils/database');
+const { generateCookieFingerprint, extractLinkedInCookies, getEssentialCookies } = require('../services/cookieEncryption');
 const { v4: uuidv4 } = require('uuid');
 
 class LinkedInAccount {
@@ -91,19 +92,65 @@ class LinkedInAccount {
       
       // Handle optional email and provide fallbacks
       const safeEmail = email || null;
-      const safeCookiesJson = cookies_json ? JSON.stringify(cookies_json) : null;
+      const cookiesArray = Array.isArray(cookies_json)
+        ? cookies_json
+        : (cookies_json ? (typeof cookies_json === 'string' ? JSON.parse(cookies_json) : cookies_json) : null);
+      const safeCookiesJson = cookiesArray ? JSON.stringify(cookiesArray) : null;
+
+      // Fingerprint-based dedupe: if cookies are present, avoid duplicate accounts per user
+      if (cookiesArray && cookiesArray.length > 0) {
+        try {
+          const linkedinCookies = extractLinkedInCookies(cookiesArray);
+          const essential = getEssentialCookies(linkedinCookies);
+          const fp = generateCookieFingerprint(essential.length > 0 ? essential : linkedinCookies);
+          if (fp) {
+            // Scan existing accounts and compare fingerprints
+            const existingSql = 'SELECT id, cookies_json, email, created_at, updated_at FROM linkedin_accounts WHERE user_id = ?';
+            const existing = await query(existingSql, [user_id]);
+            for (const row of existing) {
+              if (!row.cookies_json) continue;
+              let raw;
+              if (typeof row.cookies_json === 'string') raw = row.cookies_json;
+              else if (Buffer.isBuffer(row.cookies_json)) raw = row.cookies_json.toString('utf8');
+              else raw = JSON.stringify(row.cookies_json);
+              let parsed = [];
+              try {
+                parsed = JSON.parse(raw);
+                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+              } catch (_) { parsed = []; }
+              const rLinked = extractLinkedInCookies(parsed);
+              const rEss = getEssentialCookies(rLinked);
+              const rfp = generateCookieFingerprint(rEss.length > 0 ? rEss : rLinked);
+              if (rfp && rfp === fp) {
+                // Duplicate found: update cookies on existing and return it
+                await query(
+                  'UPDATE linkedin_accounts SET cookies_json = ?, validation_status = ?, updated_at = NOW() WHERE id = ?',
+                  [safeCookiesJson, 'PENDING', row.id]
+                );
+                const updated = await LinkedInAccount.findById(row.id);
+                console.log(`🔁 Deduped by fingerprint: updated existing account ${row.id} for user ${user_id}`);
+                return updated;
+              }
+            }
+          }
+        } catch (fpErr) {
+          console.warn('Fingerprint dedupe skipped due to error:', fpErr?.message || fpErr);
+        }
+      }
       
       const sql = `
         INSERT INTO linkedin_accounts (
           id, user_id, account_name, email, cookies_json,
           is_active, validation_status, daily_request_limit, 
           requests_today, consecutive_failures, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, TRUE, 'ACTIVE', 150, 0, 0, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, TRUE, 'PENDING', 150, 0, 0, NOW(), NOW())
       `;
       
       await query(sql, [id, user_id, account_name, safeEmail, safeCookiesJson]);
       
       console.log(`✅ Created LinkedIn account: ${account_name} (${safeEmail || 'no email'}) for user ${user_id}`);
+      // Optional post-create cleanup: collapse duplicates by fingerprint
+      try { await LinkedInAccount.cleanupDuplicates(user_id); } catch (_) {}
       return await LinkedInAccount.findById(id);
     } catch (error) {
       if (error.code === 'ER_DUP_ENTRY') {
@@ -130,6 +177,44 @@ class LinkedInAccount {
     } catch (error) {
       console.error('❌ Error finding LinkedIn account by ID:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Cleanup duplicate accounts for a user by cookie fingerprint
+   * Keeps the earliest created account and updates its cookies if newer ones exist
+   */
+  static async cleanupDuplicates(user_id) {
+    try {
+      const rows = await query('SELECT id, cookies_json, created_at FROM linkedin_accounts WHERE user_id = ? ORDER BY created_at ASC', [user_id]);
+      const seen = new Map(); // fp -> { id }
+      for (const row of rows) {
+        if (!row.cookies_json) continue;
+        let raw;
+        if (typeof row.cookies_json === 'string') raw = row.cookies_json;
+        else if (Buffer.isBuffer(row.cookies_json)) raw = row.cookies_json.toString('utf8');
+        else raw = JSON.stringify(row.cookies_json);
+        let parsed = [];
+        try {
+          parsed = JSON.parse(raw);
+          if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+        } catch (_) { parsed = []; }
+        const rLinked = extractLinkedInCookies(parsed);
+        const rEss = getEssentialCookies(rLinked);
+        const fp = generateCookieFingerprint(rEss.length > 0 ? rEss : rLinked);
+        if (!fp) continue;
+        if (!seen.has(fp)) {
+          seen.set(fp, { id: row.id });
+        } else {
+          // Duplicate: delete current row
+          await query('DELETE FROM linkedin_accounts WHERE id = ?', [row.id]);
+          console.log(`🧹 Removed duplicate LinkedIn account ${row.id} for user ${user_id}`);
+        }
+      }
+      return true;
+    } catch (err) {
+      console.warn('Duplicate cleanup encountered an error:', err?.message || err);
+      return false;
     }
   }
 

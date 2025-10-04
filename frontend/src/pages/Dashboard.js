@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import api from '../services/api';
+import api, { dashboardAPI } from '../services/api';
 import {
   BriefcaseIcon,
   DocumentTextIcon,
@@ -52,46 +52,68 @@ const Dashboard = () => {
     try {
       setLoading(true);
       
-      // Fetch dashboard stats
-      const statsResponse = await api.get('/api/dashboard/stats');
-      if (statsResponse.data && statsResponse.data.success) {
-        const data = statsResponse.data.data;
+      // Fetch dashboard stats with fallback and normalization
+      const statsResult = await dashboardAPI.getStats();
+      if (statsResult && statsResult.success) {
+        const data = statsResult.data || {};
+        const totalJobs = (data.totalJobs ?? data.total_jobs ?? 0).toString();
+        const jobsThisWeek = data.jobsThisWeek ?? data.jobs_this_week ?? 0;
+        const activeJobs = (data.activeJobs ?? data.active_jobs ?? 0).toString();
+        const totalResults = (data.totalResults ?? data.total_results ?? 0);
+        const resultsThisWeek = data.resultsThisWeek ?? data.results_this_week ?? 0;
+        const successRate = Math.round(data.successRate ?? data.success_rate ?? 0);
+
         setStats([
           {
             name: 'Total Jobs',
-            value: data.total_jobs?.toString() || '0',
-            change: `${data.jobs_this_week || 0} this week`,
-            changeType: (data.jobs_this_week || 0) > 0 ? 'positive' : 'neutral',
+            value: totalJobs,
+            change: `${jobsThisWeek} this week`,
+            changeType: jobsThisWeek > 0 ? 'positive' : 'neutral',
             icon: BriefcaseIcon
           },
           {
             name: 'Active Jobs',
-            value: data.active_jobs?.toString() || '0',
+            value: activeJobs,
             change: 'Currently running',
             changeType: 'neutral',
             icon: ChartBarIcon
           },
           {
             name: 'Total Results',
-            value: data.total_results?.toLocaleString() || '0',
-            change: `${data.results_this_week || 0} this week`,
-            changeType: (data.results_this_week || 0) > 0 ? 'positive' : 'neutral',
+            value: totalResults.toLocaleString(),
+            change: `${resultsThisWeek} this week`,
+            changeType: resultsThisWeek > 0 ? 'positive' : 'neutral',
             icon: DocumentTextIcon
           },
           {
             name: 'Success Rate',
-            value: `${Math.round(data.success_rate || 0)}%`,
-            change: `${data.success_rate >= 90 ? 'Excellent' : data.success_rate >= 70 ? 'Good' : 'Needs improvement'}`,
-            changeType: data.success_rate >= 90 ? 'positive' : data.success_rate >= 70 ? 'neutral' : 'negative',
+            value: `${successRate}%`,
+            change: `${successRate >= 90 ? 'Excellent' : successRate >= 70 ? 'Good' : 'Needs improvement'}`,
+            changeType: successRate >= 90 ? 'positive' : successRate >= 70 ? 'neutral' : 'negative',
             icon: ChartBarIcon
           }
         ]);
       }
-      
-      // Fetch recent jobs
-      const jobsResponse = await api.get('/api/jobs?limit=5');
-      if (jobsResponse.data && jobsResponse.data.success) {
-        setRecentJobs(jobsResponse.data.jobs || []);
+
+      // Fetch recent jobs with fallback on server errors
+      try {
+        const jobsResponse = await api.get('/api/jobs?limit=5');
+        if (jobsResponse.data && jobsResponse.data.success) {
+          setRecentJobs(jobsResponse.data.jobs || []);
+        }
+      } catch (jobsErr) {
+        if (jobsErr?.status === 500 || jobsErr?.status === 404) {
+          try {
+            const fallbackJobs = await api.get('/api/jobs');
+            if (fallbackJobs.data && fallbackJobs.data.success) {
+              setRecentJobs(fallbackJobs.data.jobs || []);
+            }
+          } catch (fallbackJobsErr) {
+            console.error('❌ Fallback jobs fetch failed:', fallbackJobsErr);
+          }
+        } else {
+          console.error('❌ Jobs fetch failed:', jobsErr);
+        }
       }
       
     } catch (error) {

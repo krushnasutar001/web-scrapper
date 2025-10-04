@@ -1,31 +1,33 @@
-// PostgreSQL Database Connection Module
-const { Pool } = require('pg');
+// MySQL Database Connection Module
+const mysql = require('mysql2/promise');
 const config = require('./config');
 
-// Create PostgreSQL connection pool
-const pool = new Pool({
-  connectionString: config.DATABASE_URL,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-  ssl: config.IS_PRODUCTION ? { rejectUnauthorized: false } : false
-});
+// Create MySQL connection pool using DATABASE_URL
+// Supports DSN format: mysql://user:pass@host:port/dbname
+let pool;
 
-// Test database connection
 async function testConnection() {
   try {
-    const client = await pool.connect();
-    console.log('✅ PostgreSQL database connected successfully');
-    client.release();
+    // Lazily create pool if not already created
+    if (!pool) {
+      pool = mysql.createPool(config.DATABASE_URL);
+    }
+    const connection = await pool.getConnection();
+    await connection.ping();
+    connection.release();
+    console.log('✅ MySQL database connected successfully');
     return true;
   } catch (error) {
-    console.error('❌ PostgreSQL database connection failed:', error.message);
+    console.error('❌ MySQL database connection failed:', error.message);
     return false;
   }
 }
 
-// Initialize database connection
 async function initializeDatabase() {
+  // Ensure pool is created
+  if (!pool) {
+    pool = mysql.createPool(config.DATABASE_URL);
+  }
   const isConnected = await testConnection();
   if (!isConnected) {
     console.warn('⚠️  Database not available, some features may not work');
@@ -33,73 +35,77 @@ async function initializeDatabase() {
   return pool;
 }
 
-// Database query wrapper with error handling and logging
-async function query(text, params = []) {
-  const start = Date.now();
-  try {
-    const res = await pool.query(text, params);
-    const duration = Date.now() - start;
-    
-    if (config.IS_DEVELOPMENT) {
-      console.log('Executed query', { 
-        text: text.substring(0, 100) + (text.length > 100 ? '...' : ''), 
-        duration, 
-        rows: res.rowCount 
-      });
-    }
-    
-    return res;
-  } catch (error) {
-    console.error('Database query error:', {
-      query: text,
-      params,
-      error: error.message
-    });
-    throw error;
-  }
+// Execute query and return [rows] to match mysql2.execute signature used across codebase
+async function execute(sql, params = []) {
+  if (!pool) await initializeDatabase();
+  const [rows] = await pool.execute(sql, params);
+  return [rows];
 }
 
-// Get a client from the pool for transactions
+// Convenience query that returns rows directly
+async function query(sql, params = []) {
+  if (!pool) await initializeDatabase();
+  const [rows] = await pool.execute(sql, params);
+  return rows;
+}
+
+// Get a raw connection from the pool
 async function getClient() {
-  try {
-    return await pool.connect();
-  } catch (error) {
-    console.error('Failed to get database client:', error);
-    throw error;
-  }
+  if (!pool) await initializeDatabase();
+  return await pool.getConnection();
 }
 
-// Transaction wrapper
+// Transaction helper using a pooled connection
 async function withTransaction(callback) {
-  const client = await getClient();
+  const conn = await getClient();
   try {
-    await client.query('BEGIN');
-    const result = await callback(client);
-    await client.query('COMMIT');
+    await conn.beginTransaction();
+    const result = await callback(conn);
+    await conn.commit();
     return result;
   } catch (error) {
-    await client.query('ROLLBACK');
+    await conn.rollback();
     throw error;
   } finally {
-    client.release();
+    conn.release();
   }
+}
+
+async function end() {
+  if (pool) {
+    try {
+      await pool.end();
+      console.log('✅ MySQL pool closed');
+    } catch (error) {
+      console.error('❌ Error closing MySQL pool:', error.message);
+    } finally {
+      pool = undefined;
+    }
+  }
+}
+
+// Alias to align with working-server.js usage
+async function connectDB() {
+  return initializeDatabase();
 }
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('Closing database pool...');
-  await pool.end();
+  await end();
   process.exit(0);
 });
 
-// Export the pool and utility functions
 module.exports = {
   query,
   getClient,
   withTransaction,
   pool,
   testConnection,
-  initializeDatabase
+  initializeDatabase,
+  execute,
+  end,
+  connectDB
 };
 
 // Initialize on module load

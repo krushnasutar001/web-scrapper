@@ -1,5 +1,60 @@
 import axios from 'axios';
 
+// Normalize login responses from different backend implementations
+// Returns a consistent shape: { success, authToken, user, refreshToken, message }
+function normalizeLoginResponse(respData) {
+  try {
+    const data = respData && respData.data ? respData.data : respData;
+
+    const authToken = (
+      data?.authToken ||
+      data?.token ||
+      data?.data?.token ||
+      data?.accessToken ||
+      data?.data?.accessToken ||
+      null
+    );
+
+    const user = (
+      data?.user ||
+      data?.data?.user ||
+      data?.profile ||
+      null
+    );
+
+    const refreshToken = (
+      data?.refreshToken ||
+      data?.data?.refreshToken ||
+      null
+    );
+
+    const success = Boolean(
+      data?.success === true ||
+      data?.ok === true ||
+      authToken
+    );
+
+    if (!success) {
+      const message = (
+        data?.message ||
+        data?.error ||
+        (typeof data === 'string' ? data : 'Login failed')
+      );
+      return { success: false, message };
+    }
+
+    return {
+      success: true,
+      authToken,
+      user,
+      refreshToken,
+      message: data?.message || 'Login successful',
+    };
+  } catch (err) {
+    return { success: false, message: 'Login response parsing error' };
+  }
+}
+
 // Create axios instance
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5001', // Explicit backend URL (fallback aligned with backend)
@@ -25,7 +80,7 @@ api.interceptors.request.use(
     
     // Token is set via authAPI.setAuthToken() - no need to set here
     // Debug token presence
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     const authHeader = config.headers.Authorization || config.headers.common?.Authorization;
     console.log('🔐 Frontend Token Debug:', { 
       tokenInStorage: token ? token.substring(0, 20) + '...' : 'null',
@@ -86,20 +141,10 @@ api.interceptors.response.use(
     
     // Handle 401/403 errors (unauthorized/forbidden)
     if (error.response?.status === 401 || error.response?.status === 403) {
-      console.warn('🔐 Authentication failed - token may be invalid');
+      console.warn('🔐 Authentication failed or unauthorized response detected');
       console.log('🔐 Error details:', error.response?.data);
-      console.log('🔐 Current token:', localStorage.getItem('token')?.substring(0, 50) + '...');
-      
-      // Only clear tokens and redirect if it's not a login request
-      if (!error.config?.url?.includes('/auth/login')) {
-        console.warn('🔐 Clearing invalid token and redirecting to login');
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-      } else {
-        console.log('🔐 Login request failed - not clearing tokens');
-      }
+      // Do NOT auto-clear tokens or redirect; let the app handle gracefully
+      // This avoids unexpected logout on background requests or transient errors
     }
     
     // Return error in consistent format
@@ -159,9 +204,11 @@ export const authAPI = {
     lastLoginAttempt = now;
     
     try {
-      const response = await api.post('/api/auth/login', { email, password });
-      console.log('✅ Login successful');
-      return response;
+      const respData = await api.post('/api/login', { email, password });
+      console.log('✅ Login successful via /api/login');
+      // Normalize response shape
+      const normalized = normalizeLoginResponse(respData);
+      return normalized;
     } catch (error) {
       console.error('❌ Login failed:', error.message);
       
@@ -186,6 +233,18 @@ export const authAPI = {
           status: 431,
           response: error.response
         };
+      }
+      
+      // Fallback: if alias not found, try legacy /api/auth/login
+      const status = (error?.response?.status ?? error?.status);
+      const dataText = typeof error?.response?.data === 'string' ? error.response.data : '';
+      const isNotFound = status === 404 || (dataText && dataText.includes('Cannot POST /api/login'));
+      if (isNotFound) {
+        console.warn('🔁 /api/login alias not available, falling back to /api/auth/login');
+        const legacyData = await api.post('/api/auth/login', { email, password });
+        console.log('✅ Login successful via /api/auth/login');
+        const normalized = normalizeLoginResponse(legacyData);
+        return normalized;
       }
       
       throw error;
@@ -294,6 +353,177 @@ export const resultsAPI = {
   },
 };
 
+// Dashboard API with 404 fallback and normalization
+export const dashboardAPI = {
+  // Get dashboard stats with fallbacks
+  getStats: async () => {
+    const getStoredToken = () => (
+      localStorage.getItem('authToken') || localStorage.getItem('token') || ''
+    );
+
+    const tryAbsoluteUrl = async (url) => {
+      const token = getStoredToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const resp = await axios.get(url, { headers, params: { _t: Date.now() } });
+      return resp.data || resp;
+    };
+
+    // Helper to detect HTML 404 pages like "Cannot GET /api/dashboard/stats"
+    const isLikelyHtmlNotFound = (data) => {
+      if (typeof data === 'string') {
+        const s = data.toLowerCase();
+        return s.includes('<html') && (s.includes('cannot get') || s.includes('cannot post'));
+      }
+      return false;
+    };
+
+    // Normalize various backend response shapes into a single structure
+    const normalizeDashboardResponse = (resp) => {
+      const root = resp && resp.data ? resp.data : resp;
+      const payload = root?.data || root?.stats || root;
+
+      const stats = payload?.stats || {};
+      const recentJobs = payload?.recentJobs || root?.recentJobs || [];
+
+      const totalJobs = (
+        payload?.totalJobs ?? payload?.total_jobs ?? stats?.completed ?? 0
+      );
+      const activeJobs = (
+        payload?.activeJobs ?? payload?.active_jobs ?? stats?.running ?? 0
+      );
+      const pendingJobs = (
+        payload?.pendingJobs ?? payload?.pending_jobs ?? stats?.queued ?? 0
+      );
+      const failedJobs = (
+        payload?.failedJobs ?? payload?.failed_jobs ?? stats?.failed ?? 0
+      );
+      const totalResults = (
+        payload?.totalResults ?? payload?.total_results ?? 0
+      );
+      const successRate = (
+        payload?.successRate ?? payload?.success_rate ?? 0
+      );
+      const jobsThisWeek = (
+        payload?.jobsThisWeek ?? payload?.jobs_this_week ?? 0
+      );
+      const resultsThisWeek = (
+        payload?.resultsThisWeek ?? payload?.results_this_week ?? 0
+      );
+
+      return {
+        success: true,
+        data: {
+          totalJobs,
+          activeJobs,
+          pendingJobs,
+          failedJobs,
+          totalResults,
+          successRate,
+          jobsThisWeek,
+          resultsThisWeek,
+          recentJobs
+        }
+      };
+    };
+
+    try {
+      // Primary endpoint (current baseURL)
+      const resp = await api.get('/api/dashboard/stats');
+      return normalizeDashboardResponse(resp);
+    } catch (error) {
+      const status = error?.status || error?.response?.status;
+      const raw = error?.response?.data;
+      const notFound = status === 404 || isLikelyHtmlNotFound(raw);
+
+      if (!notFound) {
+        throw error;
+      }
+
+      // Fallback chain (same host)
+      const fallbacks = ['/api/stats', '/api/jobs/stats'];
+      for (const path of fallbacks) {
+        try {
+          const fallbackResp = await api.get(path);
+          return normalizeDashboardResponse(fallbackResp);
+        } catch (fallbackErr) {
+          const fbStatus = fallbackErr?.status || fallbackErr?.response?.status;
+          const fbRaw = fallbackErr?.response?.data;
+          const fbNotFound = fbStatus === 404 || isLikelyHtmlNotFound(fbRaw);
+          if (!fbNotFound) {
+            // Other error type; stop here
+            throw fallbackErr;
+          }
+          // else continue to next fallback
+        }
+      }
+
+      // Legacy server fallback (port 5002), try dashboard first
+      const legacyBase = 'http://localhost:5002';
+      try {
+        const legacyResp = await tryAbsoluteUrl(`${legacyBase}/api/dashboard/stats`);
+        return normalizeDashboardResponse(legacyResp);
+      } catch (legacyErr) {
+        const ls = legacyErr?.status || legacyErr?.response?.status;
+        const lr = legacyErr?.response?.data;
+        const legacyNotFound = ls === 404 || isLikelyHtmlNotFound(lr);
+        if (!legacyNotFound && ls) {
+          throw legacyErr;
+        }
+      }
+
+      // As a last resort, fetch jobs list and compute basic stats
+      try {
+        const jobsResp = await tryAbsoluteUrl(`${legacyBase}/api/jobs`);
+        const jobsPayload = jobsResp?.data || jobsResp?.jobs || jobsResp || [];
+        const jobs = Array.isArray(jobsPayload) ? jobsPayload : (jobsPayload.jobs || []);
+        const totalJobs = jobs.length;
+        const completedJobs = jobs.filter(j => j.status === 'completed').length;
+        const runningJobs = jobs.filter(j => j.status === 'running').length;
+        const pausedJobs = jobs.filter(j => j.status === 'paused').length;
+        const failedJobs = jobs.filter(j => j.status === 'failed').length;
+        const pendingJobs = jobs.filter(j => j.status === 'pending' || j.status === 'queued').length;
+        const activeJobs = runningJobs + pausedJobs;
+        const totalResults = jobs.reduce((sum, j) => sum + (j.resultCount || j.result_count || 0), 0);
+        const successRate = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0;
+        const recentJobs = jobs.slice(0, 5);
+
+        return {
+          success: true,
+          data: {
+            totalJobs: completedJobs,
+            activeJobs,
+            pendingJobs,
+            failedJobs,
+            totalResults,
+            successRate,
+            jobsThisWeek: 0,
+            resultsThisWeek: 0,
+            recentJobs
+          }
+        };
+      } catch (_) {
+        // ignore and fall through to empty structure
+      }
+
+      // If all fallbacks fail with 404, return a safe empty structure
+      return {
+        success: true,
+        data: {
+          totalJobs: 0,
+          activeJobs: 0,
+          pendingJobs: 0,
+          failedJobs: 0,
+          totalResults: 0,
+          successRate: 0,
+          jobsThisWeek: 0,
+          resultsThisWeek: 0,
+          recentJobs: []
+        }
+      };
+    }
+  }
+};
+
 // LinkedIn Accounts API
 export const linkedinAccountsAPI = {
   // Get all accounts
@@ -336,6 +566,23 @@ export const healthAPI = {
 };
 
 export default api;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

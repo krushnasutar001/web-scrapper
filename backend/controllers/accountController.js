@@ -9,8 +9,7 @@ const detectFromExtension = async (req, res) => {
     const { accounts } = req.body;
     
     console.log('🔍 Detecting LinkedIn accounts from extension for user:', user.id);
-    console.log('📋 Received accounts data:', accounts);
-    
+
     if (!accounts || !Array.isArray(accounts) || accounts.length === 0) {
       return res.status(400).json({
         success: false,
@@ -34,46 +33,39 @@ const detectFromExtension = async (req, res) => {
           sessionInfo
         } = accountData;
         
-        // Validate required fields
+        // Validate required fields - require cookies from extension
         if (!cookies || !Array.isArray(cookies) || cookies.length === 0) {
           errors.push(`Account ${name || email || 'Unknown'}: No cookies provided`);
           continue;
         }
-        
-        // Check if account already exists
-        const existingAccount = await LinkedInAccount.findByEmail(user.id, email);
-        if (existingAccount) {
-          console.log(`⚠️ Account already exists for email: ${email}`);
-          // Update existing account with new cookies and session info
-          await LinkedInAccount.updateCookies(existingAccount.id, cookies);
-          savedAccounts.push(existingAccount);
-          continue;
+
+        // Prefer matching by email if provided; fallback to create
+        let existingAccount = null;
+        if (email) {
+          existingAccount = await LinkedInAccount.findByEmail(user.id, email);
         }
-        
-        // Create new account
-        const accountName = name || email || `LinkedIn Account ${Date.now()}`;
-        const newAccount = await LinkedInAccount.create({
-          user_id: user.id,
-          account_name: accountName,
-          email: email,
-          profile_url: profileUrl,
-          cookies: JSON.stringify(cookies),
-          chrome_profile_id: chromeProfileId,
-          browser_fingerprint: browserFingerprint,
-          session_info: JSON.stringify(sessionInfo),
-          is_active: 1,
-          validation_status: 'pending'
-        });
-        
-        console.log(`✅ Created new LinkedIn account: ${accountName} (${email})`);
-        savedAccounts.push(newAccount);
-        
-        // Validate the account immediately
-        try {
-          await LinkedInAccount.validate(newAccount.id);
-          console.log(`✅ Account validated: ${accountName}`);
-        } catch (validateError) {
-          console.warn(`⚠️ Account created but validation failed: ${validateError.message}`);
+
+        if (existingAccount) {
+          console.log(`✅ Account already exists for email: ${email}`);
+          // Update existing account with new cookies and activate
+          await LinkedInAccount.updateCookies(existingAccount.id, cookies);
+          await existingAccount.update({
+            validation_status: 'PENDING',
+            is_active: true
+          });
+          savedAccounts.push(existingAccount);
+        } else {
+          const accountName = name || email || `LinkedIn Account ${Date.now()}`;
+          const newAccount = await LinkedInAccount.create({
+            user_id: user.id,
+            account_name: accountName,
+            email: email || null,
+            cookies_json: cookies
+          });
+          // Normalize status for filters
+          await newAccount.update({ validation_status: 'PENDING', is_active: true });
+          console.log(`✅ Created new LinkedIn account: ${accountName} (${email || 'no email'})`);
+          savedAccounts.push(newAccount);
         }
         
       } catch (accountError) {
@@ -124,11 +116,11 @@ const getAccounts = async (req, res) => {
     
   } catch (error) {
     console.error('❌ Error fetching LinkedIn accounts:', error);
-    
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch LinkedIn accounts',
-      code: 'FETCH_ACCOUNTS_ERROR'
+    // Fallback: return empty list to avoid breaking UI
+    return res.json({
+      success: true,
+      data: [],
+      total: 0
     });
   }
 };

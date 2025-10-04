@@ -3,7 +3,7 @@
   "name": "Scralytics LinkedIn Automation",
   "version": "1.0.0",
   "description": "Chrome extension for Scralytics platform to automate LinkedIn data scraping",
-  
+
   "permissions": [
     "cookies",
     "storage",
@@ -12,57 +12,59 @@
     "scripting",
     "alarms"
   ],
-  
+
   "host_permissions": [
     "https://scralytics.com/*",
     "http://localhost:3000/*",
+    "http://localhost:3001/*",
     "http://localhost:5000/*",
     "http://localhost:5001/*",
-    "https://*.linkedin.com/*"
+    "*://*.linkedin.com/*"
   ],
-  
+
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:3000/*",
+      "https://scralytics.com/*"
+    ]
+  },
+
   "background": {
     "service_worker": "background.js"
   },
+
   "web_accessible_resources": [
     {
-      "resources": ["crypto.js"],
-      "matches": ["<all_urls>"]
+      "resources": ["crypto.js", "injected.js"],
+      "matches": ["<all_urls>", "https://*.linkedin.com/*", "https://*.twitter.com/*", "https://*.x.com/*"]
     }
   ],
-  
+
   "content_scripts": [
     {
-      "matches": ["https://scralytics.com/*", "http://localhost:3000/*"],
+      "matches": ["https://scralytics.com/*", "http://localhost:3000/*", "http://localhost:3001/*", "http://localhost:5000/*", "http://localhost:5001/*"],
       "js": ["content_scralytics.js"],
       "run_at": "document_end"
     },
     {
-      "matches": ["https://*.linkedin.com/*"],
+      "matches": ["*://*.linkedin.com/*"],
       "js": ["content_linkedin.js"],
       "run_at": "document_end"
     }
   ],
-  
+
   "action": {
     "default_popup": "popup.html",
     "default_title": "Scralytics Extension"
   },
-  
+
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  
-  "web_accessible_resources": [
-    {
-      "resources": ["injected.js"],
-      "matches": ["https://*.linkedin.com/*", "https://*.twitter.com/*", "https://*.x.com/*"]
-    }
-  ],
-  
+
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   }

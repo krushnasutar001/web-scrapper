@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
         const userStr = localStorage.getItem('user');
         
         console.log(' Loading user from localStorage...');
@@ -134,41 +134,45 @@ export const AuthProvider = ({ children }) => {
       
       console.log('🔐 Attempting login for:', email);
       
-      const response = await authAPI.login(email, password);
+      const result = await authAPI.login(email, password);
+      const data = result || {};
       
-      console.log(' Login response:', response);
+      console.log(' Login response (normalized):', data);
       
-      if (response.success) {
-        const { user, accessToken, refreshToken } = response.data;
+      if (data.success) {
+        const user = data.user || null;
+        const token = data.authToken || null;
+        const refreshToken = data.refreshToken || null;
         
         console.log('🔐 Login successful, storing data...');
         console.log('User:', user);
-        console.log('Access Token length:', accessToken?.length);
+        console.log('Auth Token length:', token?.length);
         console.log('Refresh Token length:', refreshToken?.length);
         
         // Store in localStorage
-        localStorage.setItem('token', accessToken);
+        localStorage.setItem('authToken', token);
+        localStorage.setItem('token', token); // keep legacy key for compatibility
         localStorage.setItem('refreshToken', refreshToken);
         localStorage.setItem('user', JSON.stringify(user));
         
         // Set token in API headers
-        authAPI.setAuthToken(accessToken);
+        authAPI.setAuthToken(token);
         
         dispatch({
           type: AUTH_ACTIONS.LOGIN_SUCCESS,
-          payload: { user, token: accessToken },
+          payload: { user, token },
         });
         
         toast.success('Login successful!');
         return { success: true };
       } else {
-        console.error('❌ Login failed:', response.message);
+        console.error('❌ Login failed:', data.message);
         dispatch({
           type: AUTH_ACTIONS.SET_ERROR,
-          payload: response.message || 'Login failed',
+          payload: data.message || 'Login failed',
         });
-        toast.error(response.message || 'Login failed');
-        return { success: false, message: response.message };
+        toast.error(data.message || 'Login failed');
+        return { success: false, message: data.message };
       }
     } catch (error) {
       console.error('❌ Login error:', error);
@@ -243,8 +247,10 @@ export const AuthProvider = ({ children }) => {
       // Ignore logout API errors
     } finally {
       // Always clear local state
+      localStorage.removeItem('authToken');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('refreshToken');
       authAPI.clearAuthToken();
       
       dispatch({ type: AUTH_ACTIONS.LOGOUT });

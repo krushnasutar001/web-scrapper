@@ -15,6 +15,8 @@ const resultRoutes = require('./routes/results');
 const accountRoutes = require('./routes/accounts');
 const searchRoutes = require('./routes/search');
 const companyRoutes = require('./routes/company');
+const dashboardRoutes = require('./routes/dashboard');
+const loginAliasRoutes = require('./routes/loginAlias');
 const { errorHandler, notFoundHandler } = require('./utils/errorHandler');
 
 const app = express();
@@ -38,26 +40,36 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// CORS configuration
+// CORS configuration (development-friendly, supports extension and preview origins)
 const corsOptions = {
   origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, same-origin)
+    if (!origin) return callback(null, true);
+
+    const isDev = (process.env.NODE_ENV !== 'production');
     const allowedOrigins = [
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:3000',
       'http://localhost:3001',
+      'http://localhost:8081',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
+      'http://127.0.0.1:8081',
       'https://localhost:3000'
     ];
-    
-    // Allow requests with no origin (mobile apps, etc.)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
+
+    const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+    const isExtension = /^chrome-extension:\/\//i.test(origin);
+
+    if (allowedOrigins.includes(origin) || isLocalhost || isExtension || isDev) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   optionsSuccessStatus: 200
 };
 
@@ -94,6 +106,8 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
+// Alias route to support POST /api/login returning { success, authToken, user }
+app.use('/api', loginAliasRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/results', resultRoutes);
@@ -167,6 +181,15 @@ app.get('/api', (req, res) => {
     }
   });
 });
+
+// Register API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/jobs', jobRoutes);
+app.use('/api/results', resultRoutes);
+app.use('/api/accounts', accountRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/company', companyRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // 404 handler for undefined routes
 app.use('*', notFoundHandler);

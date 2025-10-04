@@ -39,7 +39,7 @@ const syncCookies = async (req, res) => {
 
     // Extract only LinkedIn cookies
     const linkedinCookies = extractLinkedInCookies(cookies);
-    
+
     if (linkedinCookies.length === 0) {
       return res.status(400).json({
         success: false,
@@ -47,54 +47,36 @@ const syncCookies = async (req, res) => {
       });
     }
 
-    // Check cookie expiration
-    const expiredCookies = checkCookieExpiration(linkedinCookies);
-    if (expiredCookies.length > 0) {
-      console.warn('⚠️ Some cookies are expired:', expiredCookies);
+    // Check cookie expiration (adjusted to match service return shape)
+    const expirationStatus = checkCookieExpiration(linkedinCookies);
+    if (expirationStatus && (expirationStatus.hasExpired || expirationStatus.expiringSoon > 0)) {
+      console.warn('⚠️ Some cookies are expired or expiring soon:', expirationStatus);
     }
 
-    // Get essential cookies
-    const essentialCookies = getEssentialCookies(linkedinCookies);
-    
-    // Encrypt cookies
-    const encryptedCookies = encryptCookies(essentialCookies);
-    
-    // Generate fingerprint
-    const fingerprint = generateCookieFingerprint(essentialCookies);
+    // Generate fingerprint (for future use)
+    const fingerprint = generateCookieFingerprint(linkedinCookies);
 
-    // Check if account already exists
-    const existingAccount = await LinkedInAccount.findOne({
-      where: { 
-        user_id: userId,
-        cookie_fingerprint: fingerprint
-      }
-    });
+    // Find existing account for this user and update, otherwise create new
+    const accounts = await LinkedInAccount.findByUserId(userId);
+    let targetAccount = accounts && accounts.length > 0 ? accounts[0] : null;
 
-    if (existingAccount) {
-      // Update existing account
-      await existingAccount.update({
-        encrypted_cookies: encryptedCookies,
-        user_agent: userAgent,
-        profile_info: profileInfo ? JSON.stringify(profileInfo) : null,
-        last_sync: new Date(),
-        validation_status: 'VALID'
+    if (targetAccount) {
+      await targetAccount.update({
+        cookies_json: linkedinCookies,
+        validation_status: 'ACTIVE'
       });
 
       return res.json({
         success: true,
         message: 'Cookies updated successfully',
-        accountId: existingAccount.id
+        accountId: targetAccount.id
       });
     } else {
-      // Create new account
       const newAccount = await LinkedInAccount.create({
         user_id: userId,
-        encrypted_cookies: encryptedCookies,
-        cookie_fingerprint: fingerprint,
-        user_agent: userAgent,
-        profile_info: profileInfo ? JSON.stringify(profileInfo) : null,
-        validation_status: 'VALID',
-        last_sync: new Date()
+        account_name: 'LinkedIn Account',
+        email: null,
+        cookies_json: linkedinCookies
       });
 
       return res.json({
@@ -711,6 +693,8 @@ const getAccounts = async (req, res) => {
     const userId = req.user.id;
     
     console.log(`📋 Getting accounts for user ${userId} via extension`);
+    // Proactively clean up duplicates before returning
+    try { await LinkedInAccount.cleanupDuplicates(userId); } catch (_) {}
     
     const accounts = await LinkedInAccount.findByUserId(userId);
     
@@ -781,7 +765,9 @@ const addAccount = async (req, res) => {
       account_name,
       email,
       cookies_json: cookiesData,
-      validation_status: cookiesData ? 'pending' : 'no_cookies'
+      // Ensure new accounts appear in frontend filters
+      validation_status: cookiesData ? 'PENDING' : 'NO_COOKIES',
+      is_active: true
     });
     
     console.log(`✅ Account added via extension: ${account_name} (ID: ${newAccount.id})`);
@@ -850,7 +836,8 @@ const updateAccount = async (req, res) => {
       try {
         const cookiesData = typeof cookies_json === 'string' ? JSON.parse(cookies_json) : cookies_json;
         updateData.cookies_json = cookiesData;
-        updateData.validation_status = 'pending'; // Reset validation when cookies change
+        // Reset validation when cookies change; use uppercase to match filters
+        updateData.validation_status = 'PENDING';
       } catch (error) {
         return res.status(400).json({
           success: false,
@@ -966,15 +953,15 @@ const validateSpecificAccount = async (req, res) => {
       });
     }
     
-    // Update validation status to pending
-    await LinkedInAccount.update(accountId, { validation_status: 'pending' });
+    // Update validation status to PENDING (standardized uppercase)
+    await LinkedInAccount.update(accountId, { validation_status: 'PENDING' });
     
     // Here you would typically trigger the validation process
     // For now, we'll simulate it
     setTimeout(async () => {
       try {
         // Simulate validation result
-        const validationResult = Math.random() > 0.3 ? 'valid' : 'invalid';
+        const validationResult = Math.random() > 0.3 ? 'VALID' : 'INVALID';
         await LinkedInAccount.update(accountId, { 
           validation_status: validationResult,
           last_validated: new Date()
@@ -991,7 +978,7 @@ const validateSpecificAccount = async (req, res) => {
       account: {
         id: account.id,
         account_name: account.account_name,
-        validation_status: 'pending'
+        validation_status: 'PENDING'
       }
     });
     

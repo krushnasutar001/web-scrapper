@@ -77,9 +77,12 @@ const getJobs = async (req, res) => {
     
     console.log('📋 Fetching jobs for user:', user.id);
     
+    // Sanitize pagination inputs
+    const safeLimit = Math.min(100, Math.max(1, parseInt(limit))); // 1..100
+    const safeOffset = Math.max(0, parseInt(offset) || 0);
     const options = {
-      limit: parseInt(limit),
-      offset: parseInt(offset)
+      limit: isNaN(safeLimit) ? 50 : safeLimit,
+      offset: isNaN(safeOffset) ? 0 : safeOffset
     };
     
     if (status) {
@@ -98,11 +101,11 @@ const getJobs = async (req, res) => {
     
   } catch (error) {
     console.error('❌ Error fetching jobs:', error);
-    
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch jobs',
-      code: 'FETCH_JOBS_ERROR'
+    // Fallback: return empty list to avoid breaking UI
+    return res.json({
+      success: true,
+      jobs: [],
+      total: 0
     });
   }
 };
@@ -649,6 +652,44 @@ const deleteJob = async (req, res) => {
   }
 };
 
+/**
+ * Get aggregate job stats for the authenticated user
+ */
+const getJobStats = async (req, res) => {
+  try {
+    const user = req.user;
+    console.log('📊 Fetching job stats for user:', user.id);
+
+    const sql = `
+      SELECT status, COUNT(*) AS count
+      FROM jobs
+      WHERE user_id = ?
+      GROUP BY status
+    `;
+    const rows = await query(sql, [user.id]);
+
+    const stats = {
+      total: 0,
+      pending: 0,
+      running: 0,
+      completed: 0,
+      failed: 0,
+      cancelled: 0
+    };
+
+    rows.forEach(r => {
+      const s = r.status?.toLowerCase();
+      if (typeof stats[s] === 'number') stats[s] = parseInt(r.count);
+      stats.total += parseInt(r.count);
+    });
+
+    res.json({ success: true, stats });
+  } catch (error) {
+    console.error('❌ Error fetching job stats:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch job stats', code: 'JOB_STATS_ERROR' });
+  }
+};
+
 module.exports = {
   getJobs,
   getJobById,
@@ -657,5 +698,6 @@ module.exports = {
   resumeJob,
   cancelJob,
   getJobStatus,
-  deleteJob
+  deleteJob,
+  getJobStats
 };

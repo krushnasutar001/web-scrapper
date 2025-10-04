@@ -63,7 +63,34 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
       return () => clearInterval(interval);
     }
   }, [isOpen]);
-  
+
+  // Ask the extension (via content script bridge) for local accounts
+  const fetchExtensionLocalAccounts = () => {
+    return new Promise((resolve, reject) => {
+      try {
+        const handler = (event) => {
+          if (event.source !== window || !event.data || typeof event.data !== 'object') return;
+          if (event.data.type === 'LOCAL_LINKEDIN_ACCOUNTS_RESULT') {
+            window.removeEventListener('message', handler);
+            if (event.data.success && Array.isArray(event.data.data)) {
+              resolve(event.data.data);
+            } else {
+              reject(new Error(event.data.error || 'No local accounts'));
+            }
+          }
+        };
+        window.addEventListener('message', handler);
+        window.postMessage({ type: 'GET_LOCAL_LINKEDIN_ACCOUNTS', source: 'webapp', ts: Date.now() }, '*');
+        setTimeout(() => {
+          window.removeEventListener('message', handler);
+          reject(new Error('Extension response timeout'));
+        }, 2000);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  };
+
   // Listen for account updates from other parts of the app
   useEffect(() => {
     const handleAccountUpdate = () => {
@@ -126,14 +153,37 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
       console.log(`📊 Filtered accounts: ${filteredAccounts.length}`);
       console.log('📊 Filtered accounts list:', filteredAccounts);
       
-      setAvailableAccounts(filteredAccounts);
+      // If no accounts from backend, try extension-local fallback
+      if (filteredAccounts.length === 0) {
+        try {
+          const extAccounts = await fetchExtensionLocalAccounts();
+          const extFiltered = (Array.isArray(extAccounts) ? extAccounts : []).filter(acc => 
+            acc.validation_status === 'ACTIVE' || acc.validation_status === 'PENDING'
+          );
+          setAvailableAccounts(extFiltered);
+        } catch (extErr) {
+          console.warn('Extension local accounts unavailable:', extErr);
+          setAvailableAccounts(filteredAccounts);
+        }
+      } else {
+        setAvailableAccounts(filteredAccounts);
+      }
       
       // Clear any previous error about accounts
       setErrors(prev => ({ ...prev, accounts: undefined }));
     } catch (error) {
       console.error('❌ Failed to fetch available accounts:', error);
       console.error('Error details:', error?.response?.data || error?.message || error);
-      setAvailableAccounts([]);
+      // Try extension-local accounts when backend fails
+      try {
+        const extAccounts = await fetchExtensionLocalAccounts();
+        const extFiltered = (Array.isArray(extAccounts) ? extAccounts : []).filter(acc => 
+          acc.validation_status === 'ACTIVE' || acc.validation_status === 'PENDING'
+        );
+        setAvailableAccounts(extFiltered);
+      } catch (extErr) {
+        setAvailableAccounts([]);
+      }
       
       // Show user-friendly error message
       setErrors(prev => ({

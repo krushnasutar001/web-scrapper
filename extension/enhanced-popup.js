@@ -461,44 +461,54 @@
     if (elements.successMessage) elements.successMessage.classList.add('hidden');
   }
   
-  // Enhanced communication helper with retry logic and better error handling
-  function sendMessage(message, retries = 3) {
+  // Enhanced communication helper with retry logic and response normalization
+  function sendMessage(message, maxRetries = 3) {
     return new Promise((resolve, reject) => {
-      const attemptSend = (attempt) => {
+      let attempts = 0;
+      const trySend = () => {
+        attempts += 1;
+        // Validate extension context
+        if (!chrome.runtime?.id) {
+          return reject(new Error('Extension context invalidated. Please reload the extension.'));
+        }
         try {
           chrome.runtime.sendMessage(message, (response) => {
-            if (chrome.runtime.lastError) {
-              const errorMsg = chrome.runtime.lastError.message;
-              console.warn(`Message attempt ${attempt} failed:`, errorMsg);
-              
-              // Handle specific Chrome extension errors
-              if (errorMsg.includes('Extension context invalidated') || 
-                  errorMsg.includes('Receiving end does not exist')) {
-                reject(new Error('Extension context invalidated. Please reload the extension or refresh this page.'));
+            const lastErr = chrome.runtime.lastError?.message || '';
+            if (lastErr) {
+              console.warn(`Message attempt ${attempts} failed:`, lastErr);
+              const transient = lastErr.includes('Extension context invalidated') ||
+                               lastErr.includes('Receiving end does not exist') ||
+                               lastErr.includes('The message port closed') ||
+                               lastErr.includes('context invalidated');
+              if (transient && attempts < maxRetries) {
+                // Lightweight ping before retry
+                chrome.runtime.sendMessage({ type: 'PING', ts: Date.now() }, () => {
+                  setTimeout(trySend, 300);
+                });
                 return;
               }
-              
-              if (attempt < retries) {
-                // Retry after a short delay
-                setTimeout(() => attemptSend(attempt + 1), 1000);
-              } else {
-                reject(new Error(`Communication failed after ${retries} attempts: ${errorMsg}`));
-              }
-            } else if (response && response.success === false) {
-              reject(new Error(response.error || 'Unknown error'));
-            } else if (!response) {
-              reject(new Error('No response received from background script'));
-            } else {
-              resolve(response);
+              return reject(new Error(lastErr));
             }
+            // Normalize legacy { ok } responses
+            if (response && response.ok !== undefined && response.success === undefined) {
+              response.success = response.ok;
+            }
+            if (!response) {
+              return reject(new Error('No response received from background script'));
+            }
+            // Always resolve; callers decide based on response.success
+            resolve(response);
           });
-        } catch (error) {
-          console.error('Error sending message:', error);
-          reject(new Error('Failed to send message to background script'));
+        } catch (err) {
+          const msg = String(err?.message || err || 'Extension context invalidated. Please reload the extension.');
+          if (attempts < maxRetries) {
+            setTimeout(trySend, 300);
+          } else {
+            reject(new Error(msg));
+          }
         }
       };
-      
-      attemptSend(1);
+      trySend();
     });
   }
   

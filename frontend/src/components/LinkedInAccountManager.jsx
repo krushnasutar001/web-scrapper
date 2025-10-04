@@ -47,6 +47,22 @@ const ExtensionDetection = ({ onAccountDetected, onClose }) => {
 
   useEffect(() => {
     checkExtensionInstalled();
+
+    const onReady = () => {
+      setIsExtensionInstalled(true);
+      setError('');
+    };
+
+    window.addEventListener('SCRALYTICS_EXTENSION_READY', onReady);
+
+    // If the event already fired before this component mounted, check the global flag set by the extension content script.
+    if (window.__SCRALYTICS_EXTENSION_READY__) {
+      onReady();
+    }
+
+    return () => {
+      window.removeEventListener('SCRALYTICS_EXTENSION_READY', onReady);
+    };
   }, []);
 
   const checkExtensionInstalled = () => {
@@ -61,29 +77,29 @@ const ExtensionDetection = ({ onAccountDetected, onClose }) => {
   const detectAccounts = async () => {
     setLoading(true);
     setError('');
-    
+
     try {
-      // Request account detection from extension
-      if (window.chrome && window.chrome.runtime) {
-        window.chrome.runtime.sendMessage(
-          { type: 'DETECT_ACCOUNTS' },
-          (response) => {
-            if (response && response.success) {
-              setDetectedAccounts(response.accounts || []);
-              if (response.accounts && response.accounts.length > 0) {
-                onAccountDetected();
-              } else {
-                setError('No LinkedIn accounts detected. Please make sure you are logged into LinkedIn in this browser.');
-              }
+      const handleResult = (event) => {
+        if (event.data && event.data.type === 'DETECT_ACCOUNTS_RESULT') {
+          window.removeEventListener('message', handleResult);
+          const response = event.data.response;
+          if (response && response.success) {
+            setDetectedAccounts(response.accounts || []);
+            if (response.accounts && response.accounts.length > 0) {
+              onAccountDetected();
             } else {
-              setError(response?.error || 'Failed to detect accounts from extension');
+              setError('No LinkedIn accounts detected. Please make sure you are logged into LinkedIn in this browser.');
             }
-            setLoading(false);
+          } else {
+            setError(response?.error || 'Failed to detect accounts from extension');
           }
-        );
-      } else {
-        throw new Error('Extension not available');
-      }
+          setLoading(false);
+        }
+      };
+
+      window.addEventListener('message', handleResult);
+      // Ask the content script to trigger detection via background
+      window.postMessage({ type: 'DETECT_ACCOUNTS', source: 'frontend', ts: Date.now() }, '*');
     } catch (error) {
       setError('Failed to communicate with extension: ' + error.message);
       setLoading(false);
@@ -393,9 +409,46 @@ const LinkedInAccountManager = () => {
   // Fetch accounts
   const fetchAccounts = async () => {
     try {
-      const response = await api.get('/api/accounts');
-      if (response.success) {
-        setAccounts(response.data || []);
+      setLoading(true);
+      // Primary: modern route
+      let response = await api.get('/api/accounts');
+      if (response && response.success && Array.isArray(response.data)) {
+        setAccounts(response.data);
+      } else if (Array.isArray(response)) {
+        // Some APIs may return array directly
+        setAccounts(response);
+      } else {
+        // Fallback 1: legacy refresh route
+        try {
+          response = await api.get('/api/linkedin-accounts/refresh');
+          if (response && response.success && Array.isArray(response.data)) {
+            setAccounts(response.data);
+          } else {
+            // Fallback 2: available accounts route
+            response = await api.get('/api/linkedin-accounts/available');
+            if (response && response.success && Array.isArray(response.data)) {
+              setAccounts(response.data);
+            } else {
+              // Fallback 3: ask the extension for locally saved accounts
+              try {
+                const extAccounts = await fetchExtensionLocalAccounts();
+                setAccounts(extAccounts);
+              } catch (extErr) {
+                console.warn('Extension local accounts unavailable:', extErr);
+                setAccounts([]);
+              }
+            }
+          }
+        } catch (fallbackErr) {
+          console.error('Fallback fetch error:', fallbackErr);
+          // Try extension-local accounts if backend falls through
+          try {
+            const extAccounts = await fetchExtensionLocalAccounts();
+            setAccounts(extAccounts);
+          } catch (extErr) {
+            setAccounts([]);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching accounts:', error);
@@ -403,6 +456,46 @@ const LinkedInAccountManager = () => {
       setLoading(false);
     }
   };
+
+  // Ask the extension (via content script bridge) for local accounts
+  const fetchExtensionLocalAccounts = () => {
+    return new Promise((resolve, reject) => {
+      try {
+        const handler = (event) => {
+          if (event.source !== window || !event.data || typeof event.data !== 'object') return;
+          if (event.data.type === 'LOCAL_LINKEDIN_ACCOUNTS_RESULT') {
+            window.removeEventListener('message', handler);
+            if (event.data.success && Array.isArray(event.data.data)) {
+              resolve(event.data.data);
+            } else {
+              reject(new Error(event.data.error || 'No local accounts'));
+            }
+          }
+        };
+        window.addEventListener('message', handler);
+        window.postMessage({ type: 'GET_LOCAL_LINKEDIN_ACCOUNTS', source: 'webapp', ts: Date.now() }, '*');
+        // Timeout after 2 seconds
+        setTimeout(() => {
+          window.removeEventListener('message', handler);
+          reject(new Error('Extension response timeout'));
+        }, 2000);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  };
+
+  // Listen for extension save events to auto-refresh accounts without user action
+  useEffect(() => {
+    const onExtensionAccountSaved = () => {
+      fetchAccounts();
+      fetchStats();
+    };
+    window.addEventListener('SCRALYTICS_EXTENSION_ACCOUNT_SAVED', onExtensionAccountSaved);
+    return () => {
+      window.removeEventListener('SCRALYTICS_EXTENSION_ACCOUNT_SAVED', onExtensionAccountSaved);
+    };
+  }, []);
 
   // Fetch statistics
   const fetchStats = async () => {

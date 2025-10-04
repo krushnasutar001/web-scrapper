@@ -8,6 +8,28 @@
   
   console.log('🔗 LinkedIn Content Script loaded');
   
+  // Safe messaging wrapper to handle invalidated extension context and avoid uncaught errors
+  function safeSendMessage(message) {
+    return new Promise((resolve) => {
+      try {
+        if (!chrome?.runtime?.id) {
+          resolve({ success: false, error: 'Extension context invalidated' });
+          return;
+        }
+        chrome.runtime.sendMessage(message, (response) => {
+          const lastErr = chrome.runtime.lastError && chrome.runtime.lastError.message;
+          if (lastErr) {
+            resolve({ success: false, error: lastErr });
+          } else {
+            resolve(response || { success: true });
+          }
+        });
+      } catch (err) {
+        resolve({ success: false, error: String(err.message || err) });
+      }
+    });
+  }
+  
   // Configuration
   const CONFIG = {
     SELECTORS: {
@@ -66,8 +88,7 @@
         console.error('❌ Error handling message:', error);
         sendResponse({ error: error.message });
       }
-      // Keep the message channel open for async responses
-      return true;
+      return true; // Keep the message channel open for async responses
     });
     
     // Multiple detection attempts to ensure we capture the account
@@ -88,18 +109,17 @@
       }, delay);
     });
     
-    // Notify background script that LinkedIn is ready with error handling
+    // Notify background script that LinkedIn is ready with error handling (use safeSendMessage)
     try {
-      chrome.runtime.sendMessage({
+      safeSendMessage({
         type: 'LINKEDIN_READY',
         url: window.location.href,
         timestamp: Date.now()
-      }, response => {
-        if (chrome.runtime.lastError) {
-          console.log('Communication error:', chrome.runtime.lastError.message);
-          // Retry after a delay
+      }).then((res) => {
+        if (!res || res.success !== true) {
+          console.log('Communication error:', (res && res.error) || 'Unknown error');
           setTimeout(() => {
-            chrome.runtime.sendMessage({
+            safeSendMessage({
               type: 'LINKEDIN_READY',
               url: window.location.href,
               timestamp: Date.now()
@@ -113,6 +133,19 @@
     
     // Set up periodic cookie collection
     setInterval(collectAndSendCookies, CONFIG.DELAYS.VERY_LONG); // Check periodically
+
+    // Robust flush triggers: when tab gains focus, becomes visible, or network returns
+    try {
+      const tryFlush = () => { try { flushCookieQueue(); } catch (_) { /* ignore */ } };
+      window.addEventListener('focus', tryFlush, { passive: true });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') tryFlush();
+      }, { passive: true });
+      window.addEventListener('online', tryFlush, { passive: true });
+    } catch (e) {
+      // Non-fatal; environment may not support these events
+      console.warn('⚠️ Flush triggers setup warning:', e && (e.message || e));
+    }
   }
   
   // Collect and send LinkedIn cookies to background script
@@ -144,49 +177,187 @@
       // Get Chrome profile ID
       const profileId = getCurrentChromeProfile();
       
+      // Normalize and persist cookies locally so popup can use them even if messaging is down
+      try {
+        const normalizedCookies = Object.keys(essentialCookies).map((name) => ({ name, value: String(essentialCookies[name] || '') }));
+        chrome.storage.local.set({ latestCookies: { accountName: 'LinkedIn Account', cookies: normalizedCookies, ts: Date.now(), url: window.location.href } });
+      } catch (_) { /* non-fatal */ }
+      
+      // Helper: check extension context availability
+      function isExtensionContextAvailable() {
+        try {
+          return typeof chrome !== 'undefined' && !!(chrome.runtime && chrome.runtime.id);
+        } catch (_) {
+          return false;
+        }
+      }
+
+      // Helper: wait for extension context to become available
+      function waitForExtensionContext(maxMs = 5000, intervalMs = 250) {
+        return new Promise((resolve) => {
+          const start = Date.now();
+          const timer = setInterval(() => {
+            if (isExtensionContextAvailable() || (Date.now() - start) >= maxMs) {
+              clearInterval(timer);
+              resolve(isExtensionContextAvailable());
+            }
+          }, intervalMs);
+        });
+      }
+
+      // Helper: queue payloads when context is invalidated
+      async function enqueueCookiePayload(payload) {
+        try {
+          const existing = await new Promise((resolve) => {
+            try { chrome.storage.local.get(['pendingCookiePayloads'], (items) => resolve(items?.pendingCookiePayloads || [])); }
+            catch { resolve([]); }
+          });
+          existing.push(payload);
+          await new Promise((resolve) => {
+            try { chrome.storage.local.set({ pendingCookiePayloads: existing }, () => resolve()); }
+            catch { resolve(); }
+          });
+          // Also persist latest cookies immediately for popup/local use
+          try {
+            const cookiePayload = payload?.cookies;
+            const normalized = Array.isArray(cookiePayload)
+              ? cookiePayload
+              : Object.keys(cookiePayload || {}).map((k) => ({ name: k, value: String(cookiePayload?.[k] || '') }));
+            chrome.storage.local.set({ latestCookies: { accountName: payload?.accountName || 'LinkedIn Account', cookies: normalized, ts: Date.now(), url: payload?.url || window.location.href } });
+          } catch (_) { /* ignore */ }
+        } catch (_) { /* swallow */ }
+      }
+
+      // Helper: flush queued payloads once context is available
+      async function flushCookieQueue() {
+        if (!isExtensionContextAvailable()) return false;
+        const queued = await new Promise((resolve) => {
+          try { chrome.storage.local.get(['pendingCookiePayloads'], (items) => resolve(items?.pendingCookiePayloads || [])); }
+          catch { resolve([]); }
+        });
+        if (!queued.length) return true;
+        for (const payload of queued) {
+          try {
+            await new Promise((resolve) => {
+              try {
+                chrome.runtime.sendMessage(payload, () => resolve());
+              } catch (_) { resolve(); }
+            });
+          } catch (_) { /* swallow */ }
+        }
+        try { await new Promise((resolve) => chrome.storage.local.set({ pendingCookiePayloads: [] }, () => resolve())); } catch { /* ignore */ }
+        return true;
+      }
+
+      // Track last invalidation log to avoid noisy warnings
+      let lastInvalidationLog = 0;
+      // Maintain a long-lived port to keep background awake and deliver messages
+      let cookiePort = null;
+      function ensureCookiePort() {
+        if (!isExtensionContextAvailable()) return null;
+        try {
+          if (!cookiePort) {
+            cookiePort = chrome.runtime.connect({ name: 'linkedin-cookie-port' });
+            // Auto-reconnect if the port drops
+            try {
+              cookiePort.onDisconnect.addListener(() => {
+                cookiePort = null;
+                setTimeout(() => { ensureCookiePort(); }, 2000);
+              });
+            } catch (_) {}
+          }
+          return cookiePort;
+        } catch (_) { return null; }
+      }
+      function sendViaPort(payload) {
+        const port = ensureCookiePort();
+        if (!port) return false;
+        try {
+          port.postMessage(payload);
+          return true;
+        } catch (_) { return false; }
+      }
+      console.log('📤 sending cookies to background...');
       // Send cookies to background script with error handling and context validation
-      function sendCookiesWithRetry(retryCount = 0, maxRetries = 3) {
+      function sendCookiesWithRetry(retryCount = 0, maxRetries = 10) {
+        const payload = {
+          type: 'LINKEDIN_COOKIES_COLLECTED',
+          cookies: essentialCookies,
+          url: window.location.href,
+          timestamp: Date.now(),
+          profileId: profileId
+        };
+
         if (retryCount >= maxRetries) {
-          console.error(`❌ Failed to send cookies after ${maxRetries} attempts`);
+          console.debug(`Cookie send deferred after ${maxRetries} attempts; queued for flush.`);
+          enqueueCookiePayload(payload);
+          // Attempt a background flush when context returns
+          waitForExtensionContext(8000).then((available) => { if (available) flushCookieQueue(); });
           return;
         }
-        
-        try {
-          // Check if extension context is valid before sending message
-          if (chrome.runtime && chrome.runtime.id) {
-            chrome.runtime.sendMessage({
-              type: 'LINKEDIN_COOKIES_COLLECTED',
-              cookies: essentialCookies,
-              url: window.location.href,
-              timestamp: Date.now(),
-              profileId: profileId
-            }, response => {
-              if (chrome.runtime.lastError) {
-                console.error('❌ Cookie collection failed:', chrome.runtime.lastError.message);
-                // Retry after delay with exponential backoff
-                setTimeout(() => {
-                  sendCookiesWithRetry(retryCount + 1, maxRetries);
-                }, 1000 * Math.pow(2, retryCount));
-              } else {
-                console.log('✅ LinkedIn cookies collected and sent successfully');
-              }
-            });
-          } else {
-            console.error('❌ Extension context is invalid, retrying...');
-            setTimeout(() => {
-              sendCookiesWithRetry(retryCount + 1, maxRetries);
-            }, 1000 * Math.pow(2, retryCount));
+
+        // Prefer port when possible; it keeps SW alive and avoids transient invalidation
+        if (isExtensionContextAvailable()) {
+          const sent = sendViaPort(payload);
+          if (sent) {
+            console.log('✅ cookies sent via port');
+            // Opportunistically flush queued items
+            flushCookieQueue();
+            return;
           }
-        } catch (commError) {
-          console.error('❌ Failed to send cookies to background script:', commError);
-          // Retry after delay with exponential backoff
-          setTimeout(() => {
-            sendCookiesWithRetry(retryCount + 1, maxRetries);
-          }, 1000 * Math.pow(2, retryCount));
+        }
+
+        // If context invalidated, queue and retry once available
+        if (!isExtensionContextAvailable()) {
+          const shouldLog = (Date.now() - lastInvalidationLog > 60000) && (document.visibilityState === 'visible') && (typeof document.hasFocus === 'function' ? document.hasFocus() : true);
+          if (shouldLog) {
+            console.debug('Context unavailable; queued cookies. Will retry when active.');
+            lastInvalidationLog = Date.now();
+          }
+          enqueueCookiePayload(payload);
+          waitForExtensionContext(4000).then((available) => {
+            if (available) {
+              flushCookieQueue();
+            } else {
+              setTimeout(() => sendCookiesWithRetry(retryCount + 1, maxRetries), 500 * Math.pow(2, retryCount));
+            }
+          });
+          return;
+        }
+
+        try {
+          chrome.runtime.sendMessage(payload, (response) => {
+            if (chrome.runtime.lastError) {
+              const errMsg = chrome.runtime.lastError.message || 'Unknown error';
+              // Queue on context errors and exponential backoff
+              if (/context|closed|invalid/i.test(errMsg)) {
+                enqueueCookiePayload(payload);
+              }
+              console.debug('Cookie send failed (transient):', errMsg);
+              const delay = Math.min(8000, 800 * Math.pow(2, retryCount));
+              setTimeout(() => sendCookiesWithRetry(retryCount + 1, maxRetries), delay);
+            } else {
+              const ok = response && (response.success === true || response.ok === true);
+              if (ok) {
+                console.log('✅ LinkedIn cookies collected and sent successfully');
+                // Try to flush any queued items opportunistically
+                flushCookieQueue();
+              } else {
+                console.debug('Cookie send response not confirmed. Retrying...');
+                const delay = Math.min(8000, 800 * Math.pow(2, retryCount));
+                setTimeout(() => sendCookiesWithRetry(retryCount + 1, maxRetries), delay);
+              }
+            }
+          });
+        } catch (e) {
+          console.debug('Cookie send threw error:', String(e?.message || e));
+          const delay = Math.min(8000, 800 * Math.pow(2, retryCount));
+          setTimeout(() => sendCookiesWithRetry(retryCount + 1, maxRetries), delay);
         }
       }
       
-      // Start the retry process
+      // Start the retry process (initialize port early for reliability)
+      ensureCookiePort();
       sendCookiesWithRetry();
     } catch (error) {
       console.error('❌ Error collecting cookies:', error);
@@ -207,8 +378,7 @@
   }
   
   // Detect LinkedIn account across multiple Chrome profiles
-  function detectLinkedInAccount(attempt = 1) {
-    const maxAttempts = 3;
+  function detectLinkedInAccount() {
     try {
       console.log('🔍 Checking for LinkedIn login status...');
       
@@ -226,47 +396,25 @@
       
       // Send account info to background script with error handling
       try {
-        // Check if extension context is valid
-        if (!chrome.runtime || !chrome.runtime.id) {
-          console.error('❌ Extension context invalidated. Cannot send account detection.');
-          
-          if (attempt < maxAttempts) {
-            // Exponential backoff for retry
-            const delay = Math.pow(2, attempt) * 1000;
-            console.log(`Retrying account detection (${attempt}/${maxAttempts}) after ${delay}ms due to invalidated context`);
-            
-            setTimeout(() => {
-              detectLinkedInAccount(attempt + 1);
-            }, delay);
-          }
-          return;
-        }
-        
-        chrome.runtime.sendMessage({
+        safeSendMessage({
           type: 'LINKEDIN_ACCOUNT_DETECTED',
           accountInfo: accountInfo,
           url: window.location.href,
           timestamp: Date.now(),
           profileId: getCurrentChromeProfile() || 'default'
-        }, response => {
-          if (chrome.runtime.lastError) {
-            console.log('Communication error:', chrome.runtime.lastError.message);
-            // Attempt to reconnect or handle the error with exponential backoff
-            if (attempt < maxAttempts) {
-              const delay = Math.pow(2, attempt) * 1000;
-              console.log(`Retrying account detection (${attempt}/${maxAttempts}) after ${delay}ms`);
-              setTimeout(() => detectLinkedInAccount(attempt + 1), delay);
-            } else {
-              setTimeout(detectLinkedInAccount, 5000); // Try again after 5 seconds
-            }
+        }).then((res) => {
+          if (!res || res.success !== true) {
+            console.log('Communication error:', (res && res.error) || 'Unknown error');
+            // Attempt to reconnect or handle the error
+            setTimeout(detectLinkedInAccount, 5000); // Try again after 5 seconds
           } else {
-            console.log('✅ LinkedIn account detected and reported successfully');
+            console.log('✅ accounts detected and reported successfully');
           }
         });
       } catch (commError) {
         console.error('❌ Failed to communicate with background script:', commError);
         // Retry after a delay
-        setTimeout(() => detectLinkedInAccount(attempt + 1), 3000);
+        setTimeout(detectLinkedInAccount, 3000);
       }
       
       console.log('✅ LinkedIn account detection attempt completed');
@@ -276,7 +424,7 @@
     } catch (error) {
       console.error('❌ Error detecting LinkedIn account:', error);
       // Retry after a delay even if there was an error
-      setTimeout(() => detectLinkedInAccount(attempt + 1), 5000);
+      setTimeout(detectLinkedInAccount, 5000);
     }
   }
   
@@ -368,15 +516,15 @@
     console.log('🚀 Initializing LinkedIn content script');
     
     // Listen for messages from background script with error handling
-    chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         handleMessage(message, sender, sendResponse);
+        return true; // Keep the message channel open for async responses
       } catch (error) {
         console.error('❌ Error handling message:', error);
         sendResponse({ error: error.message });
+        return false;
       }
-      // Keep the message channel open for async responses
-      return true;
     });
     
     // Multiple detection attempts to ensure we capture the account
@@ -399,16 +547,15 @@
     
     // Notify background script that LinkedIn is ready with error handling
     try {
-      chrome.runtime.sendMessage({
+      safeSendMessage({
         type: 'LINKEDIN_READY',
         url: window.location.href,
         timestamp: Date.now()
-      }, response => {
-        if (chrome.runtime.lastError) {
-          console.log('Communication error:', chrome.runtime.lastError.message);
-          // Retry after a delay
+      }).then((res) => {
+        if (!res || res.success !== true) {
+          console.log('Communication error:', (res && res.error) || 'Unknown error');
           setTimeout(() => {
-            chrome.runtime.sendMessage({
+            safeSendMessage({
               type: 'LINKEDIN_READY',
               url: window.location.href,
               timestamp: Date.now()
@@ -422,6 +569,19 @@
     
     // Set up periodic cookie collection
     setInterval(collectAndSendCookies, CONFIG.DELAYS.VERY_LONG); // Check periodically
+
+    // Robust flush triggers: when tab gains focus, becomes visible, or network returns
+    try {
+      const tryFlush = () => { try { flushCookieQueue(); } catch (_) { /* ignore */ } };
+      window.addEventListener('focus', tryFlush, { passive: true });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') tryFlush();
+      }, { passive: true });
+      window.addEventListener('online', tryFlush, { passive: true });
+    } catch (e) {
+      // Non-fatal; environment may not support these events
+      console.warn('⚠️ Flush triggers setup warning:', e && (e.message || e));
+    }
   }
   
   // Check if user is logged in to LinkedIn
@@ -558,13 +718,17 @@
         };
         
         // Send to background script with profile context
-        chrome.runtime.sendMessage({
+        safeSendMessage({
           type: 'LINKEDIN_ACCOUNT_DETECTED',
           accountInfo: enhancedAccountInfo,
           url: window.location.href,
           timestamp: Date.now(),
           profileId: profileId,
           source: 'linkedin_content_script'
+        }).then((res) => {
+          if (!res || res.success !== true) {
+            console.log('Communication error:', (res && res.error) || 'Unknown error');
+          }
         });
         
         console.log('✅ LinkedIn account detected across profiles:', enhancedAccountInfo);
@@ -623,7 +787,8 @@
   function handleMessage(request, sender, sendResponse) {
     console.log('📨 LinkedIn content script received message:', request);
     
-    switch (request.type) {
+    const msgType = request.type || request.action;
+    switch (msgType) {
       case 'NEW_JOB':
         handleNewJob(request.job);
         sendResponse({ success: true });
@@ -646,9 +811,17 @@
         stopCurrentJob();
         sendResponse({ success: true });
         break;
-        
+      case 'getLoginStatus':
+        try {
+          const isLoggedIn = checkLinkedInLoginStatus();
+          const userInfo = isLoggedIn ? extractLinkedInAccountInfo() : null;
+          sendResponse({ isLoggedIn, user: userInfo, url: window.location.href });
+        } catch (e) {
+          sendResponse({ success: false, error: e.message });
+        }
+        break;
       default:
-        console.log('❓ Unknown message type:', request.type);
+        console.log('❓ Unknown message type:', msgType);
         sendResponse({ success: false, error: 'Unknown message type' });
     }
   }
@@ -670,77 +843,71 @@
   }
   
   // Execute job based on type
-  function executeJob(job) {
-    return new Promise((resolve, reject) => {
-      if (isExecutingJob) {
-        reject(new Error('Another job is already executing'));
-        return;
-      }
-      
-      console.log('🚀 Executing job:', job);
-      isExecutingJob = true;
-      jobResults = [];
+  async function executeJob(job) {
+    if (isExecutingJob) {
+      throw new Error('Another job is already executing');
+    }
+    
+    console.log('🚀 Executing job:', job);
+    isExecutingJob = true;
+    jobResults = [];
     
     try {
-      let jobPromise;
+      let result;
       
       switch (job.type) {
         case 'connect':
-          jobPromise = executeConnectJob(job);
+          result = await executeConnectJob(job);
           break;
           
         case 'message':
-          jobPromise = executeMessageJob(job);
+          result = await executeMessageJob(job);
           break;
           
         case 'scrape_profile':
-          jobPromise = executeScrapeProfileJob(job);
+          result = await executeScrapeProfileJob(job);
           break;
           
         case 'search_and_connect':
-          jobPromise = executeSearchAndConnectJob(job);
+          result = await executeSearchAndConnectJob(job);
           break;
           
         case 'bulk_connect':
-          jobPromise = executeBulkConnectJob(job);
+          result = await executeBulkConnectJob(job);
           break;
           
         default:
-          reject(new Error(`Unknown job type: ${job.type}`));
-          return;
+          throw new Error(`Unknown job type: ${job.type}`);
       }
       
-      jobPromise.then(result => {
-        // Report job completion
-        if (chrome.runtime && chrome.runtime.id) {
-          chrome.runtime.sendMessage({
-            type: 'JOB_COMPLETED',
-            jobId: job.id,
-            result: result
-          });
+      // Report job completion (use safeSendMessage)
+      safeSendMessage({
+        type: 'JOB_COMPLETED',
+        jobId: job.id,
+        result: result
+      }).then((res) => {
+        if (!res || res.success !== true) {
+          console.log('Communication error reporting job completion:', (res && res.error) || 'Unknown error');
         }
-        
-        resolve(result);
-      }).catch(error => {
-        console.error('❌ Job execution failed:', error);
-        reject(error);
       });
+      
+      return result;
       
     } catch (error) {
       console.error('❌ Job execution failed:', error);
-      reject(error);
       
-      // Report job failure
-      if (chrome.runtime && chrome.runtime.id) {
-        chrome.runtime.sendMessage({
+      // Report job failure (use safeSendMessage)
+      safeSendMessage({
         type: 'JOB_FAILED',
         jobId: job.id,
         error: error.message
+      }).then((res) => {
+        if (!res || res.success !== true) {
+          console.log('Communication error reporting job failure:', (res && res.error) || 'Unknown error');
+        }
       });
-      }
-    });
       
-      // Error already handled by reject
+      throw error;
     } finally {
       isExecutingJob = false;
       currentJob = null;

@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const mysql = require('mysql2/promise');
 const { v4: uuidv4 } = require('uuid');
-require('dotenv').config({ path: '../.env' });
+require('dotenv').config({ path: './.env' });
 
 /**
  * Simple Test User Creation Script
@@ -21,7 +21,7 @@ async function createUser() {
       port: process.env.DB_PORT || 3306,
       user: process.env.DB_USER || 'root',
       password: process.env.DB_PASSWORD || 'Krushna_Sutar@0809',
-      database: process.env.DB_NAME || 'linkedin_automation'
+      database: process.env.DB_NAME || 'linkedin_automation_saas'
     });
     
     console.log('✅ Connected to database');
@@ -44,7 +44,7 @@ async function createUser() {
     // Test user data
     const users = [
       {
-        id: 'ff1c9f3b-88a8-11f0-aa08-088fc3850692', // Same ID used in backend tests
+        id: uuidv4(), // Use a unique ID to avoid primary key conflicts
         email: 'admin@test.com',
         password: 'admin123',
         name: 'Admin User'
@@ -74,7 +74,7 @@ async function createUser() {
       // Hash password
       const hashedPassword = await bcrypt.hash(user.password, 12);
       
-      // Insert user
+      // Insert user (schema expects password_hash and name)
       await connection.execute(
         `INSERT INTO users (id, email, password_hash, name, is_active) 
          VALUES (?, ?, ?, ?, ?)`,

@@ -3,8 +3,12 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const XLSX = require('xlsx');
 const axios = require('axios');
-const excelUpload = require('express-fileupload');
+// Remove unused express-fileupload import; multer handles uploads
+// const excelUpload = require('express-fileupload');
 const cookieManager = require('./cookie-manager');
+const { authenticateToken } = require('./middleware/auth');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
 const PORT = process.env.PORT || 5000;
 
@@ -686,7 +690,7 @@ app.get('/api/linkedin-accounts/:id/stats', authenticateToken, async (req, res) 
 // POST /api/linkedin-accounts/upload - Upload Excel/CSV file with multiple accounts
 app.post('/api/linkedin-accounts/upload', 
   authenticateToken,
-  excelUpload.single('file'),
+  upload.single('file'),
   async (req, res) => {
     try {
       if (!req.file) {
@@ -1415,9 +1419,14 @@ app.get('/api/jobs/:jobId/status', authenticateToken, async (req, res) => {
   }
 });
 
+// Health route
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 async function startServer() {
   try {
-    await connectDB();
+    await db.connectDB();
     
     app.listen(PORT, () => {
       console.log('');

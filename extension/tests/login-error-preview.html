@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Login Error Message Preview</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; }
+    h1 { font-size: 18px; margin-bottom: 12px; }
+    .case { margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+    .label { font-weight: 600; }
+    .error { color: #b00020; }
+    code { background: #f6f8fa; padding: 2px 4px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Popup Login Error Messaging – Preview</h1>
+  <p>This page previews how the popup sanitizes and formats login errors.</p>
+
+  <div id="cases"></div>
+
+  <script>
+    function sanitizeLoginErrorMessage(msg) {
+      let m = typeof msg === 'string' ? msg : 'Login failed';
+      if (/login successful/i.test(m)) m = 'Login failed';
+      if (m.trim().toLowerCase() === 'login failed') {
+        m = 'Unable to login. Check credentials or server connection.';
+      }
+      return 'Login failed: ' + m;
+    }
+
+    const scenarios = [
+      { name: 'Misleading success text', input: 'Login successful', expected: 'Login failed: Unable to login. Check credentials or server connection.' },
+      { name: 'Generic failure', input: 'Login failed', expected: 'Login failed: Unable to login. Check credentials or server connection.' },
+      { name: 'Invalid credentials', input: 'Invalid email or password', expected: 'Login failed: Invalid email or password' },
+      { name: 'Network error', input: 'Failed to fetch', expected: 'Login failed: Failed to fetch' }
+    ];
+
+    const container = document.getElementById('cases');
+    scenarios.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'case';
+      div.innerHTML = `
+        <div class="label">${s.name}</div>
+        <div>Input: <code>${s.input}</code></div>
+        <div class="error">Output: ${sanitizeLoginErrorMessage(s.input)}</div>
+        <div>Expected: <code>${s.expected}</code></div>
+      `;
+      container.appendChild(div);
+    });
+  </script>
+</body>
+</html>

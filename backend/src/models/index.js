@@ -54,6 +54,26 @@ Result.belongsTo(Job, {
   onUpdate: 'CASCADE'
 });
 
+// Many-to-Many: Jobs assigned to multiple Accounts and vice versa
+// Fixes: "N:M associations are not supported with hasMany. Use belongsToMany instead"
+Job.belongsToMany(Account, {
+  through: 'job_account_assignments',
+  as: 'accounts',
+  foreignKey: 'jobId',
+  otherKey: 'accountId',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+});
+
+Account.belongsToMany(Job, {
+  through: 'job_account_assignments',
+  as: 'jobsAssigned',
+  foreignKey: 'accountId',
+  otherKey: 'jobId',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+});
+
 // User can access Results through Jobs (no direct association needed)
 // Results are accessible via: user.getJobs({ include: [Result] })
 

@@ -88,9 +88,9 @@ const validateJobToken = (token) => {
  * Transactional job creation with credit deduction
  */
 const createJobTransactional = async (req, res) => {
-  const connection = await getConnection();
-  
+  let connection;
   try {
+    connection = await getConnection();
     await connection.beginTransaction();
     
     const user = req.user;
@@ -239,19 +239,24 @@ const createJobTransactional = async (req, res) => {
     console.error('❌ Error creating job:', error);
     
     try {
-      await connection.rollback();
+      if (connection) await connection.rollback();
     } catch (rollbackError) {
       console.error('❌ Error rolling back transaction:', rollbackError);
     }
     
-    res.status(500).json({
+    const statusCode = connection ? 500 : 503;
+    res.status(statusCode).json({
       success: false,
-      error: 'Failed to create job',
-      code: 'JOB_CREATION_FAILED',
+      error: connection ? 'Failed to create job' : 'Database connection unavailable',
+      code: connection ? 'JOB_CREATION_FAILED' : 'DB_CONNECTION_ERROR',
       details: error.message
     });
   } finally {
-    connection.release();
+    try {
+      if (connection) connection.release();
+    } catch (releaseError) {
+      console.error('❌ Error releasing DB connection:', releaseError);
+    }
   }
 };
 
@@ -298,6 +303,13 @@ router.post('/',
  * @access  Private
  */
 router.get('/:jobId/status', authenticateToken, jobRateLimit, jobController.getJobStatus);
+
+/**
+ * @route   GET /api/jobs/stats
+ * @desc    Get aggregated job stats for user
+ * @access  Private
+ */
+router.get('/stats', authenticateToken, jobRateLimit, jobController.getJobStats);
 
 /**
  * @route   POST /api/jobs/:jobId/pause

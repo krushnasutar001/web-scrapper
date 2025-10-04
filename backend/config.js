@@ -16,7 +16,7 @@ const REQUIRED_ENV_VARS = {
   // Database Configuration
   DATABASE_URL: {
     required: true,
-    description: 'PostgreSQL connection string (e.g., postgresql://user:pass@localhost:5432/dbname)'
+    description: 'MySQL connection string (e.g., mysql://user:pass@localhost:3306/dbname)'
   },
   
   // Redis Configuration

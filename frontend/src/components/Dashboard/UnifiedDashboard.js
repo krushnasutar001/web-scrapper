@@ -9,7 +9,7 @@ import {
   EyeIcon,
   ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
-import api from '../../services/api';
+import api, { dashboardAPI } from '../../services/api';
 
 const UnifiedDashboard = () => {
   const [jobs, setJobs] = useState([]);
@@ -45,8 +45,7 @@ const UnifiedDashboard = () => {
 
   const fetchDashboardStats = async () => {
     try {
-      const response = await api.get('/api/dashboard/stats');
-      const result = response.data || response;
+      const result = await dashboardAPI.getStats();
       if (result && result.success) {
         setDashboardStats(result.data);
       }
