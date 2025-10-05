@@ -2,7 +2,7 @@ const axios = require('axios');
 
 class FrontendAPITester {
   constructor() {
-    this.baseUrl = 'http://localhost:3001';
+    this.baseUrl = process.env.API_URL || process.env.REACT_APP_API_URL || 'http://localhost:5002';
     this.token = null;
   }
 
@@ -14,8 +14,10 @@ class FrontendAPITester {
         password: 'password123'
       });
       
-      if (response.data.success) {
-        this.token = response.data.data.token;
+      const data = response.data || {};
+      const token = data.token || data.authToken || data?.data?.token || data?.data?.authToken;
+      if (data.success || token) {
+        this.token = token;
         console.log('✅ Login successful, token:', this.token);
         return true;
       } else {
@@ -38,11 +40,18 @@ class FrontendAPITester {
         }
       });
       
-      console.log('Jobs API Response:', JSON.stringify(response.data, null, 2));
+      const jobsData = response.data;
+      console.log('Jobs API Response:', JSON.stringify(jobsData, null, 2));
       
-      if (response.data.success) {
-        console.log('✅ Jobs API working correctly');
-        console.log(`📊 Found ${response.data.jobs.length} jobs`);
+      if (Array.isArray(jobsData)) {
+        console.log('✅ Jobs API working correctly (array shape)');
+        console.log(`📊 Found ${jobsData.length} jobs`);
+        return true;
+      }
+
+      if (jobsData?.success && Array.isArray(jobsData.jobs)) {
+        console.log('✅ Jobs API working correctly (object shape)');
+        console.log(`📊 Found ${jobsData.jobs.length} jobs`);
         return true;
       } else {
         console.log('❌ Jobs API returned success: false');
@@ -57,32 +66,30 @@ class FrontendAPITester {
   async testAccountsAPI() {
     try {
       console.log('\n👥 Testing LinkedIn Accounts API...');
-      const response = await axios.get(`${this.baseUrl}/api/linkedin-accounts/available`, {
+      const response = await axios.get(`${this.baseUrl}/api/linkedin-accounts`, {
         headers: {
           'Authorization': `Bearer ${this.token}`,
           'Content-Type': 'application/json'
         }
       });
       
-      console.log('Accounts API Response:', JSON.stringify(response.data, null, 2));
+      const accData = response.data;
+      console.log('Accounts API Response:', JSON.stringify(accData, null, 2));
       
-      if (response.data.success) {
-        console.log('✅ Accounts API working correctly');
-        console.log(`📊 Found ${response.data.data.length} available accounts`);
-        
-        if (response.data.data.length > 0) {
-          console.log('📋 Available accounts:');
-          response.data.data.forEach((account, index) => {
-            console.log(`   ${index + 1}. ${account.account_name} (${account.validation_status})`);
-          });
-        } else {
-          console.log('⚠️ No LinkedIn accounts available');
-        }
+      if (Array.isArray(accData)) {
+        console.log('✅ Accounts API working correctly (array shape)');
+        console.log(`📊 Found ${accData.length} accounts`);
         return true;
-      } else {
-        console.log('❌ Accounts API returned success: false');
-        return false;
       }
+
+      if (accData?.success && Array.isArray(accData.data)) {
+        console.log('✅ Accounts API working correctly (object shape)');
+        console.log(`📊 Found ${accData.data.length} available accounts`);
+        return true;
+      }
+
+      console.log('⚠️ Unexpected accounts response shape');
+      return false;
     } catch (error) {
       console.error('❌ Accounts API error:', error.response?.data || error.message);
       return false;

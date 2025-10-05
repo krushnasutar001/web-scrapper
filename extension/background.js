@@ -1236,9 +1236,16 @@ async function handleScralyticsLoginStatus(payload) {
     const status = payload || {};
     isLoggedIn = !!status.isLoggedIn;
     const incomingToken = status.token || status.authToken;
+    const incomingBase = status.apiBaseUrl || status.baseUrl || status.base;
     if (incomingToken) {
       authToken = incomingToken;
-      await chrome.storage.local.set({ authToken, isLoggedIn, userInfo: status.user || null });
+      // Persist token and optional API base URL for popup usage
+      const toStore = { authToken, isLoggedIn, userInfo: status.user || null };
+      if (incomingBase && typeof incomingBase === 'string') {
+        API_BASE_URL = incomingBase;
+        toStore.apiBaseUrl = incomingBase;
+      }
+      await chrome.storage.local.set(toStore);
     } else if (!isLoggedIn) {
       await chrome.storage.local.remove(['authToken', 'userInfo']);
       authToken = null;

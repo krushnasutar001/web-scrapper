@@ -8,9 +8,7 @@
     <meta name="description" content="LinkedIn Automation SaaS Platform - Automate your LinkedIn data extraction and management" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Removed external Google Fonts to avoid network errors in sandbox/webview -->
     <title>LinkedIn Automation SaaS</title>
   </head>
   <body>
@@ -104,15 +102,8 @@
       // Export for manual use
       window.autoLogin = autoLogin;
       
-      // Auto-execute after a short delay to ensure DOM is ready
-      setTimeout(() => {
-        if (!localStorage.getItem('token')) {
-          autoLogin();
-        } else {
-          console.log('🔐 Token exists, testing validity...');
-          autoLogin();
-        }
-      }, 1000);
+      // Disabled auto-execution to avoid network churn and aborted requests in webview
+      // To manually trigger, run `autoLogin()` from the console if needed.
     </script>
   </body>
 </html>

@@ -110,6 +110,31 @@
   // Check current login status
   function checkLoginStatus() {
     const loginData = detectLoginStatus();
+
+    // Derive API base URL from page context or stored hints
+    try {
+      const derivedBase = (function deriveApiBaseUrl() {
+        try {
+          // Prefer explicit value from localStorage if present
+          const lsBase = localStorage.getItem('apiBaseUrl');
+          if (lsBase && /^https?:\/\//.test(lsBase)) return lsBase;
+        } catch (_) {}
+
+        const origin = window.location.origin || '';
+        // Common dev mappings
+        if (origin.includes('localhost:3001')) return 'http://localhost:5002';
+        if (origin.includes('localhost:3000')) return 'http://localhost:5001';
+        if (/scralytics\.com$/.test(new URL(origin).hostname)) {
+          // In production, default to same-origin backend unless overridden
+          return origin;
+        }
+        // Fallback to legacy default
+        return 'http://localhost:5001';
+      })();
+      loginData.apiBaseUrl = derivedBase;
+    } catch (e) {
+      // Non-fatal; background will keep existing base
+    }
     
     // Only notify if login state changed
     if (JSON.stringify(loginData) !== JSON.stringify(lastLoginState)) {

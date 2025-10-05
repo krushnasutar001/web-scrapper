@@ -56,14 +56,20 @@ const Jobs = () => {
       
       console.log('📦 Raw jobs response:', response);
       
-      // Support both Axios-style (response.data) and raw JSON (response)
-      const result = response.data || response;
+      // Support both Axios interceptor (returns data directly) and raw Axios response
+      const result = Array.isArray(response) ? response : (response?.data ?? response);
       
       console.log('📦 Parsed jobs result:', result);
       
-      if (result && result.success) {
-        setJobs(result.jobs || []);
-        console.log('✅ Jobs loaded:', result.jobs);
+      if (Array.isArray(result)) {
+        // Mock backend returns a plain array of jobs
+        setJobs(result);
+        console.log('✅ Jobs loaded (array):', result.length);
+      } else if (result && result.success === true) {
+        // Real backend returns { success, jobs }
+        const jobsList = result.jobs || result.data?.jobs || [];
+        setJobs(jobsList);
+        console.log('✅ Jobs loaded (object):', jobsList.length);
       } else {
         console.error('❌ Unexpected jobs response format:', result);
         setJobs([]);

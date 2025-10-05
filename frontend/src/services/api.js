@@ -215,11 +215,10 @@ export const authAPI = {
       // Handle specific error cases
       if (error.response?.status === 429) {
         console.warn('🚫 Too many login attempts detected');
-        throw {
-          message: 'Too many login attempts. Please wait before trying again.',
-          status: 429,
-          response: error.response
-        };
+        const e = new Error('Too many login attempts. Please wait before trying again.');
+        e.status = 429;
+        e.response = error.response;
+        throw e;
       }
       
       if (error.response?.status === 431) {
@@ -228,11 +227,10 @@ export const authAPI = {
         document.cookie.split(";").forEach(function(c) { 
           document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
         });
-        throw {
-          message: 'Request headers too large. Cookies cleared, please try again.',
-          status: 431,
-          response: error.response
-        };
+        const e = new Error('Request headers too large. Cookies cleared, please try again.');
+        e.status = 431;
+        e.response = error.response;
+        throw e;
       }
       
       // Fallback: if alias not found, try legacy /api/auth/login
