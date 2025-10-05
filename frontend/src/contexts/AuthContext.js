@@ -78,10 +78,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const token = localStorage.getItem('authToken') || localStorage.getItem('token');
         const userStr = localStorage.getItem('user');
-        
-        console.log(' Loading user from localStorage...');
-        console.log('Token exists:', !!token);
-        console.log('User data exists:', !!userStr);
+        // Quiet bootstrap: avoid verbose localStorage logs
         
         if (token && userStr) {
           try {
@@ -99,8 +96,6 @@ export const AuthProvider = ({ children }) => {
                 token,
               },
             });
-            
-            console.log('✅ User loaded from localStorage:', user.email);
           } catch (parseError) {
             console.error('❌ Error parsing stored user data:', parseError);
             // Clear invalid data
@@ -110,7 +105,6 @@ export const AuthProvider = ({ children }) => {
             dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
           }
         } else {
-          console.log(' No stored authentication data found');
           dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
         }
       } catch (error) {
@@ -132,22 +126,23 @@ export const AuthProvider = ({ children }) => {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
       dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
       
+      // Minimal info log
       console.log('🔐 Attempting login for:', email);
       
       const result = await authAPI.login(email, password);
       const data = result || {};
       
-      console.log(' Login response (normalized):', data);
+      // Reduce verbosity: only log success summary
+      if (data.success) {
+        console.log('✅ Login success (normalized): user=', data.user?.email || data.user?.name || 'unknown');
+      }
       
       if (data.success) {
         const user = data.user || null;
         const token = data.authToken || null;
         const refreshToken = data.refreshToken || null;
         
-        console.log('🔐 Login successful, storing data...');
-        console.log('User:', user);
-        console.log('Auth Token length:', token?.length);
-        console.log('Refresh Token length:', refreshToken?.length);
+        console.log('🔐 Storing auth tokens and user profile');
         
         // Store in localStorage
         localStorage.setItem('authToken', token);
@@ -166,29 +161,38 @@ export const AuthProvider = ({ children }) => {
         toast.success('Login successful!');
         return { success: true };
       } else {
-        console.error('❌ Login failed:', data.message);
+        // Friendly error for common cases
+        const friendly = data.message || 'Login failed';
+        console.error('❌ Login failed:', friendly);
         dispatch({
           type: AUTH_ACTIONS.SET_ERROR,
-          payload: data.message || 'Login failed',
+          payload: friendly,
         });
-        toast.error(data.message || 'Login failed');
+        toast.error(friendly);
         return { success: false, message: data.message };
       }
     } catch (error) {
-      console.error('❌ Login error:', error);
-      console.error('❌ Error response:', error.response);
-      console.error('❌ Error data:', error.response?.data);
-      
-      let message = 'Login failed';
-      if (error.response?.data?.error) {
-        message = error.response.data.error;
-      } else if (error.response?.data?.message) {
-        message = error.response.data.message;
-      } else if (error.message) {
-        message = error.message;
+      // Condensed logging and human-friendly message mapping
+      const status = error?.status || error?.response?.status;
+      const code = error?.originalError?.code || error?.code;
+      const rawMsg = error?.message || error?.response?.data?.message || 'Login failed';
+      let message = rawMsg;
+
+      if (!status && /Network Error/i.test(rawMsg)) {
+        message = 'Backend unreachable. Ensure server is running on the configured port.';
+      } else if (status === 401) {
+        message = 'Invalid credentials. Please check your email and password.';
+      } else if (status === 429) {
+        message = 'Too many attempts. Please wait a moment before retrying.';
+      } else if (status === 431) {
+        message = 'Request headers too large. Cookies cleared — please retry.';
+      } else if (status === 403) {
+        message = 'Access denied. Your account may lack required permissions.';
+      } else if (status === 500) {
+        message = 'Server error. Please try again later.';
       }
-      
-      console.error('❌ Final error message:', message);
+
+      console.error(`❌ Login error [status=${status || 'n/a'}, code=${code || 'n/a'}]:`, message);
       dispatch({ type: AUTH_ACTIONS.SET_ERROR, payload: message });
       toast.error(message);
       return { success: false, message };

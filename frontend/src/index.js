@@ -8,6 +8,58 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import reportWebVitals from './reportWebVitals';
 
+// Global console gating and deduplication to reduce noisy logs
+(() => {
+  const envLevel = process.env.REACT_APP_LOG_LEVEL;
+  const storedLevel = typeof window !== 'undefined' ? window.localStorage.getItem('LOG_LEVEL') : null;
+  const level = (envLevel || storedLevel || 'error').toLowerCase();
+  const levels = { debug: 0, info: 1, warn: 2, error: 3, silent: 4 };
+  const threshold = levels[level] ?? levels.warn;
+
+  const original = {
+    log: console.log.bind(console),
+    info: (console.info ? console.info.bind(console) : console.log.bind(console)),
+    debug: (console.debug ? console.debug.bind(console) : console.log.bind(console)),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+  };
+
+  const dedupeWindowMs = 2000;
+  const lastPrinted = new Map();
+  const gate = (method, levelValue, originalFn) => (...args) => {
+    try {
+      if (levelValue < threshold) return;
+      const keyFirst = args && args.length ? args[0] : '';
+      const key = method + ':' + (typeof keyFirst === 'string' ? keyFirst : JSON.stringify(keyFirst));
+      const now = Date.now();
+      const last = lastPrinted.get(key) || 0;
+      if (now - last < dedupeWindowMs) return;
+      lastPrinted.set(key, now);
+      originalFn(...args);
+    } catch {
+      originalFn(...args);
+    }
+  };
+
+  console.log = gate('log', levels.info, original.log);
+  console.info = gate('info', levels.info, original.info);
+  console.debug = gate('debug', levels.debug, original.debug);
+  console.warn = gate('warn', levels.warn, original.warn);
+  console.error = gate('error', levels.error, original.error);
+
+  if (typeof window !== 'undefined') {
+    window.__setLogLevel = (lvl) => {
+      try {
+        const lower = String(lvl || '').toLowerCase();
+        window.localStorage.setItem('LOG_LEVEL', lower);
+        window.location.reload();
+      } catch (e) {
+        original.warn('Failed to set log level:', e);
+      }
+    };
+  }
+})();
+
 // Create a client for React Query
 const queryClient = new QueryClient({
   defaultOptions: {

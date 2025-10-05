@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
     "bullmq": "^5.58.9",
     "cheerio": "^1.1.2",
     "compression": "^1.7.4",
@@ -37,6 +38,7 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-fileupload": "^1.5.2",
+    "express-validator": "^7.2.1",
     "helmet": "^7.1.0",
     "ioredis": "^5.8.0",
     "joi": "^17.13.3",
@@ -51,9 +53,11 @@
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "puppeteer-extra-plugin-user-preferences": "^2.4.1",
+    "sequelize": "^6.37.7",
     "sqlite3": "^5.1.7",
     "uuid": "^9.0.1",
     "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0",
     "ws": "^8.14.2",
     "xlsx": "^0.18.5"
   },

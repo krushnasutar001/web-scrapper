@@ -1,5 +1,19 @@
 import axios from 'axios';
 
+// ---- Lightweight log-level gating to reduce noisy logs ----
+const LOG_LEVEL = (process.env.REACT_APP_LOG_LEVEL || (typeof window !== 'undefined' && localStorage.getItem('LOG_LEVEL')) || 'info').toLowerCase();
+const LEVELS = { error: 0, warn: 1, info: 2, debug: 3 };
+function shouldLog(level) {
+  const current = LEVELS[LOG_LEVEL] ?? 2;
+  const target = LEVELS[level] ?? 2;
+  return target <= current;
+}
+function log(level, ...args) {
+  if (!shouldLog(level)) return;
+  const fn = level === 'debug' ? 'log' : level;
+  try { console[fn](...args); } catch (_) { /* no-op */ }
+}
+
 // Normalize login responses from different backend implementations
 // Returns a consistent shape: { success, authToken, user, refreshToken, message }
 function normalizeLoginResponse(respData) {
@@ -55,9 +69,36 @@ function normalizeLoginResponse(respData) {
   }
 }
 
-// Create axios instance
+// ---- Backend base URL resolution and fallback helpers ----
+function deriveCandidateBases() {
+  const envBase = process.env.REACT_APP_API_URL;
+  const storedBase = typeof window !== 'undefined' ? localStorage.getItem('API_BASE_URL') : null;
+  const fromOrigin = typeof window !== 'undefined' && window.location?.origin
+    ? (window.location.origin.includes(':5001')
+        ? window.location.origin.replace(':5001', ':5002')
+        : window.location.origin)
+    : null;
+  const candidates = [envBase, storedBase, fromOrigin, 'http://localhost:5002', 'http://localhost:5001', 'https://scralytics.com'];
+  return Array.from(new Set(candidates.filter(Boolean)));
+}
+
+function getInitialBaseURL() {
+  const list = deriveCandidateBases();
+  return list[0] || 'http://localhost:5002';
+}
+
+function persistBaseURL(base) {
+  try {
+    if (typeof window !== 'undefined' && base) {
+      localStorage.setItem('API_BASE_URL', base);
+      window.__API_BASE_URL__ = base;
+    }
+  } catch (_) {}
+}
+
+// Create axios instance with resilient base URL
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5001', // Explicit backend URL (fallback aligned with backend)
+  baseURL: getInitialBaseURL(),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -71,7 +112,7 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     // Add logging for debugging
-    console.log('🌐 API Request:', {
+    log('info', '🌐 API Request:', {
       method: config.method?.toUpperCase(),
       url: config.url,
       baseURL: config.baseURL,
@@ -82,19 +123,19 @@ api.interceptors.request.use(
     // Debug token presence
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     const authHeader = config.headers.Authorization || config.headers.common?.Authorization;
-    console.log('🔐 Frontend Token Debug:', { 
+    log('debug', '🔐 Frontend Token Debug:', { 
       tokenInStorage: token ? token.substring(0, 20) + '...' : 'null',
       authHeaderSet: authHeader ? authHeader.substring(0, 30) + '...' : 'null'
     });
     
     if (!authHeader && token) {
-      console.warn('⚠️ Token exists in storage but not in headers - setting manually');
+      log('warn', '⚠️ Token exists in storage but not in headers - setting manually');
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
   (error) => {
-    console.error('❌ Request Error:', error);
+    log('error', '❌ Request Error:', error);
     return Promise.reject(error);
   }
 );
@@ -103,7 +144,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     // Log successful responses
-    console.log('✅ API Response:', {
+    log('info', '✅ API Response:', {
       status: response.status,
       url: response.config?.url,
       data: response.data
@@ -119,7 +160,7 @@ api.interceptors.response.use(
   },
   (error) => {
     // Enhanced error logging
-    console.error('❌ API Response Error:', {
+    log('error', '❌ API Response Error:', {
       message: error.message,
       status: error.response?.status,
       statusText: error.response?.statusText,
@@ -132,17 +173,17 @@ api.interceptors.response.use(
     
     // Add user-friendly error message
     if (error.response?.status === 500) {
-      console.error('🔥 Server Error: The server encountered an internal error. Please try again later.');
+      log('error', '🔥 Server Error: The server encountered an internal error. Please try again later.');
     } else if (error.response?.status === 404) {
-      console.error('🔍 Not Found: The requested resource was not found.');
+      log('warn', '🔍 Not Found: The requested resource was not found.');
     } else if (error.response?.status === 403) {
-      console.error('🚫 Forbidden: You do not have permission to access this resource.');
+      log('warn', '🚫 Forbidden: You do not have permission to access this resource.');
     }
     
     // Handle 401/403 errors (unauthorized/forbidden)
     if (error.response?.status === 401 || error.response?.status === 403) {
-      console.warn('🔐 Authentication failed or unauthorized response detected');
-      console.log('🔐 Error details:', error.response?.data);
+      log('warn', '🔐 Authentication failed or unauthorized response detected');
+      log('debug', '🔐 Error details:', error.response?.data);
       // Do NOT auto-clear tokens or redirect; let the app handle gracefully
       // This avoids unexpected logout on background requests or transient errors
     }
@@ -181,11 +222,11 @@ export const authAPI = {
   
   // Login with rate limiting
   login: async (email, password) => {
-    console.log('🔐 Login attempt triggered for:', email);
+    log('info', '🔐 Login attempt triggered for:', email);
     
     // Prevent multiple parallel logins
     if (loginInProgress) {
-      console.warn('⚠️ Login already in progress, ignoring duplicate request');
+      log('warn', '⚠️ Login already in progress, ignoring duplicate request');
       return Promise.reject({ message: 'Login already in progress' });
     }
     
@@ -194,7 +235,7 @@ export const authAPI = {
     const timeSinceLastAttempt = now - lastLoginAttempt;
     if (timeSinceLastAttempt < LOGIN_COOLDOWN) {
       const remainingCooldown = LOGIN_COOLDOWN - timeSinceLastAttempt;
-      console.warn(`⏰ Login cooldown active, wait ${remainingCooldown}ms`);
+      log('warn', `⏰ Login cooldown active, wait ${remainingCooldown}ms`);
       return Promise.reject({ 
         message: `Please wait ${Math.ceil(remainingCooldown / 1000)} seconds before trying again` 
       });
@@ -205,16 +246,16 @@ export const authAPI = {
     
     try {
       const respData = await api.post('/api/login', { email, password });
-      console.log('✅ Login successful via /api/login');
+      log('info', '✅ Login successful via /api/login');
       // Normalize response shape
       const normalized = normalizeLoginResponse(respData);
       return normalized;
     } catch (error) {
-      console.error('❌ Login failed:', error.message);
+      log('error', '❌ Login failed:', error.message);
       
       // Handle specific error cases
       if (error.response?.status === 429) {
-        console.warn('🚫 Too many login attempts detected');
+        log('warn', '🚫 Too many login attempts detected');
         const e = new Error('Too many login attempts. Please wait before trying again.');
         e.status = 429;
         e.response = error.response;
@@ -222,7 +263,7 @@ export const authAPI = {
       }
       
       if (error.response?.status === 431) {
-        console.warn('📦 Request headers too large - clearing cookies');
+        log('warn', '📦 Request headers too large - clearing cookies');
         // Clear potentially oversized cookies
         document.cookie.split(";").forEach(function(c) { 
           document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
@@ -233,14 +274,48 @@ export const authAPI = {
         throw e;
       }
       
+      // If we hit a network error (no response), automatically try alternative bases
+      const isNetworkError = !error.response && (/Network Error/i.test(error.message) || error.code === 'ERR_NETWORK');
+      if (isNetworkError) {
+        log('warn', '🌐 Network error detected. Trying alternative API bases...');
+        const candidates = deriveCandidateBases().filter(b => b && b !== api.defaults.baseURL);
+        for (const base of candidates) {
+          try {
+            log('info', '🔁 Attempting login against base:', base);
+            api.defaults.baseURL = base;
+            const altResp = await api.post('/api/login', { email, password });
+            const normalized = normalizeLoginResponse(altResp);
+            if (normalized.success) {
+              log('info', '✅ Login successful after base switch:', base);
+              persistBaseURL(base);
+              return normalized;
+            }
+          } catch (e) {
+            const msg = e?.message || e?.response?.data?.message || 'unknown';
+            log('warn', '⚠️ Base attempt failed:', base, '-', msg);
+          }
+          // Try legacy path on this base if /api/login not found
+          try {
+            const legacyResp = await api.post('/api/auth/login', { email, password });
+            const normalized = normalizeLoginResponse(legacyResp);
+            if (normalized.success) {
+              log('info', '✅ Legacy /api/auth/login successful after base switch:', base);
+              persistBaseURL(base);
+              return normalized;
+            }
+          } catch (_) {}
+        }
+        log('error', '❌ All alternative bases failed. Returning original error.');
+      }
+
       // Fallback: if alias not found, try legacy /api/auth/login
       const status = (error?.response?.status ?? error?.status);
       const dataText = typeof error?.response?.data === 'string' ? error.response.data : '';
       const isNotFound = status === 404 || (dataText && dataText.includes('Cannot POST /api/login'));
       if (isNotFound) {
-        console.warn('🔁 /api/login alias not available, falling back to /api/auth/login');
+        log('warn', '🔁 /api/login alias not available, falling back to /api/auth/login');
         const legacyData = await api.post('/api/auth/login', { email, password });
-        console.log('✅ Login successful via /api/auth/login');
+        log('info', '✅ Login successful via /api/auth/login');
         const normalized = normalizeLoginResponse(legacyData);
         return normalized;
       }
@@ -564,6 +639,8 @@ export const healthAPI = {
 };
 
 export default api;
+
+
 
 
 
