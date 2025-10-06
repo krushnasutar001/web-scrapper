@@ -62,7 +62,7 @@ const Login = () => {
           {/* Scralytics Hub Logo */}
           <div className="flex justify-center mb-6">
             <img 
-              src="/scralytics-hub-logo.svg" 
+              src={process.env.PUBLIC_URL + '/scralytics-hub-logo.svg'} 
               alt="Scralytics Hub - Automate. Enrich. Analyze." 
               className="h-16 w-auto"
             />

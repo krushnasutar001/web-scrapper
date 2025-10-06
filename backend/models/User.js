@@ -7,6 +7,7 @@ class User {
     this.id = data.id;
     this.email = data.email;
     this.name = data.name;
+    this.password_hash = data.password_hash;
     this.is_active = data.is_active;
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;

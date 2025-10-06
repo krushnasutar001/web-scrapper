@@ -76,4 +76,16 @@ router.get('/verify', authenticateToken, (req, res) => {
   });
 });
 
+/**
+ * @route   GET /api/auth/me
+ * @desc    Get current authenticated user (alias of verify)
+ * @access  Private
+ */
+router.get('/me', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    user: req.user.toJSON()
+  });
+});
+
 module.exports = router;

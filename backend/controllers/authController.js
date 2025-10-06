@@ -106,6 +106,7 @@ const login = async (req, res) => {
     
     // Authenticate user
     const user = await User.authenticate(email, password);
+    console.log('User object before token generation:', user);
     if (!user) {
       console.log('❌ Invalid credentials for:', email);
       return res.status(401).json({
@@ -115,7 +116,6 @@ const login = async (req, res) => {
       });
     }
     
-    // Generate tokens
     const tokens = generateTokens(user);
     
     console.log(`✅ User logged in successfully: ${email}`);

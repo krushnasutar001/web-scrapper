@@ -46,6 +46,8 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
+    const interval = setInterval(fetchDashboardData, 10000); // Poll every 10 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const fetchDashboardData = async () => {
@@ -189,6 +191,12 @@ const Dashboard = () => {
           </p>
         </div>
         <div className="mt-4 flex md:ml-4 md:mt-0">
+          <button
+            onClick={fetchDashboardData}
+            className="btn btn-secondary ml-2"
+          >
+            Refresh
+          </button>
           <Link
             to="/jobs"
             className="btn btn-primary"

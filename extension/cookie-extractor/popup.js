@@ -390,9 +390,8 @@ class LinkedInMultiAccountManager {
     }
 
     try {
-      // Open the main application
-      await chrome.tabs.create({ url: `${this.backendUrl.replace('5000', '3000')}` });
-      
+      // Do not auto-open the dashboard in development to avoid extra tabs.
+      // Navigate manually to your running frontend if needed.
       this.showStatus(`Scraping started with ${validAccounts.length} accounts`, 'success');
     } catch (error) {
       console.error('Start scraping error:', error);

@@ -21,11 +21,11 @@ function normalizeLoginResponse(respData) {
     const data = respData && respData.data ? respData.data : respData;
 
     const authToken = (
-      data?.authToken ||
-      data?.token ||
-      data?.data?.token ||
       data?.accessToken ||
       data?.data?.accessToken ||
+      data?.token ||
+      data?.data?.token ||
+      data?.authToken ||
       null
     );
 
@@ -70,30 +70,54 @@ function normalizeLoginResponse(respData) {
 }
 
 // ---- Backend base URL resolution and fallback helpers ----
+function isValidHttpUrl(str) {
+  try {
+    if (!str || typeof str !== 'string') return false;
+    const u = new URL(str);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function deriveCandidateBases() {
-  const envBase = process.env.REACT_APP_API_URL;
+  // Read env and normalize for trailing slashes to avoid double-slash URLs
+  let envBase = process.env.REACT_APP_API_URL;
+  if (typeof envBase === 'string') {
+    envBase = envBase.trim();
+    // Strip trailing slash to ensure endpoint concatenation is consistent
+    if (envBase.endsWith('/')) envBase = envBase.slice(0, -1);
+  }
   const storedBase = typeof window !== 'undefined' ? localStorage.getItem('API_BASE_URL') : null;
   const fromOrigin = typeof window !== 'undefined' && window.location?.origin
     ? (window.location.origin.includes(':5001')
         ? window.location.origin.replace(':5001', ':5002')
         : window.location.origin)
     : null;
-  const candidates = [envBase, storedBase, fromOrigin, 'http://localhost:5002', 'http://localhost:5001', 'https://scralytics.com'];
-  return Array.from(new Set(candidates.filter(Boolean)));
+  const rawCandidates = [envBase, storedBase, fromOrigin, 'http://localhost:5002', 'http://localhost:5001', 'https://scralytics.com'];
+  const unique = Array.from(new Set(rawCandidates.filter(Boolean)));
+  return unique.filter(isValidHttpUrl);
 }
 
 function getInitialBaseURL() {
   const list = deriveCandidateBases();
-  return list[0] || 'http://localhost:5002';
+  return list[0] || 'http://localhost:5001';
 }
 
 function persistBaseURL(base) {
   try {
-    if (typeof window !== 'undefined' && base) {
+    if (typeof window !== 'undefined' && base && isValidHttpUrl(base)) {
       localStorage.setItem('API_BASE_URL', base);
       window.__API_BASE_URL__ = base;
     }
   } catch (_) {}
+}
+
+// Ensure axios has a valid baseURL; if not, set a sane fallback
+function ensureValidBaseURL(current) {
+  if (isValidHttpUrl(current)) return current;
+  const fallback = getInitialBaseURL();
+  return isValidHttpUrl(fallback) ? fallback : 'http://localhost:5001';
 }
 
 // Create axios instance with resilient base URL
@@ -111,17 +135,41 @@ const api = axios.create({
 // Request interceptor with logging and auth
 api.interceptors.request.use(
   (config) => {
-    // Add logging for debugging
-    log('info', '🌐 API Request:', {
-      method: config.method?.toUpperCase(),
-      url: config.url,
-      baseURL: config.baseURL,
-      fullURL: `${config.baseURL}${config.url}`
-    });
+    // Guard against invalid baseURL before axios constructs the request
+    const fixedBase = ensureValidBaseURL(config.baseURL || api.defaults.baseURL);
+    if (fixedBase !== config.baseURL) {
+      config.baseURL = fixedBase;
+      api.defaults.baseURL = fixedBase;
+      log('warn', '🔧 Fixed invalid baseURL; using:', fixedBase);
+    }
+
+  // Add logging for debugging
+  log('info', '🌐 API Request:', {
+    method: config.method?.toUpperCase(),
+    url: config.url || '(no-url)',
+    baseURL: config.baseURL || '(no-baseURL)',
+    fullURL: (() => {
+      const base = config.baseURL || api.defaults.baseURL;
+      const path = config.url || '';
+      if (!base) return path || '(no-url)';
+      // Avoid double slashes when concatenating
+      const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
+      const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+      return `${normalizedBase}${normalizedPath}`;
+    })()
+  });
     
     // Token is set via authAPI.setAuthToken() - no need to set here
     // Debug token presence
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    let token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    if (token && token.includes('{')) {
+      try {
+        const parsedToken = JSON.parse(token);
+        token = parsedToken.token || token;
+      } catch (e) {
+        log('error', 'Failed to parse token from localStorage', e);
+      }
+    }
     const authHeader = config.headers.Authorization || config.headers.common?.Authorization;
     log('debug', '🔐 Frontend Token Debug:', { 
       tokenInStorage: token ? token.substring(0, 20) + '...' : 'null',
@@ -153,9 +201,15 @@ api.interceptors.response.use(
     // Check for new token in response headers
     const newToken = response.headers['x-new-token'];
     if (newToken) {
-      localStorage.setItem('token', newToken);
+      // Persist and apply refreshed token
+      try {
+        localStorage.setItem('token', newToken);
+        localStorage.setItem('authToken', newToken);
+      } catch (_) {}
+      api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      log('info', '🔄 Applied refreshed token from X-New-Token header');
     }
-    
+
     return response.data;
   },
   (error) => {
@@ -245,8 +299,9 @@ export const authAPI = {
     lastLoginAttempt = now;
     
     try {
-      const respData = await api.post('/api/login', { email, password });
-      log('info', '✅ Login successful via /api/login');
+      // Prefer canonical endpoint first
+      const respData = await api.post('/api/auth/login', { email, password });
+      log('info', '✅ Login successful via /api/auth/login');
       // Normalize response shape
       const normalized = normalizeLoginResponse(respData);
       return normalized;
@@ -283,7 +338,7 @@ export const authAPI = {
           try {
             log('info', '🔁 Attempting login against base:', base);
             api.defaults.baseURL = base;
-            const altResp = await api.post('/api/login', { email, password });
+            const altResp = await api.post('/api/auth/login', { email, password });
             const normalized = normalizeLoginResponse(altResp);
             if (normalized.success) {
               log('info', '✅ Login successful after base switch:', base);
@@ -296,10 +351,10 @@ export const authAPI = {
           }
           // Try legacy path on this base if /api/login not found
           try {
-            const legacyResp = await api.post('/api/auth/login', { email, password });
+            const legacyResp = await api.post('/api/login', { email, password });
             const normalized = normalizeLoginResponse(legacyResp);
             if (normalized.success) {
-              log('info', '✅ Legacy /api/auth/login successful after base switch:', base);
+              log('info', '✅ Legacy /api/login successful after base switch:', base);
               persistBaseURL(base);
               return normalized;
             }
@@ -308,18 +363,18 @@ export const authAPI = {
         log('error', '❌ All alternative bases failed. Returning original error.');
       }
 
-      // Fallback: if alias not found, try legacy /api/auth/login
+      // Fallback: if canonical not found, try alias /api/login
       const status = (error?.response?.status ?? error?.status);
       const dataText = typeof error?.response?.data === 'string' ? error.response.data : '';
-      const isNotFound = status === 404 || (dataText && dataText.includes('Cannot POST /api/login'));
+      const isNotFound = status === 404 || (dataText && dataText.includes('Cannot POST /api/auth/login'));
       if (isNotFound) {
-        log('warn', '🔁 /api/login alias not available, falling back to /api/auth/login');
-        const legacyData = await api.post('/api/auth/login', { email, password });
-        log('info', '✅ Login successful via /api/auth/login');
+        log('warn', '🔁 /api/auth/login not available, falling back to /api/login');
+        const legacyData = await api.post('/api/login', { email, password });
+        log('info', '✅ Login successful via /api/login');
         const normalized = normalizeLoginResponse(legacyData);
         return normalized;
       }
-      
+
       throw error;
     } finally {
       loginInProgress = false;
@@ -639,67 +694,3 @@ export const healthAPI = {
 };
 
 export default api;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

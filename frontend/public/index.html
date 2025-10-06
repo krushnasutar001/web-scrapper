@@ -29,7 +29,7 @@
             
             // Test if the token is valid by making a request to dashboard stats
             try {
-              const response = await fetch('http://localhost:5001/api/dashboard/stats', {
+              const response = await fetch('/api/dashboard/stats', {
                 headers: {
                   'Authorization': `Bearer ${existingToken}`
                 }
@@ -52,7 +52,7 @@
           
           console.log('🔐 Logging in with test user credentials...');
           
-          const response = await fetch('http://localhost:5001/api/auth/login', {
+          const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -74,7 +74,7 @@
             console.log('📊 User:', result.data.user.name, '(' + result.data.user.email + ')');
             
             // Test the dashboard endpoint
-            const testResponse = await fetch('http://localhost:5001/api/dashboard/stats', {
+            const testResponse = await fetch('/api/dashboard/stats', {
               headers: {
                 'Authorization': `Bearer ${result.data.accessToken}`
               }

@@ -215,9 +215,11 @@
     }
   }
   
-  // Handle dashboard navigation
+  // Handle dashboard navigation (disabled to prevent auto-opening dev tabs)
   function handleDashboard() {
-    chrome.tabs.create({ url: 'http://localhost:3000' });
+    // Intentionally disabled to avoid opening the dashboard automatically.
+    // Navigate to your running frontend manually when needed.
+    // Example: http://localhost:3002/ (or configured PORT)
   }
   
   // Load identities from storage

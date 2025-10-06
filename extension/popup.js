@@ -33,8 +33,8 @@
   async function getTokenAndBase() {
     if (isExtensionContextAvailable()) {
       try {
-        const store = await chrome.storage.local.get(['authToken', 'apiBaseUrl']);
-        const token = store?.authToken || null;
+        const store = await chrome.storage.local.get(['toolToken', 'authToken', 'apiBaseUrl']);
+        const token = store?.toolToken || store?.authToken || null;
         const base = store?.apiBaseUrl || API_BASE_URL;
         return { token, base };
       } catch (_) {
@@ -767,7 +767,7 @@ function showNotification(message, type = 'info') {
       }
 
       // Verify token with backend and preload dashboard stats
-      const res = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+      const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -1349,10 +1349,12 @@ function showNotification(message, type = 'info') {
     }
   }
   
-  // Handle open dashboard
+  // Handle open dashboard (disabled auto-open to avoid dev tab spam)
   function handleOpenDashboard() {
-    chrome.tabs.create({ url: 'http://localhost:3000' });
-    window.close();
+    // Intentionally disabled: do not auto-open dashboard in development.
+    // If needed, navigate manually in the browser to the running frontend.
+    // Example: http://localhost:3002/ (or your configured PORT)
+    // window.close();
   }
   
   // UI Helper functions

@@ -34,31 +34,31 @@
   const CONFIG = {
     SELECTORS: {
       // Profile selectors
-      profileName: 'h1.text-heading-xlarge, .pv-text-details__left-panel h1, .ph5 h1',
-      profileHeadline: '.text-body-medium.break-words, .pv-text-details__left-panel .text-body-medium',
-      profileLocation: '.text-body-small.inline.t-black--light.break-words, .pv-text-details__left-panel .text-body-small',
-      profileImage: '.pv-top-card-profile-picture__image, .presence-entity__image',
+      profileName: '.text-heading-xlarge',
+      profileHeadline: '.text-body-medium.break-words',
+      profileLocation: '.text-body-small.inline',
+      profileImage: '.pv-top-card-profile-picture__image.evi-image.ember-view',
       
       // Connection selectors
-      connectButton: 'button[aria-label*="Invite"][aria-label*="connect"], button[data-control-name="connect"]',
-      sendButton: 'button[aria-label="Send invitation"], button[data-control-name="send_invitation"]',
-      messageButton: 'button[aria-label*="Message"], button[data-control-name="message"]',
+      connectButton: '.artdeco-button.artdeco-button--2.artdeco-button--primary.ember-view.pvs-profile-actions__action',
+      sendButton: '.artdeco-button.artdeco-button--2.artdeco-button--primary.ember-view.ml1',
+      messageButton: '.artdeco-button.artdeco-button--2.artdeco-button--secondary.ember-view.pvs-profile-actions__action',
       
       // Search selectors
-      searchResults: '.reusable-search__result-container, .search-result__wrapper',
-      searchResultName: '.entity-result__title-text a, .search-result__result-link',
-      searchResultHeadline: '.entity-result__primary-subtitle, .search-result__snippet',
+      searchResults: '.reusable-search__result-container',
+      searchResultName: '.entity-result__title-text a',
+      searchResultHeadline: '.entity-result__primary-subtitle',
       
       // Navigation
-      nextButton: 'button[aria-label="Next"], .artdeco-pagination__button--next',
+      nextButton: '.artdeco-pagination__button--next',
       
       // Modal/Dialog selectors
-      modal: '.artdeco-modal, .msg-overlay-bubble-header',
-      modalClose: 'button[aria-label="Dismiss"], .artdeco-modal__dismiss',
+      modal: '.artdeco-modal',
+      modalClose: '.artdeco-modal__dismiss',
       
       // Input fields
-      messageInput: '.msg-form__contenteditable, #custom-message',
-      noteInput: '#custom-message, .connect-button-send-invite__custom-message'
+      messageInput: '.msg-form__contenteditable',
+      noteInput: '#custom-message'
     },
     
     DELAYS: {
@@ -148,23 +148,22 @@
     }
   }
   
-  // Collect and send LinkedIn cookies to background script
-  function collectAndSendCookies() {
+  async function collectLinkedInCookies() {
     if (!isLinkedInDomain(window.location.hostname)) {
       console.log('Not on LinkedIn domain, skipping cookie collection');
-      return;
+      return { success: false, error: 'Not on LinkedIn domain' };
     }
-    
+
     try {
       console.log('🍪 Collecting LinkedIn cookies...');
-      
+
       // Use document.cookie to get cookies for the current domain
       const cookies = document.cookie.split(';').reduce((acc, cookie) => {
         const [name, value] = cookie.trim().split('=');
         acc[name] = value;
         return acc;
       }, {});
-      
+
       // Check for essential LinkedIn cookies
       const essentialCookies = {
         li_at: cookies.li_at || '',
@@ -173,15 +172,31 @@
         li_rm: cookies.li_rm || '',
         lang: cookies.lang || 'en_US'
       };
-      
+
       // Get Chrome profile ID
       const profileId = getCurrentChromeProfile();
-      
+
       // Normalize and persist cookies locally so popup can use them even if messaging is down
       try {
         const normalizedCookies = Object.keys(essentialCookies).map((name) => ({ name, value: String(essentialCookies[name] || '') }));
         chrome.storage.local.set({ latestCookies: { accountName: 'LinkedIn Account', cookies: normalizedCookies, ts: Date.now(), url: window.location.href } });
       } catch (_) { /* non-fatal */ }
+
+      return {
+        success: true,
+        accountName: 'LinkedIn Account',
+        cookieCount: Object.keys(essentialCookies).length,
+        isEncrypted: false,
+        cookies: essentialCookies,
+        domain: 'linkedin.com',
+        timestamp: Date.now(),
+        profileId: profileId
+      };
+    } catch (error) {
+      console.error('❌ Error collecting cookies:', error);
+      return { success: false, error: error.message };
+    }
+  }
       
       // Helper: check extension context availability
       function isExtensionContextAvailable() {
@@ -511,78 +526,7 @@
       return '';
     }
   }
-  // Initialize content script
-  function initialize() {
-    console.log('🚀 Initializing LinkedIn content script');
-    
-    // Listen for messages from background script with error handling
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      try {
-        handleMessage(message, sender, sendResponse);
-        return true; // Keep the message channel open for async responses
-      } catch (error) {
-        console.error('❌ Error handling message:', error);
-        sendResponse({ error: error.message });
-        return false;
-      }
-    });
-    
-    // Multiple detection attempts to ensure we capture the account
-    const detectAttempts = [1000, 3000, 5000, 10000];
-    detectAttempts.forEach(delay => {
-      setTimeout(() => {
-        console.log(`Attempting account detection after ${delay}ms`);
-        detectLinkedInAccount();
-      }, delay);
-    });
-    
-    // Multiple cookie collection attempts
-    const cookieAttempts = [1500, 4000, 8000];
-    cookieAttempts.forEach(delay => {
-      setTimeout(() => {
-        console.log(`Collecting cookies after ${delay}ms`);
-        collectAndSendCookies();
-      }, delay);
-    });
-    
-    // Notify background script that LinkedIn is ready with error handling
-    try {
-      safeSendMessage({
-        type: 'LINKEDIN_READY',
-        url: window.location.href,
-        timestamp: Date.now()
-      }).then((res) => {
-        if (!res || res.success !== true) {
-          console.log('Communication error:', (res && res.error) || 'Unknown error');
-          setTimeout(() => {
-            safeSendMessage({
-              type: 'LINKEDIN_READY',
-              url: window.location.href,
-              timestamp: Date.now()
-            });
-          }, 3000);
-        }
-      });
-    } catch (error) {
-      console.error('❌ Failed to send ready message:', error);
-    }
-    
-    // Set up periodic cookie collection
-    setInterval(collectAndSendCookies, CONFIG.DELAYS.VERY_LONG); // Check periodically
 
-    // Robust flush triggers: when tab gains focus, becomes visible, or network returns
-    try {
-      const tryFlush = () => { try { flushCookieQueue(); } catch (_) { /* ignore */ } };
-      window.addEventListener('focus', tryFlush, { passive: true });
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') tryFlush();
-      }, { passive: true });
-      window.addEventListener('online', tryFlush, { passive: true });
-    } catch (e) {
-      // Non-fatal; environment may not support these events
-      console.warn('⚠️ Flush triggers setup warning:', e && (e.message || e));
-    }
-  }
   
   // Check if user is logged in to LinkedIn
   function checkLinkedInLoginStatus() {

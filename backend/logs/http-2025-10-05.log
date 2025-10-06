@@ -1,2 +1,95 @@
 2025-10-05 14:35:06:356 [WARN]: ENCRYPTION_KEY not set. Using a development default. Set ENCRYPTION_KEY (32 chars) in your environment for production.
 2025-10-05 16:19:03:193 [WARN]: ENCRYPTION_KEY not set. Using a development default. Set ENCRYPTION_KEY (32 chars) in your environment for production.
+2025-10-05 19:56:01:561 [WARN]: ENCRYPTION_KEY not set. Using a development default. Set ENCRYPTION_KEY (32 chars) in your environment for production.
+2025-10-05 19:57:44:5744 [WARN]: ENCRYPTION_KEY not set. Using a development default. Set ENCRYPTION_KEY (32 chars) in your environment for production.
+2025-10-05 20:06:04:64 [ERROR]: Authentication error: Unknown column 'first_name' in 'field list'
+Error
+    at Query.run (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\dialects\mysql\query.js:52:25)
+    at C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async MySQLQueryInterface.select (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\dialects\abstract\query-interface.js:407:12)
+    at async User.findAll (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\model.js:1140:21)
+    at async User.findOne (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\model.js:1240:12)
+    at async AuthService.authenticate (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:159:20)
+    at async C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\loginAlias.js:22:22
+Metadata: {
+  "name": "SequelizeDatabaseError",
+  "parent": {
+    "code": "ER_BAD_FIELD_ERROR",
+    "errno": 1054,
+    "sqlState": "42S22",
+    "sqlMessage": "Unknown column 'first_name' in 'field list'",
+    "sql": "SELECT `id`, `email`, `password_hash` AS `passwordHash`, `first_name` AS `firstName`, `last_name` AS `lastName`, `is_active` AS `isActive`, `last_login_at` AS `lastLoginAt`, `email_verified_at` AS `emailVerifiedAt`, `reset_password_token` AS `resetPasswordToken`, `reset_password_expires_at` AS `resetPasswordExpiresAt`, `created_at` AS `createdAt`, `updated_at` AS `updatedAt` FROM `users` AS `User` WHERE `User`.`email` = 'krushna.sutar001@gmail.com';"
+  },
+  "original": {
+    "code": "ER_BAD_FIELD_ERROR",
+    "errno": 1054,
+    "sqlState": "42S22",
+    "sqlMessage": "Unknown column 'first_name' in 'field list'",
+    "sql": "SELECT `id`, `email`, `password_hash` AS `passwordHash`, `first_name` AS `firstName`, `last_name` AS `lastName`, `is_active` AS `isActive`, `last_login_at` AS `lastLoginAt`, `email_verified_at` AS `emailVerifiedAt`, `reset_password_token` AS `resetPasswordToken`, `reset_password_expires_at` AS `resetPasswordExpiresAt`, `created_at` AS `createdAt`, `updated_at` AS `updatedAt` FROM `users` AS `User` WHERE `User`.`email` = 'krushna.sutar001@gmail.com';"
+  },
+  "sql": "SELECT `id`, `email`, `password_hash` AS `passwordHash`, `first_name` AS `firstName`, `last_name` AS `lastName`, `is_active` AS `isActive`, `last_login_at` AS `lastLoginAt`, `email_verified_at` AS `emailVerifiedAt`, `reset_password_token` AS `resetPasswordToken`, `reset_password_expires_at` AS `resetPasswordExpiresAt`, `created_at` AS `createdAt`, `updated_at` AS `updatedAt` FROM `users` AS `User` WHERE `User`.`email` = 'krushna.sutar001@gmail.com';",
+  "parameters": {}
+}
+2025-10-05 20:06:15:615 [ERROR]: Authentication error: Unknown column 'first_name' in 'field list'
+Error
+    at Query.run (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\dialects\mysql\query.js:52:25)
+    at C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async MySQLQueryInterface.select (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\dialects\abstract\query-interface.js:407:12)
+    at async User.findAll (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\model.js:1140:21)
+    at async User.findOne (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\model.js:1240:12)
+    at async AuthService.authenticate (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:159:20)
+    at async C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\loginAlias.js:22:22
+Metadata: {
+  "name": "SequelizeDatabaseError",
+  "parent": {
+    "code": "ER_BAD_FIELD_ERROR",
+    "errno": 1054,
+    "sqlState": "42S22",
+    "sqlMessage": "Unknown column 'first_name' in 'field list'",
+    "sql": "SELECT `id`, `email`, `password_hash` AS `passwordHash`, `first_name` AS `firstName`, `last_name` AS `lastName`, `is_active` AS `isActive`, `last_login_at` AS `lastLoginAt`, `email_verified_at` AS `emailVerifiedAt`, `reset_password_token` AS `resetPasswordToken`, `reset_password_expires_at` AS `resetPasswordExpiresAt`, `created_at` AS `createdAt`, `updated_at` AS `updatedAt` FROM `users` AS `User` WHERE `User`.`email` = 'krushna.sutar001@gmail.com';"
+  },
+  "original": {
+    "code": "ER_BAD_FIELD_ERROR",
+    "errno": 1054,
+    "sqlState": "42S22",
+    "sqlMessage": "Unknown column 'first_name' in 'field list'",
+    "sql": "SELECT `id`, `email`, `password_hash` AS `passwordHash`, `first_name` AS `firstName`, `last_name` AS `lastName`, `is_active` AS `isActive`, `last_login_at` AS `lastLoginAt`, `email_verified_at` AS `emailVerifiedAt`, `reset_password_token` AS `resetPasswordToken`, `reset_password_expires_at` AS `resetPasswordExpiresAt`, `created_at` AS `createdAt`, `updated_at` AS `updatedAt` FROM `users` AS `User` WHERE `User`.`email` = 'krushna.sutar001@gmail.com';"
+  },
+  "sql": "SELECT `id`, `email`, `password_hash` AS `passwordHash`, `first_name` AS `firstName`, `last_name` AS `lastName`, `is_active` AS `isActive`, `last_login_at` AS `lastLoginAt`, `email_verified_at` AS `emailVerifiedAt`, `reset_password_token` AS `resetPasswordToken`, `reset_password_expires_at` AS `resetPasswordExpiresAt`, `created_at` AS `createdAt`, `updated_at` AS `updatedAt` FROM `users` AS `User` WHERE `User`.`email` = 'krushna.sutar001@gmail.com';",
+  "parameters": {}
+}
+2025-10-05 20:12:56:1256 [ERROR]: Authentication error: Unknown column 'first_name' in 'field list'
+Error
+    at Query.run (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\dialects\mysql\query.js:52:25)
+    at C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async MySQLQueryInterface.select (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\dialects\abstract\query-interface.js:407:12)
+    at async User.findAll (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\model.js:1140:21)
+    at async User.findOne (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\node_modules\sequelize\lib\model.js:1240:12)
+    at async AuthService.authenticate (C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\utils\auth.js:159:20)
+    at async C:\Users\krush\OneDrive\Desktop\Final\linkedin-automation-saas\backend\src\routes\loginAlias.js:22:22
+Metadata: {
+  "name": "SequelizeDatabaseError",
+  "parent": {
+    "code": "ER_BAD_FIELD_ERROR",
+    "errno": 1054,
+    "sqlState": "42S22",
+    "sqlMessage": "Unknown column 'first_name' in 'field list'",
+    "sql": "SELECT `id`, `email`, `password_hash` AS `passwordHash`, `first_name` AS `firstName`, `last_name` AS `lastName`, `is_active` AS `isActive`, `last_login_at` AS `lastLoginAt`, `email_verified_at` AS `emailVerifiedAt`, `reset_password_token` AS `resetPasswordToken`, `reset_password_expires_at` AS `resetPasswordExpiresAt`, `created_at` AS `createdAt`, `updated_at` AS `updatedAt` FROM `users` AS `User` WHERE `User`.`email` = 'krushna.sutar001@gmail.com';"
+  },
+  "original": {
+    "code": "ER_BAD_FIELD_ERROR",
+    "errno": 1054,
+    "sqlState": "42S22",
+    "sqlMessage": "Unknown column 'first_name' in 'field list'",
+    "sql": "SELECT `id`, `email`, `password_hash` AS `passwordHash`, `first_name` AS `firstName`, `last_name` AS `lastName`, `is_active` AS `isActive`, `last_login_at` AS `lastLoginAt`, `email_verified_at` AS `emailVerifiedAt`, `reset_password_token` AS `resetPasswordToken`, `reset_password_expires_at` AS `resetPasswordExpiresAt`, `created_at` AS `createdAt`, `updated_at` AS `updatedAt` FROM `users` AS `User` WHERE `User`.`email` = 'krushna.sutar001@gmail.com';"
+  },
+  "sql": "SELECT `id`, `email`, `password_hash` AS `passwordHash`, `first_name` AS `firstName`, `last_name` AS `lastName`, `is_active` AS `isActive`, `last_login_at` AS `lastLoginAt`, `email_verified_at` AS `emailVerifiedAt`, `reset_password_token` AS `resetPasswordToken`, `reset_password_expires_at` AS `resetPasswordExpiresAt`, `created_at` AS `createdAt`, `updated_at` AS `updatedAt` FROM `users` AS `User` WHERE `User`.`email` = 'krushna.sutar001@gmail.com';",
+  "parameters": {}
+}
+2025-10-05 21:28:05:285 [WARN]: ENCRYPTION_KEY not set. Using a development default. Set ENCRYPTION_KEY (32 chars) in your environment for production.
+2025-10-05 21:53:54:5354 [WARN]: ENCRYPTION_KEY not set. Using a development default. Set ENCRYPTION_KEY (32 chars) in your environment for production.
+2025-10-05 22:08:58:858 [WARN]: ENCRYPTION_KEY not set. Using a development default. Set ENCRYPTION_KEY (32 chars) in your environment for production.
+2025-10-05 22:17:50:1750 [WARN]: ENCRYPTION_KEY not set. Using a development default. Set ENCRYPTION_KEY (32 chars) in your environment for production.

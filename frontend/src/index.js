@@ -8,6 +8,8 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import reportWebVitals from './reportWebVitals';
 
+// Removed aggressive reload and storage clearing to prevent random page refreshes
+
 // Global console gating and deduplication to reduce noisy logs
 (() => {
   const envLevel = process.env.REACT_APP_LOG_LEVEL;
@@ -26,18 +28,46 @@ import reportWebVitals from './reportWebVitals';
 
   const dedupeWindowMs = 2000;
   const lastPrinted = new Map();
+  const safeKey = (method, args) => {
+    try {
+      const first = args && args.length ? args[0] : '';
+      if (typeof first === 'string') return method + ':' + first;
+      if (first instanceof Error) return method + ':Error:' + (first.message || '');
+      if (first && typeof first === 'object') {
+        const asString = (() => {
+          try { return JSON.stringify(first); } catch { return first?.toString?.() || '[object]'; }
+        })();
+        return method + ':' + asString;
+      }
+      return method + ':' + String(first);
+    } catch {
+      return method + ':unknown';
+    }
+  };
+
   const gate = (method, levelValue, originalFn) => (...args) => {
     try {
       if (levelValue < threshold) return;
-      const keyFirst = args && args.length ? args[0] : '';
-      const key = method + ':' + (typeof keyFirst === 'string' ? keyFirst : JSON.stringify(keyFirst));
+      const key = safeKey(method, args);
       const now = Date.now();
       const last = lastPrinted.get(key) || 0;
       if (now - last < dedupeWindowMs) return;
       lastPrinted.set(key, now);
       originalFn(...args);
-    } catch {
-      originalFn(...args);
+    } catch (err) {
+      try {
+        originalFn('[log-gate] Logging failed:', err?.message || err);
+        const safeArgs = args.map((a) => {
+          if (a instanceof Error) return `${a.name}: ${a.message}`;
+          if (typeof a === 'object') {
+            try { return JSON.stringify(a); } catch { return '[object]'; }
+          }
+          return a;
+        });
+        originalFn('[log-gate] Original args:', ...safeArgs);
+      } catch {
+        originalFn('[log-gate] Logging failed; original args not printable');
+      }
     }
   };
 

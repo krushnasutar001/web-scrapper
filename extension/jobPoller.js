@@ -220,8 +220,8 @@ class JobPoller {
 
   // Get auth token from storage
   async getAuthToken() {
-    const result = await chrome.storage.local.get(['authToken']);
-    return result.authToken;
+    const result = await chrome.storage.local.get(['toolToken', 'authToken']);
+    return result.toolToken || result.authToken || null;
   }
 }
 

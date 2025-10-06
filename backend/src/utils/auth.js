@@ -106,8 +106,7 @@ class AuthService {
   encrypt(text) {
     try {
       const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipher('aes-256-gcm', this.encryptionKey);
-      cipher.setAAD(Buffer.from('linkedin-automation-saas'));
+      const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(this.encryptionKey), iv);
       
       let encrypted = cipher.update(text, 'utf8', 'hex');
       encrypted += cipher.final('hex');
@@ -134,8 +133,7 @@ class AuthService {
     try {
       const { encrypted, iv, authTag } = encryptedData;
       
-      const decipher = crypto.createDecipher('aes-256-gcm', this.encryptionKey);
-      decipher.setAAD(Buffer.from('linkedin-automation-saas'));
+      const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(this.encryptionKey), Buffer.from(iv, 'hex'));
       decipher.setAuthTag(Buffer.from(authTag, 'hex'));
       
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');

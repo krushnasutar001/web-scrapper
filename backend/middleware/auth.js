@@ -12,13 +12,14 @@ const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
  * Generate access token
  */
 const generateAccessToken = (user) => {
+  const payload = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    type: 'access' // Explicitly set token type
+  };
   return jwt.sign(
-    { 
-      id: user.id, 
-      email: user.email,
-      name: user.name,
-      type: 'access'
-    },
+    payload,
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
   );
@@ -58,6 +59,7 @@ const verifyAccessToken = (token) => {
     console.log('🔍 Verifying token with secret:', JWT_SECRET.substring(0, 10) + '...');
     const decoded = jwt.verify(token, JWT_SECRET);
     console.log('🔍 Token verified successfully:', decoded);
+    console.log('Decoded token type:', decoded.type);
     if (decoded.type !== 'access') {
       throw new Error('Invalid token type');
     }

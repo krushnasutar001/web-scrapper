@@ -1,11 +1,11 @@
 // Helper script to automatically log in with test user credentials
-// Run this in the browser console on http://localhost:3000
+// Run this in the browser console on http://localhost:3001
 
 const loginWithTestUser = async () => {
   try {
     console.log('🔐 Logging in with test user...');
     
-    const response = await fetch('http://localhost:5001/api/auth/login', {
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
