@@ -74,6 +74,9 @@ async function handleAccountDetection(message, sender) {
       console.log('New LinkedIn account added to detected accounts');
     }
     
+    // Persist detected accounts locally for popup consumption
+    try { await chrome.storage.local.set({ detectedAccounts: detectedAccounts }); } catch (_) {}
+
     // Always send account to backend to ensure it's up to date
     await sendAccountToBackend(accountInfo, profileId);
     
@@ -132,11 +135,20 @@ async function handleCookieCollection(message, sender) {
 async function sendAccountToBackend(accountInfo, profileId) {
   try {
     console.log('Sending account to backend:', accountInfo);
-    
-    const response = await fetch(`${API_BASE_URL}/api/accounts/add`, {
+    // Resolve API base and auth token from storage
+    let base = API_BASE_URL;
+    let token = null;
+    try {
+      const stored = await chrome.storage.local.get(['apiBaseUrl', 'authToken']);
+      base = stored?.apiBaseUrl || base;
+      token = stored?.authToken || authToken || null;
+    } catch (_) {}
+
+    const response = await fetch(`${base}/api/accounts/add`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
       body: JSON.stringify({
         account: accountInfo,
@@ -163,10 +175,20 @@ async function sendAccountToBackend(accountInfo, profileId) {
 // Send cookies to backend
 async function sendCookiesToBackend(cookies, profileId) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/accounts/cookies`, {
+    // Resolve API base and auth token from storage
+    let base = API_BASE_URL;
+    let token = null;
+    try {
+      const stored = await chrome.storage.local.get(['apiBaseUrl', 'authToken']);
+      base = stored?.apiBaseUrl || base;
+      token = stored?.authToken || authToken || null;
+    } catch (_) {}
+
+    const response = await fetch(`${base}/api/accounts/cookies`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
       body: JSON.stringify({
         cookies,
@@ -753,15 +775,18 @@ async function syncCookiesWithBackend(cookieData) {
   }
 }
 
+// Interval reference for service worker context
+let linkedinRefreshInterval = null;
+
 // Auto-refresh LinkedIn accounts periodically
 function startAutoRefresh() {
   // Clear any existing interval
-  if (window.linkedinRefreshInterval) {
-    clearInterval(window.linkedinRefreshInterval);
+  if (linkedinRefreshInterval) {
+    clearInterval(linkedinRefreshInterval);
   }
   
   // Start new interval (every 5 minutes)
-  window.linkedinRefreshInterval = setInterval(async () => {
+  linkedinRefreshInterval = setInterval(async () => {
     if (chrome.runtime?.id && isLoggedIn) {
       console.log('🔄 Auto-refreshing LinkedIn accounts...');
       await detectAndRefreshLinkedInAccounts();
@@ -773,9 +798,9 @@ function startAutoRefresh() {
 
 // Stop auto-refresh
 function stopAutoRefresh() {
-  if (window.linkedinRefreshInterval) {
-    clearInterval(window.linkedinRefreshInterval);
-    window.linkedinRefreshInterval = null;
+  if (linkedinRefreshInterval) {
+    clearInterval(linkedinRefreshInterval);
+    linkedinRefreshInterval = null;
     console.log('⏹️ Auto-refresh stopped');
   }
 }
@@ -1071,6 +1096,91 @@ async function initializeExtension() {
     }
   } catch (error) {
     console.error('❌ Error initializing extension:', error);
+  }
+}
+
+// Attempt to restore/authenticate with Scralytics
+async function checkScralyticsAuth() {
+  try {
+    // Try restoring from storage first
+    const stored = await chrome.storage.local.get(['authToken', 'userInfo', 'isLoggedIn', 'apiBaseUrl']);
+    if (stored && stored.authToken) {
+      authToken = stored.authToken;
+      isLoggedIn = stored.isLoggedIn ?? true;
+      if (stored.userInfo) {
+        userInfo = stored.userInfo;
+      }
+      console.log('✅ Scralytics auth restored from storage');
+      return { success: true, isLoggedIn: true };
+    }
+
+    // Optionally, try to request status from any open Scralytics tab
+    const scralyticsUrls = [
+      'https://scralytics.com/*',
+      'http://localhost:3000/*',
+      'http://localhost:3001/*',
+      'http://localhost:3022/*',
+      'http://localhost:5000/*',
+      'http://localhost:5001/*'
+    ];
+    const tabs = await chrome.tabs.query({ url: scralyticsUrls });
+    for (const tab of tabs) {
+      try {
+        const resp = await sendMessageToTab(tab.id, { type: 'SCRALYTICS_REQUEST_LOGIN_STATUS' }, { retries: 1, wait: 300 });
+        // Normalize response shape from content script: it may return {success, data:{...}} or plain payload
+        const payload = resp && typeof resp === 'object' ? (resp.data || resp) : {};
+        const token = payload && payload.authToken;
+        if (token) {
+          authToken = token;
+          isLoggedIn = true;
+          userInfo = {
+            userId: payload.userId,
+            userEmail: payload.userEmail,
+            userName: payload.userName
+          };
+
+          // Persist normalized auth state for popup and API calls
+          await chrome.storage.local.set({
+            authToken: authToken,
+            toolToken: authToken,
+            apiBaseUrl: payload.apiBaseUrl || API_BASE_URL,
+            isLoggedIn: true,
+            userInfo
+          });
+
+          // Notify popup if open
+          chrome.runtime.sendMessage({
+            action: 'authStatusChanged',
+            isLoggedIn: true,
+            userInfo
+          }).catch(() => {});
+
+          console.log('✅ Synced auth from Scralytics tab');
+          return { success: true, isLoggedIn: true };
+        }
+      } catch (e) {
+        // Ignore messaging errors
+      }
+    }
+
+    // Fallback to existing handler to populate state
+    try { await handleGetAuthStatus(); } catch (_) {}
+    return { success: true, isLoggedIn: Boolean(isLoggedIn) };
+  } catch (error) {
+    console.warn('⚠️ checkScralyticsAuth error:', error.message || error);
+    return { success: false, error: String(error.message || error) };
+  }
+}
+
+// Start account sync safely
+function startAccountSync() {
+  try {
+    detectAndRefreshLinkedInAccounts().catch(err => {
+      console.warn('⚠️ Initial account sync failed:', err.message || err);
+    });
+    startAutoRefresh();
+  } catch (error) {
+    console.warn('⚠️ startAccountSync error:', error.message || error);
   }
 }
 
@@ -1452,22 +1562,29 @@ function getAccountsByProfile(chromeProfileId) {
 // Handle Scralytics login status updates
 async function handleScralyticsLoginStatus(loginData) {
   try {
-    console.log('🔐 Scralytics login status update:', loginData);
+    // Normalize payload: accept {isLoggedIn,...} or {data:{...}}
+    const payload = (loginData && typeof loginData === 'object')
+      ? (loginData.data && typeof loginData.data === 'object' ? loginData.data : loginData)
+      : {};
+    console.log('🔐 Scralytics login status update:', payload);
     
-    if (loginData.isLoggedIn && loginData.authToken) {
+    if (payload.isLoggedIn && payload.authToken) {
       // User is logged into Scralytics
-      authToken = loginData.authToken;
+      authToken = payload.authToken;
       isLoggedIn = true;
       
       // Save to storage
       await chrome.storage.local.set({
         authToken: authToken,
+        toolToken: authToken,
+        apiBaseUrl: payload.apiBaseUrl || API_BASE_URL,
+        isLoggedIn: true,
         userInfo: {
-          userId: loginData.userId,
-          userEmail: loginData.userEmail,
-          userName: loginData.userName
+          userId: payload.userId,
+          userEmail: payload.userEmail,
+          userName: payload.userName
         },
-        scralyticsSession: loginData
+        scralyticsSession: payload
       });
       
       console.log('✅ Scralytics authentication detected and saved');
@@ -1477,9 +1594,9 @@ async function handleScralyticsLoginStatus(loginData) {
         action: 'authStatusChanged',
         isLoggedIn: true,
         userInfo: {
-          userId: loginData.userId,
-          userEmail: loginData.userEmail,
-          userName: loginData.userName
+          userId: payload.userId,
+          userEmail: payload.userEmail,
+          userName: payload.userName
         }
       }).catch(() => {
         // Popup might not be open, ignore error
@@ -1487,7 +1604,7 @@ async function handleScralyticsLoginStatus(loginData) {
       
       return { success: true, message: 'Authentication updated' };
       
-    } else if (!loginData.isLoggedIn && isLoggedIn) {
+    } else if (payload.isLoggedIn === false && isLoggedIn) {
       // User logged out of Scralytics
       console.log('🚪 Scralytics logout detected');
       
@@ -2390,7 +2507,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
         
       case 'SCRALYTICS_LOGIN_STATUS':
-        handleScralyticsLoginStatus(message.loginData)
+        handleScralyticsLoginStatus(message.loginData || message.data || message)
           .then(result => sendResponse(result))
           .catch(error => sendResponse({ success: false, error: error.message }));
         return true;

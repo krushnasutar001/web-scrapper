@@ -447,6 +447,12 @@
     const msgType = request.type || request.action;
     
     switch (msgType) {
+      case 'SCRALYTICS_REQUEST_LOGIN_STATUS':
+      case 'requestLoginStatus':
+        // Background requests current login status; respond with detection
+        const currentStatus = detectLoginStatus();
+        sendResponse({ success: true, data: currentStatus });
+        break;
       case 'GET_LOGIN_STATUS':
       case 'getLoginStatus':
         const loginData = detectLoginStatus();

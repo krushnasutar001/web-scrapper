@@ -265,7 +265,7 @@ const createJobTransactional = async (req, res) => {
  * @desc    Get all jobs for the authenticated user
  * @access  Private
  */
-router.get('/', authenticateToken, jobRateLimit, jobController.getJobs);
+router.get('/', authenticateToken, jobController.getJobs);
 
 /**
  * @route   GET /api/jobs/:jobId

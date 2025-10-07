@@ -60,6 +60,62 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Lightweight server-side cache for GET /api/jobs to reduce request pressure
+// Caches per user and query (limit/offset) for a short window
+const { verifyAccessToken } = require('./middleware/auth');
+const jobsGetCache = new Map(); // key -> { timestamp, payload }
+const JOBS_CACHE_TTL_MS = 5000; // 5 seconds
+
+app.use('/api/jobs', (req, res, next) => {
+  try {
+    if (req.method !== 'GET') return next();
+
+    // Extract token to derive a stable cache key per user
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+    // If no token, skip caching to let auth middleware handle
+    if (!token) return next();
+
+    let userId = null;
+    try {
+      const decoded = verifyAccessToken(token);
+      userId = decoded && decoded.id ? decoded.id : null;
+    } catch (_) {
+      // Invalid token; let downstream handle
+      return next();
+    }
+
+    // Build cache key including pagination params
+    const { limit = '50', offset = '0', status = '' } = req.query || {};
+    const key = `user:${userId}|limit:${limit}|offset:${offset}|status:${status}`;
+
+    // Serve from cache if fresh
+    const cached = jobsGetCache.get(key);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp) < JOBS_CACHE_TTL_MS) {
+      return res.json(cached.payload);
+    }
+
+    // Patch res.json to cache successful responses
+    const originalJson = res.json.bind(res);
+    res.json = (body) => {
+      try {
+        // Cache only successful jobs responses
+        if (body && body.success === true && Array.isArray(body.jobs)) {
+          jobsGetCache.set(key, { timestamp: Date.now(), payload: body });
+        }
+      } catch (_) { /* ignore caching errors */ }
+      return originalJson(body);
+    };
+
+    next();
+  } catch (err) {
+    // On any cache middleware error, proceed without blocking
+    next();
+  }
+});
+
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {

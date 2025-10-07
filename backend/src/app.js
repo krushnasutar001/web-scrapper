@@ -21,6 +21,7 @@ const { errorHandler, notFoundHandler } = require('./utils/errorHandler');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const isDev = (process.env.NODE_ENV !== 'production');
 
 // Trust proxy for accurate IP addresses
 app.set('trust proxy', 1);
@@ -76,15 +77,36 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Rate limiting
+// Add a small diagnostic logger to help identify 429s
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    if (res.statusCode === 429) {
+      const userId = (req.user && (req.user.id || req.user._id)) || 'anon';
+      console.warn(`⚠️ Rate-limited: ${req.method} ${req.originalUrl} ip=${req.ip} user=${userId}`);
+    }
+  });
+  next();
+});
+
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+  // Use a higher default in development to avoid false positives
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || (isDev ? 500 : 100),
   message: {
     error: 'Too many requests from this IP, please try again later.',
     retryAfter: Math.ceil((parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000) / 1000)
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  // Prefer per-user rate limiting when available to avoid penalizing shared IPs
+  keyGenerator: (req /*, res*/ ) => (req.user && (req.user.id || req.user._id)) ? `user:${req.user.id || req.user._id}` : (req.ip || req.connection?.remoteAddress || 'unknown'),
+  // Exempt lightweight GET endpoints that are commonly displayed on dashboards
+  skip: (req /*, res*/ ) => {
+    const path = req.path || req.originalUrl || '';
+    if (req.method === 'GET' && path.startsWith('/api/jobs')) return true;
+    if (req.method === 'GET' && path.startsWith('/api/dashboard')) return true;
+    return false;
+  }
 });
 
 app.use(limiter);

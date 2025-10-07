@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api, { dashboardAPI } from '../services/api';
@@ -43,15 +43,36 @@ const Dashboard = () => {
   ]);
   const [recentJobs, setRecentJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const isFetchingRef = useRef(false);
+  const didInitRef = useRef(false);
+  const last429Ref = useRef(0);
+  const pollIntervalRef = useRef(null);
 
   useEffect(() => {
-    fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 10000); // Poll every 10 seconds
-    return () => clearInterval(interval);
+    // Prevent double-invocation in React 18 StrictMode (dev only)
+    if (!didInitRef.current) {
+      didInitRef.current = true;
+      fetchDashboardData();
+    }
+
+    // Poll every 10 seconds, with simple backoff after 429
+    pollIntervalRef.current = setInterval(() => {
+      const now = Date.now();
+      const backoffActive = (now - last429Ref.current) < 60000; // 60s backoff
+      if (!backoffActive) {
+        fetchDashboardData();
+      }
+    }, 10000);
+
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
   }, []);
 
   const fetchDashboardData = async () => {
+    if (isFetchingRef.current) return; // Avoid overlapping requests
     try {
+      isFetchingRef.current = true;
       setLoading(true);
       
       // Fetch dashboard stats with fallback and normalization
@@ -104,7 +125,13 @@ const Dashboard = () => {
           setRecentJobs(jobsResponse.data.jobs || []);
         }
       } catch (jobsErr) {
-        if (jobsErr?.status === 500 || jobsErr?.status === 404) {
+        // Mark last 429 occurrence and pause polling briefly
+        const status = jobsErr?.status || jobsErr?.response?.status;
+        if (status === 429) {
+          last429Ref.current = Date.now();
+          console.warn('⚠️ Rate limited on /api/jobs; pausing polling for 60s');
+        }
+        if (status === 500 || status === 404) {
           try {
             const fallbackJobs = await api.get('/api/jobs');
             if (fallbackJobs.data && fallbackJobs.data.success) {
@@ -123,6 +150,7 @@ const Dashboard = () => {
       // Keep default loading state if API fails
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 

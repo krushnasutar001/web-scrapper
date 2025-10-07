@@ -15,8 +15,10 @@
 
   "host_permissions": [
     "https://scralytics.com/*",
+    "*://*.scralytics.com/*",
     "http://localhost:3000/*",
     "http://localhost:3001/*",
+    "http://localhost:3022/*",
     "http://localhost:5000/*",
     "http://localhost:5001/*",
     "*://*.linkedin.com/*"
@@ -25,8 +27,10 @@
   "externally_connectable": {
     "matches": [
       "http://localhost:3000/*",
+      "http://localhost:3022/*",
       "http://localhost:5002/*",
-      "https://scralytics.com/*"
+      "https://scralytics.com/*",
+      "*://*.scralytics.com/*"
     ]
   },
 
@@ -43,7 +47,7 @@
 
   "content_scripts": [
     {
-      "matches": ["https://scralytics.com/*", "http://localhost:3000/*", "http://localhost:3001/*", "http://localhost:5000/*", "http://localhost:5001/*"],
+      "matches": ["https://scralytics.com/*", "*://*.scralytics.com/*", "http://localhost:3000/*", "http://localhost:3001/*", "http://localhost:3022/*", "http://localhost:5000/*", "http://localhost:5001/*"],
       "js": ["content_scralytics.js"],
       "run_at": "document_end"
     },

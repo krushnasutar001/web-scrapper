@@ -287,12 +287,16 @@ const requireAdmin = async (req, res, next) => {
 
 /**
  * Rate limiting middleware (basic implementation)
+ * Uses per-user key when available; otherwise falls back to IP.
  */
 const rateLimit = (maxRequests = 100, windowMs = 15 * 60 * 1000) => {
   const requests = new Map();
   
   return (req, res, next) => {
-    const key = req.ip || req.connection.remoteAddress;
+    // Prefer authenticated user id to avoid penalizing all requests from same IP
+    const key = (req.user && (req.user.id || req.user._id))
+      ? `user:${req.user.id || req.user._id}`
+      : (req.ip || req.connection.remoteAddress);
     const now = Date.now();
     const windowStart = now - windowMs;
     
