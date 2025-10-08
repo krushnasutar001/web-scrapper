@@ -3,7 +3,7 @@ require('dotenv').config();
 
 const axios = require('axios');
 
-const API_BASE = 'http://localhost:5002';
+const API_BASE = 'http://localhost:5001';
 
 async function testAuth() {
   console.log('🔍 Testing Authentication Flow...\n');

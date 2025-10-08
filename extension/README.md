@@ -21,7 +21,7 @@
 ## 📋 **Prerequisites**
 
 - **Chrome Browser**: Version 88 or higher
-- **Scralytics Backend**: Running on `http://localhost:5003`
+ - **Scralytics Backend**: Running on `http://localhost:5001`
 - **LinkedIn Account**: Valid LinkedIn account(s) for automation
 - **Scralytics Account**: User account in the Scralytics system
 
@@ -101,7 +101,7 @@ npm start
 ### **Backend URL Configuration**
 ```javascript
 // In background.js, line 8:
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'http://localhost:5001';
 
 // Change if your backend runs on different port:
 const API_BASE_URL = 'http://localhost:YOUR_PORT';
@@ -122,7 +122,7 @@ const importantCookies = cookies.filter(cookie =>
 **Solution**:
 ```bash
 # Check if backend is running
-curl http://localhost:5000/health
+ curl http://localhost:5001/health
 
 # Start backend if not running
 cd linkedin-automation-saas/backend

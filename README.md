@@ -120,9 +120,9 @@ docker-compose down
 
 ### 4. Access the Application
 - **Frontend Dashboard**: http://localhost:3000
-- **Backend API**: http://localhost:5000
-- **API Documentation**: http://localhost:5000/docs
-- **Health Check**: http://localhost:5000/health
+ - **Backend API**: http://localhost:5001
+ - **API Documentation**: http://localhost:5001/docs
+ - **Health Check**: http://localhost:5001/health
 
 ## 🔧 Local Development
 
@@ -170,7 +170,7 @@ ENCRYPTION_KEY=your-32-character-encryption-key
 # Server
 PORT=5000
 NODE_ENV=development
-API_URL=http://localhost:5000
+API_URL=http://localhost:5001
 FRONTEND_URL=http://localhost:3000
 ```
 
@@ -221,7 +221,7 @@ PROXY_PASSWORD=
 - `DELETE /api/results/:jobId/:resultId` - Delete result
 
 ### Complete API Documentation
-Visit http://localhost:5000/docs for interactive Swagger documentation.
+Visit http://localhost:5001/docs for interactive Swagger documentation.
 
 ## 🎯 Usage Examples
 

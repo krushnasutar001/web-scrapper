@@ -225,12 +225,12 @@
         try {
           const existing = await new Promise((resolve) => {
             try { chrome.storage.local.get(['pendingCookiePayloads'], (items) => resolve(items?.pendingCookiePayloads || [])); }
-            catch { resolve([]); }
+            catch (e) { resolve([]); }
           });
           existing.push(payload);
           await new Promise((resolve) => {
             try { chrome.storage.local.set({ pendingCookiePayloads: existing }, () => resolve()); }
-            catch { resolve(); }
+            catch (e) { resolve(); }
           });
           // Also persist latest cookies immediately for popup/local use
           try {
@@ -248,7 +248,7 @@
         if (!isExtensionContextAvailable()) return false;
         const queued = await new Promise((resolve) => {
           try { chrome.storage.local.get(['pendingCookiePayloads'], (items) => resolve(items?.pendingCookiePayloads || [])); }
-          catch { resolve([]); }
+          catch (e) { resolve([]); }
         });
         if (!queued.length) return true;
         for (const payload of queued) {
@@ -260,7 +260,7 @@
             });
           } catch (_) { /* swallow */ }
         }
-        try { await new Promise((resolve) => chrome.storage.local.set({ pendingCookiePayloads: [] }, () => resolve())); } catch { /* ignore */ }
+        try { await new Promise((resolve) => chrome.storage.local.set({ pendingCookiePayloads: [] }, () => resolve())); } catch (e) { /* ignore */ }
         return true;
       }
 

@@ -20,14 +20,34 @@ function normalizeLoginResponse(respData) {
   try {
     const data = respData && respData.data ? respData.data : respData;
 
-    const authToken = (
+    // Capture token across multiple possible field names
+    let authToken = (
       data?.accessToken ||
       data?.data?.accessToken ||
       data?.token ||
       data?.data?.token ||
       data?.authToken ||
+      data?.data?.authToken ||
+      data?.access_token ||
+      data?.data?.access_token ||
+      data?.jwt ||
+      data?.data?.jwt ||
+      data?.jwtToken ||
+      data?.data?.jwtToken ||
+      data?.auth_token ||
+      data?.data?.auth_token ||
       null
     );
+
+    // Fallback: if token not present in body, try cookie `token`
+    if (!authToken && typeof document !== 'undefined') {
+      try {
+        const m = document.cookie && document.cookie.match(/(?:^|;\s*)token=([^;]+)/);
+        if (m && m[1]) {
+          authToken = decodeURIComponent(m[1]);
+        }
+      } catch (_) {}
+    }
 
     const user = (
       data?.user ||
@@ -42,11 +62,8 @@ function normalizeLoginResponse(respData) {
       null
     );
 
-    const success = Boolean(
-      data?.success === true ||
-      data?.ok === true ||
-      authToken
-    );
+    // Consider login successful ONLY when we have a token
+    const success = Boolean(authToken);
 
     if (!success) {
       const message = (
@@ -75,7 +92,7 @@ function isValidHttpUrl(str) {
     if (!str || typeof str !== 'string') return false;
     const u = new URL(str);
     return u.protocol === 'http:' || u.protocol === 'https:';
-  } catch {
+  } catch (e) {
     return false;
   }
 }
@@ -90,18 +107,18 @@ function deriveCandidateBases() {
   }
   const storedBase = typeof window !== 'undefined' ? localStorage.getItem('API_BASE_URL') : null;
   const fromOrigin = typeof window !== 'undefined' && window.location?.origin
-    ? (window.location.origin.includes(':5001')
-        ? window.location.origin.replace(':5001', ':5002')
-        : window.location.origin)
+    ? window.location.origin
     : null;
-  const rawCandidates = [envBase, storedBase, fromOrigin, 'http://localhost:5002', 'http://localhost:5001', 'https://scralytics.com'];
+  // Prefer common dev backend port 3001 before other fallbacks
+  const rawCandidates = [envBase, storedBase, fromOrigin, 'http://localhost:3001', 'http://localhost:5001', 'https://scralytics.com'];
   const unique = Array.from(new Set(rawCandidates.filter(Boolean)));
   return unique.filter(isValidHttpUrl);
 }
 
 function getInitialBaseURL() {
   const list = deriveCandidateBases();
-  return list[0] || 'http://localhost:5001';
+  // Default to backend dev server on port 3001 when nothing else is set
+  return list[0] || 'http://localhost:3001';
 }
 
 function persistBaseURL(base) {
@@ -117,7 +134,7 @@ function persistBaseURL(base) {
 function ensureValidBaseURL(current) {
   if (isValidHttpUrl(current)) return current;
   const fallback = getInitialBaseURL();
-  return isValidHttpUrl(fallback) ? fallback : 'http://localhost:5001';
+  return isValidHttpUrl(fallback) ? fallback : 'http://localhost:3001';
 }
 
 // Create axios instance with resilient base URL
@@ -131,6 +148,18 @@ const api = axios.create({
     _t: Date.now() // Cache busting parameter
   }
 });
+
+// ---- Token refresh coordination (avoid parallel refresh storms) ----
+let isRefreshingToken = false;
+let refreshWaiters = [];
+const subscribeTokenRefresh = (cb) => refreshWaiters.push(cb);
+const notifyTokenRefreshed = (token) => {
+  try {
+    refreshWaiters.forEach((cb) => cb(token));
+  } finally {
+    refreshWaiters = [];
+  }
+};
 
 // Request interceptor with logging and auth
 api.interceptors.request.use(
@@ -161,7 +190,15 @@ api.interceptors.request.use(
     
     // Token is set via authAPI.setAuthToken() - no need to set here
     // Debug token presence
-    let token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    let token = (
+      localStorage.getItem('authToken') ||
+      localStorage.getItem('token') ||
+      localStorage.getItem('accessToken') ||
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('jwt') ||
+      localStorage.getItem('jwtToken') ||
+      localStorage.getItem('auth_token')
+    );
     if (token && token.includes('{')) {
       try {
         const parsedToken = JSON.parse(token);
@@ -212,7 +249,7 @@ api.interceptors.response.use(
 
     return response.data;
   },
-  (error) => {
+  async (error) => {
     // Enhanced error logging
     log('error', '❌ API Response Error:', {
       message: error.message,
@@ -234,14 +271,121 @@ api.interceptors.response.use(
       log('warn', '🚫 Forbidden: You do not have permission to access this resource.');
     }
     
-    // Handle 401/403 errors (unauthorized/forbidden)
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      log('warn', '🔐 Authentication failed or unauthorized response detected');
-      log('debug', '🔐 Error details:', error.response?.data);
-      // Do NOT auto-clear tokens or redirect; let the app handle gracefully
-      // This avoids unexpected logout on background requests or transient errors
+    const status = error.response?.status;
+    const originalRequest = error.config || {};
+    const url = originalRequest?.url || '';
+    const isAuthEndpoint = url.includes('/api/auth/login') || url.includes('/api/auth/register') || url.includes('/api/auth/refresh');
+
+    // Handle 401 with automatic refresh + retry (except on auth endpoints)
+    if (status === 401 && !isAuthEndpoint) {
+      const refreshToken = (
+        localStorage.getItem('refreshToken') ||
+        localStorage.getItem('refresh_token') ||
+        ''
+      );
+      if (!refreshToken) {
+        log('warn', '🔐 401 received and no refreshToken available');
+        // Inform extension and UI that re-authentication is required
+        try {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('scralytics:authRequired', {
+              detail: {
+                reason: 'NO_REFRESH_TOKEN',
+                url: url
+              }
+            }));
+          }
+        } catch (_) {}
+        const errorMessage = error.response?.data?.message || error.message || 'Unauthorized';
+        return Promise.reject({
+          message: errorMessage,
+          status,
+          response: error.response,
+          originalError: error
+        });
+      }
+
+      // If a refresh is already in progress, queue this request
+      if (isRefreshingToken) {
+        log('info', '⏳ Waiting for ongoing token refresh to complete');
+        return new Promise((resolve) => {
+          subscribeTokenRefresh((newToken) => {
+            // Apply new token and retry original request
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+            resolve(api.request(originalRequest));
+          });
+        });
+      }
+
+      // Start refresh
+      isRefreshingToken = true;
+      try {
+        log('info', '🔄 Attempting token refresh...');
+        const refreshResp = await api.post('/api/auth/refresh', { refreshToken });
+        const root = refreshResp && refreshResp.data ? refreshResp.data : refreshResp;
+        const payload = root?.data || root;
+        const newToken = (
+          payload?.accessToken || payload?.token || payload?.authToken || null
+        );
+        const newRefresh = (
+          payload?.refreshToken || null
+        );
+
+        if (!newToken) {
+          throw new Error('Failed to refresh access token');
+        }
+
+        // Persist and apply new tokens
+        try {
+          localStorage.setItem('token', newToken);
+          localStorage.setItem('authToken', newToken);
+          if (newRefresh) {
+            localStorage.setItem('refreshToken', newRefresh);
+            localStorage.setItem('refresh_token', newRefresh);
+          }
+        } catch (_) {}
+        api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+        log('info', '✅ Token refresh succeeded; retrying original request');
+
+        // Notify queued requests
+        notifyTokenRefreshed(newToken);
+
+        // Best-effort: notify extension/content script of new token
+        try {
+          const userStr = localStorage.getItem('user');
+          const user = userStr ? JSON.parse(userStr) : null;
+          const apiBase = (typeof window !== 'undefined' ? window.location.origin : '');
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('scralytics:loginSuccess', {
+              detail: { authToken: newToken, refreshToken: newRefresh, user, apiBaseUrl: apiBase }
+            }));
+          }
+        } catch (_) {}
+
+        // Retry original request with the new token
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+        return api.request(originalRequest);
+      } catch (refreshErr) {
+        log('error', '❌ Token refresh failed:', refreshErr);
+        // Do not auto-clear app state, but remove invalid tokens
+        try {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('token');
+          // Keep refreshToken to allow manual retry if desired
+        } catch (_) {}
+        return Promise.reject({
+          message: refreshErr?.message || 'Token refresh failed',
+          status,
+          response: error.response,
+          originalError: error
+        });
+      } finally {
+        isRefreshingToken = false;
+      }
     }
-    
+
     // Return error in consistent format
     const errorMessage = error.response?.data?.message || error.message || 'An error occurred';
     return Promise.reject({
@@ -304,6 +448,46 @@ export const authAPI = {
       log('info', '✅ Login successful via /api/auth/login');
       // Normalize response shape
       const normalized = normalizeLoginResponse(respData);
+      // Persist tokens, set auth header, and notify extension via event
+      if (normalized && normalized.success && normalized.authToken) {
+        try {
+          // Store access token under common keys for the content script to discover
+          localStorage.setItem('authToken', normalized.authToken);
+          localStorage.setItem('token', normalized.authToken);
+          localStorage.setItem('accessToken', normalized.authToken);
+          localStorage.setItem('access_token', normalized.authToken);
+          // Store refresh token under both variants
+          if (normalized.refreshToken) {
+            localStorage.setItem('refreshToken', normalized.refreshToken);
+            localStorage.setItem('refresh_token', normalized.refreshToken);
+          }
+          // Persist user info if available
+          if (normalized.user) {
+            try { localStorage.setItem('user', JSON.stringify(normalized.user)); } catch (_) {}
+          }
+        } catch (_) {}
+
+        // Apply token to axios instance
+        try { authAPI.setAuthToken(normalized.authToken); } catch (_) {}
+
+        // Derive and persist API base for the extension
+        const apiBase = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : (api.defaults?.baseURL || 'http://localhost:5001');
+        try { localStorage.setItem('apiBaseUrl', apiBase); } catch (_) {}
+
+        // Explicitly notify the content script of login success to avoid UI-based guesswork
+        try {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('scralytics:loginSuccess', {
+              detail: {
+                authToken: normalized.authToken,
+                refreshToken: normalized.refreshToken || null,
+                user: normalized.user || null,
+                apiBaseUrl: apiBase
+              }
+            }));
+          }
+        } catch (_) {}
+      }
       return normalized;
     } catch (error) {
       log('error', '❌ Login failed:', error.message);
@@ -342,6 +526,35 @@ export const authAPI = {
             const normalized = normalizeLoginResponse(altResp);
             if (normalized.success) {
               log('info', '✅ Login successful after base switch:', base);
+              // Persist tokens and notify extension
+              try {
+                localStorage.setItem('authToken', normalized.authToken);
+                localStorage.setItem('token', normalized.authToken);
+                localStorage.setItem('accessToken', normalized.authToken);
+                localStorage.setItem('access_token', normalized.authToken);
+                if (normalized.refreshToken) {
+                  localStorage.setItem('refreshToken', normalized.refreshToken);
+                  localStorage.setItem('refresh_token', normalized.refreshToken);
+                }
+                if (normalized.user) {
+                  try { localStorage.setItem('user', JSON.stringify(normalized.user)); } catch (_) {}
+                }
+              } catch (_) {}
+              try { authAPI.setAuthToken(normalized.authToken); } catch (_) {}
+              const apiBase = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : (api.defaults?.baseURL || base);
+              try { localStorage.setItem('apiBaseUrl', apiBase); } catch (_) {}
+              try {
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('scralytics:loginSuccess', {
+                    detail: {
+                      authToken: normalized.authToken,
+                      refreshToken: normalized.refreshToken || null,
+                      user: normalized.user || null,
+                      apiBaseUrl: apiBase
+                    }
+                  }));
+                }
+              } catch (_) {}
               persistBaseURL(base);
               return normalized;
             }
@@ -355,6 +568,35 @@ export const authAPI = {
             const normalized = normalizeLoginResponse(legacyResp);
             if (normalized.success) {
               log('info', '✅ Legacy /api/login successful after base switch:', base);
+              // Persist tokens and notify extension
+              try {
+                localStorage.setItem('authToken', normalized.authToken);
+                localStorage.setItem('token', normalized.authToken);
+                localStorage.setItem('accessToken', normalized.authToken);
+                localStorage.setItem('access_token', normalized.authToken);
+                if (normalized.refreshToken) {
+                  localStorage.setItem('refreshToken', normalized.refreshToken);
+                  localStorage.setItem('refresh_token', normalized.refreshToken);
+                }
+                if (normalized.user) {
+                  try { localStorage.setItem('user', JSON.stringify(normalized.user)); } catch (_) {}
+                }
+              } catch (_) {}
+              try { authAPI.setAuthToken(normalized.authToken); } catch (_) {}
+              const apiBase = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : (api.defaults?.baseURL || base);
+              try { localStorage.setItem('apiBaseUrl', apiBase); } catch (_) {}
+              try {
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('scralytics:loginSuccess', {
+                    detail: {
+                      authToken: normalized.authToken,
+                      refreshToken: normalized.refreshToken || null,
+                      user: normalized.user || null,
+                      apiBaseUrl: apiBase
+                    }
+                  }));
+                }
+              } catch (_) {}
               persistBaseURL(base);
               return normalized;
             }
@@ -372,6 +614,37 @@ export const authAPI = {
         const legacyData = await api.post('/api/login', { email, password });
         log('info', '✅ Login successful via /api/login');
         const normalized = normalizeLoginResponse(legacyData);
+        // Persist tokens, set auth header, and notify extension via event
+        if (normalized && normalized.success && normalized.authToken) {
+          try {
+            localStorage.setItem('authToken', normalized.authToken);
+            localStorage.setItem('token', normalized.authToken);
+            localStorage.setItem('accessToken', normalized.authToken);
+            localStorage.setItem('access_token', normalized.authToken);
+            if (normalized.refreshToken) {
+              localStorage.setItem('refreshToken', normalized.refreshToken);
+              localStorage.setItem('refresh_token', normalized.refreshToken);
+            }
+            if (normalized.user) {
+              try { localStorage.setItem('user', JSON.stringify(normalized.user)); } catch (_) {}
+            }
+          } catch (_) {}
+          try { authAPI.setAuthToken(normalized.authToken); } catch (_) {}
+          const apiBase = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : (api.defaults?.baseURL || 'http://localhost:5001');
+          try { localStorage.setItem('apiBaseUrl', apiBase); } catch (_) {}
+          try {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('scralytics:loginSuccess', {
+                detail: {
+                  authToken: normalized.authToken,
+                  refreshToken: normalized.refreshToken || null,
+                  user: normalized.user || null,
+                  apiBaseUrl: apiBase
+                }
+              }));
+            }
+          } catch (_) {}
+        }
         return normalized;
       }
 
@@ -485,6 +758,23 @@ export const resultsAPI = {
 export const dashboardAPI = {
   // Get dashboard stats with fallbacks
   getStats: async () => {
+    // Cache and single-flight guard to prevent spamming /stats
+    if (!dashboardAPI.__cache) {
+      dashboardAPI.__cache = { data: null, ts: 0, ttl: 15000, last429: 0 };
+    }
+    const now = Date.now();
+    const cache = dashboardAPI.__cache;
+    const backoffActive = (now - cache.last429) < 60000;
+
+    if (cache.data && (now - cache.ts) < cache.ttl && !backoffActive) {
+      return cache.data;
+    }
+
+    if (dashboardAPI.__inFlight) {
+      return dashboardAPI.__inFlight;
+    }
+
+    dashboardAPI.__inFlight = (async () => {
     const getStoredToken = () => (
       localStorage.getItem('authToken') || localStorage.getItem('token') || ''
     );
@@ -557,13 +847,25 @@ export const dashboardAPI = {
     try {
       // Primary endpoint (current baseURL)
       const resp = await api.get('/api/dashboard/stats');
-      return normalizeDashboardResponse(resp);
+      const normalized = normalizeDashboardResponse(resp);
+      cache.data = normalized;
+      cache.ts = Date.now();
+      dashboardAPI.__inFlight = null;
+      return normalized;
     } catch (error) {
       const status = error?.status || error?.response?.status;
       const raw = error?.response?.data;
       const notFound = status === 404 || isLikelyHtmlNotFound(raw);
 
       if (!notFound) {
+        if (status === 429) {
+          cache.last429 = Date.now();
+          if (cache.data) {
+            dashboardAPI.__inFlight = null;
+            return cache.data;
+          }
+        }
+        dashboardAPI.__inFlight = null;
         throw error;
       }
 
@@ -572,29 +874,39 @@ export const dashboardAPI = {
       for (const path of fallbacks) {
         try {
           const fallbackResp = await api.get(path);
-          return normalizeDashboardResponse(fallbackResp);
+          const normalized = normalizeDashboardResponse(fallbackResp);
+          cache.data = normalized;
+          cache.ts = Date.now();
+          dashboardAPI.__inFlight = null;
+          return normalized;
         } catch (fallbackErr) {
           const fbStatus = fallbackErr?.status || fallbackErr?.response?.status;
           const fbRaw = fallbackErr?.response?.data;
           const fbNotFound = fbStatus === 404 || isLikelyHtmlNotFound(fbRaw);
           if (!fbNotFound) {
             // Other error type; stop here
+            dashboardAPI.__inFlight = null;
             throw fallbackErr;
           }
           // else continue to next fallback
         }
       }
 
-      // Legacy server fallback (port 5002), try dashboard first
-      const legacyBase = 'http://localhost:5002';
+      // Legacy server fallback (common dev backend port 3001), try dashboard first
+const legacyBase = 'http://localhost:3001';
       try {
         const legacyResp = await tryAbsoluteUrl(`${legacyBase}/api/dashboard/stats`);
-        return normalizeDashboardResponse(legacyResp);
+        const normalized = normalizeDashboardResponse(legacyResp);
+        cache.data = normalized;
+        cache.ts = Date.now();
+        dashboardAPI.__inFlight = null;
+        return normalized;
       } catch (legacyErr) {
         const ls = legacyErr?.status || legacyErr?.response?.status;
         const lr = legacyErr?.response?.data;
         const legacyNotFound = ls === 404 || isLikelyHtmlNotFound(lr);
         if (!legacyNotFound && ls) {
+          dashboardAPI.__inFlight = null;
           throw legacyErr;
         }
       }
@@ -615,7 +927,7 @@ export const dashboardAPI = {
         const successRate = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0;
         const recentJobs = jobs.slice(0, 5);
 
-        return {
+        const normalized = {
           success: true,
           data: {
             totalJobs: completedJobs,
@@ -629,12 +941,16 @@ export const dashboardAPI = {
             recentJobs
           }
         };
+        cache.data = normalized;
+        cache.ts = Date.now();
+        dashboardAPI.__inFlight = null;
+        return normalized;
       } catch (_) {
         // ignore and fall through to empty structure
       }
 
       // If all fallbacks fail with 404, return a safe empty structure
-      return {
+      const normalized = {
         success: true,
         data: {
           totalJobs: 0,
@@ -648,7 +964,14 @@ export const dashboardAPI = {
           recentJobs: []
         }
       };
+      cache.data = normalized;
+      cache.ts = Date.now();
+      dashboardAPI.__inFlight = null;
+      return normalized;
     }
+    })();
+
+    return dashboardAPI.__inFlight;
   }
 };
 

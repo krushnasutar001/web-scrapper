@@ -7,12 +7,6 @@ import React, { useState, useEffect } from 'react';
 import BulkAccountImport from './BulkAccountImport';
 import api from '../services/api';
 
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL ||
-  (typeof window !== 'undefined' ? window.__API_BASE_URL__ : null) ||
-  (typeof window !== 'undefined' ? localStorage.getItem('API_BASE_URL') : null) ||
-  'http://localhost:5002';
-
 // Status badge component
 const StatusBadge = ({ status }) => {
   const getStatusConfig = (status) => {
@@ -329,7 +323,6 @@ const Statistics = ({ stats }) => {
   if (!stats) return null;
 
   const { total, valid, invalid, pending } = stats;
-  const validPercentage = total > 0 ? Math.round((valid / total) * 100) : 0;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -410,8 +403,48 @@ const LinkedInAccountManager = () => {
   const [validatingId, setValidatingId] = useState(null);
   const [activeTab, setActiveTab] = useState('accounts'); // 'accounts' or 'bulk-import'
 
+  // Ask the extension (via content script bridge) for local accounts
+  const fetchExtensionLocalAccounts = React.useCallback(() => {
+    return new Promise((resolve, reject) => {
+      try {
+        const handler = (event) => {
+          if (event.source !== window || !event.data || typeof event.data !== 'object') return;
+          if (event.data.type === 'LOCAL_LINKEDIN_ACCOUNTS_RESULT') {
+            window.removeEventListener('message', handler);
+            if (event.data.success && Array.isArray(event.data.data)) {
+              resolve(event.data.data);
+            } else {
+              reject(new Error(event.data.error || 'No local accounts'));
+            }
+          }
+        };
+        window.addEventListener('message', handler);
+        window.postMessage({ type: 'GET_LOCAL_LINKEDIN_ACCOUNTS', source: 'webapp', ts: Date.now() }, '*');
+        // Timeout after 2 seconds
+        setTimeout(() => {
+          window.removeEventListener('message', handler);
+          reject(new Error('Extension response timeout'));
+        }, 2000);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }, []);
+
+  // Fetch statistics
+  const fetchStats = React.useCallback(async () => {
+    try {
+      const response = await api.get('/api/stats');
+      if (response.success) {
+        setStats(response.stats);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  }, []);
+
   // Fetch accounts
-  const fetchAccounts = async () => {
+  const fetchAccounts = React.useCallback(async () => {
     try {
       setLoading(true);
       // Primary: modern route
@@ -459,35 +492,9 @@ const LinkedInAccountManager = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchExtensionLocalAccounts]);
 
-  // Ask the extension (via content script bridge) for local accounts
-  const fetchExtensionLocalAccounts = () => {
-    return new Promise((resolve, reject) => {
-      try {
-        const handler = (event) => {
-          if (event.source !== window || !event.data || typeof event.data !== 'object') return;
-          if (event.data.type === 'LOCAL_LINKEDIN_ACCOUNTS_RESULT') {
-            window.removeEventListener('message', handler);
-            if (event.data.success && Array.isArray(event.data.data)) {
-              resolve(event.data.data);
-            } else {
-              reject(new Error(event.data.error || 'No local accounts'));
-            }
-          }
-        };
-        window.addEventListener('message', handler);
-        window.postMessage({ type: 'GET_LOCAL_LINKEDIN_ACCOUNTS', source: 'webapp', ts: Date.now() }, '*');
-        // Timeout after 2 seconds
-        setTimeout(() => {
-          window.removeEventListener('message', handler);
-          reject(new Error('Extension response timeout'));
-        }, 2000);
-      } catch (e) {
-        reject(e);
-      }
-    });
-  };
+  
 
   // Listen for extension save events to auto-refresh accounts without user action
   useEffect(() => {
@@ -499,19 +506,9 @@ const LinkedInAccountManager = () => {
     return () => {
       window.removeEventListener('SCRALYTICS_EXTENSION_ACCOUNT_SAVED', onExtensionAccountSaved);
     };
-  }, []);
+  }, [fetchAccounts, fetchStats]);
 
-  // Fetch statistics
-  const fetchStats = async () => {
-    try {
-      const response = await api.get('/api/stats');
-      if (response.success) {
-        setStats(response.stats);
-      }
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  };
+
 
   // Validate account
   const handleValidate = async (accountId) => {
@@ -570,7 +567,7 @@ const LinkedInAccountManager = () => {
   useEffect(() => {
     fetchAccounts();
     fetchStats();
-  }, []);
+  }, [fetchAccounts, fetchStats]);
 
   // Auto-refresh every 5 minutes to reduce performance impact
   useEffect(() => {
@@ -580,7 +577,7 @@ const LinkedInAccountManager = () => {
     }, 300000); // 5 minutes instead of 30 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchAccounts, fetchStats]);
 
   // Manual refresh function for user-triggered updates
   const handleManualRefresh = () => {

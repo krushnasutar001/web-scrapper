@@ -26,24 +26,37 @@ const loginAliasRoutes = require('./src/routes/loginAlias');
 
 // Create Express app
 const app = express();
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
     const isDev = (process.env.NODE_ENV !== 'production');
-    const allowedOrigins = [
-      process.env.FRONTEND_URL || 'http://localhost:3000',
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:3002',
-      'http://localhost:8081',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001',
-      'http://127.0.0.1:3002',
-      'http://127.0.0.1:8081'
-    ];
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'http://localhost:3021',
+    'http://localhost:3022',
+    'http://localhost:8081',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:3002',
+    'http://127.0.0.1:3021',
+    'http://127.0.0.1:3022',
+    'http://127.0.0.1:8081',
+    // Explicitly allow the user's extension ID origin for clarity
+    'chrome-extension://lfoboeoobhkaajgkfommkckedmpckjmp'
+  ];
+    // Add env-driven extension origin if provided
+    try {
+      const extId = process.env.EXTENSION_ID || process.env.REACT_APP_EXTENSION_ID;
+      if (extId && typeof extId === 'string' && extId.length > 10) {
+        allowedOrigins.push(`chrome-extension://${extId}`);
+      }
+    } catch (_) {}
     const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
     const isExtension = /^chrome-extension:\/\//i.test(origin);
     if (allowedOrigins.includes(origin) || isLocalhost || isExtension || isDev) {

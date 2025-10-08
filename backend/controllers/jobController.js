@@ -111,6 +111,47 @@ const getJobs = async (req, res) => {
 };
 
 /**
+ * Get pending jobs for the authenticated user
+ */
+const getPendingJobs = async (req, res) => {
+  try {
+    const user = req.user;
+    const { limit = 20, offset = 0 } = req.query;
+
+    console.log('📋 Fetching pending jobs for user:', user.id);
+
+    const jobs = await Job.findByUserId(user.id, {
+      status: 'pending',
+      limit,
+      offset,
+    });
+
+    // Minimal payload for extension job poller
+    const formatted = jobs.map((job) => ({
+      id: job.id,
+      job_name: job.job_name,
+      job_type: job.job_type,
+      status: job.status,
+      total_urls: job.total_urls || 0,
+      created_at: job.created_at,
+    }));
+
+    return res.json({
+      success: true,
+      jobs: formatted,
+      total: formatted.length,
+    });
+  } catch (error) {
+    console.error('❌ Error fetching pending jobs:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch pending jobs',
+      code: 'PENDING_JOBS_ERROR',
+    });
+  }
+};
+
+/**
  * Get a specific job by ID
  */
 const getJobById = async (req, res) => {
@@ -699,5 +740,6 @@ module.exports = {
   cancelJob,
   getJobStatus,
   deleteJob,
-  getJobStats
+  getJobStats,
+  getPendingJobs
 };

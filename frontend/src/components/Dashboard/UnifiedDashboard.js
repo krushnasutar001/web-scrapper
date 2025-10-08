@@ -6,8 +6,7 @@ import {
   CheckCircleIcon, 
   XCircleIcon, 
   ExclamationTriangleIcon,
-  EyeIcon,
-  ArrowDownTrayIcon
+  EyeIcon
 } from '@heroicons/react/24/outline';
 import api, { dashboardAPI } from '../../services/api';
 
@@ -18,8 +17,7 @@ const UnifiedDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState(null);
   const [jobStats, setJobStats] = useState(null);
-  const [exportFormat, setExportFormat] = useState('csv');
-  const [pollingInterval, setPollingInterval] = useState(null);
+  // Removed unused state: exportFormat, pollingInterval
 
   useEffect(() => {
     fetchJobs();
@@ -32,8 +30,6 @@ const UnifiedDashboard = () => {
       fetchDashboardStats();
       fetchLinkedInAccounts();
     }, 120000);
-    
-    setPollingInterval(interval);
     
     // Cleanup on unmount
     return () => {
@@ -191,18 +187,6 @@ const UnifiedDashboard = () => {
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleString();
-  };
-
-  const calculateProgress = (job) => {
-    if (job.total_items === 0) return 0;
-    if (job.stage === 'fetcher') {
-      return Math.round((job.fetched_items / job.total_items) * 50);
-    } else if (job.stage === 'parser') {
-      return 50 + Math.round((job.parsed_items / job.total_items) * 50);
-    } else if (job.stage === 'completed') {
-      return 100;
-    }
-    return job.progress || 0;
   };
 
   if (loading) {

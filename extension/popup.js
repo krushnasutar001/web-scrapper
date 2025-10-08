@@ -7,7 +7,7 @@
   'use strict';
   
   // Backend base URL with safe defaults (prefer backend port)
-  let API_BASE_URL = (typeof globalThis !== 'undefined' && typeof globalThis.API_BASE_URL !== 'undefined') ? globalThis.API_BASE_URL : 'http://localhost:5001';
+  let API_BASE_URL = (typeof globalThis !== 'undefined' && typeof globalThis.API_BASE_URL !== 'undefined') ? globalThis.API_BASE_URL : 'http://localhost:3001';
 
   // Detect whether running inside a Chrome extension context
   function isExtensionContextAvailable() {
@@ -20,14 +20,14 @@
 
   // Preview-mode auth helpers
   function getStoredToken() {
-    try { return localStorage.getItem('authToken') || null; } catch { return null; }
+    try { return localStorage.getItem('authToken') || null; } catch (e) { return null; }
   }
   function setStoredToken(token, base, user) {
     try {
       localStorage.setItem('authToken', token || '');
       if (base) localStorage.setItem('apiBaseUrl', base);
       if (user) localStorage.setItem('userInfo', JSON.stringify(user));
-    } catch {}
+    } catch (e) {}
   }
   // Unified token/base resolver (extension or preview)
   async function getTokenAndBase() {
@@ -42,12 +42,20 @@
       }
     } else {
       let base = API_BASE_URL;
-      try { base = localStorage.getItem('apiBaseUrl') || API_BASE_URL; } catch (_) {}
+      try { base = localStorage.getItem('apiBaseUrl') || API_BASE_URL; } catch (e) {}
       return { token: getStoredToken(), base };
     }
   }
+
+  // Unified API fetch helper that always uses current base and token
+  async function apiFetch(path, options = {}) {
+    const { token, base } = await getTokenAndBase();
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (token && !headers.Authorization) headers.Authorization = `Bearer ${token}`;
+    return fetch(`${base}${path}`, { ...options, headers });
+  }
   function clearStoredToken() {
-    try { localStorage.removeItem('authToken'); localStorage.removeItem('apiBaseUrl'); localStorage.removeItem('userInfo'); } catch {}
+    try { localStorage.removeItem('authToken'); localStorage.removeItem('apiBaseUrl'); localStorage.removeItem('userInfo'); } catch (e) {}
   }
   function getApiBases() {
     let storedBase = null;
@@ -56,13 +64,11 @@
       storedBase,
       API_BASE_URL,
       'http://localhost:3001',
-      'http://localhost:5000',
+      'http://localhost:3000',
       'http://localhost:5001',
-      'http://localhost:5002',
       'http://127.0.0.1:3001',
-      'http://127.0.0.1:5000',
-      'http://127.0.0.1:5001',
-      'http://127.0.0.1:5002'
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5001'
     ].filter(Boolean);
     return Array.from(new Set(bases));
   }
@@ -80,9 +86,9 @@ const paths = ['/api/login'];
           });
         } catch (networkErr) { lastErrMsg = networkErr?.message || 'Failed to connect to server'; continue; }
         try { data = await response.json(); }
-        catch {
+        catch (e) {
           try { const text = await response.text(); data = { message: (text && text.slice(0, 200)) || response.statusText }; }
-          catch { data = { message: response.statusText }; }
+          catch (e2) { data = { message: response.statusText }; }
         }
         if (!response.ok) {
           let msg = data?.message || data?.error || '';
@@ -192,11 +198,11 @@ const paths = ['/api/login'];
 async function loadAccounts() {
   try {
     if (isExtensionContextAvailable()) {
-      try { await chrome.storage.local.get(['authToken', 'apiBaseUrl']); } catch {}
+      try { await chrome.storage.local.get(['authToken', 'apiBaseUrl']); } catch (e) {}
       let response = await chrome.runtime.sendMessage({ type: 'getAccounts' });
       if (!response?.success && /not authenticated/i.test(String(response?.error || ''))) {
         await new Promise(r => setTimeout(r, 250));
-        try { await chrome.runtime.sendMessage({ type: 'getAuthStatus' }); } catch {}
+        try { await chrome.runtime.sendMessage({ type: 'getAuthStatus' }); } catch (e) {}
         response = await chrome.runtime.sendMessage({ type: 'getAccounts' });
       }
       if (response?.success) {
@@ -230,9 +236,7 @@ async function loadAccounts() {
     // Try extension accounts endpoint first
     let loaded = false;
     try {
-      const res1 = await fetch(`${API_BASE_URL}/api/extension/accounts`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res1 = await apiFetch('/api/extension/accounts');
       const data1 = await res1.json().catch(() => ({ success: false }));
       if (res1.ok && (data1.success || data1.ok)) {
         currentAccounts = data1.accounts || data1.data || [];
@@ -244,9 +248,7 @@ async function loadAccounts() {
     // Fallback to public available accounts endpoint
     if (!loaded) {
       try {
-        const res2 = await fetch(`${API_BASE_URL}/api/accounts`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-        });
+        const res2 = await apiFetch('/api/accounts');
         const data2 = await res2.json().catch(() => ({ success: false }));
         if (res2.ok && (data2.success || data2.ok)) {
           currentAccounts = data2.data || data2.accounts || [];
@@ -620,7 +622,7 @@ async function refreshAccounts() {
         detectRes = await chrome.runtime.sendMessage({ type: 'detectLinkedInAccounts' });
         if (!detectRes?.success && /not authenticated/i.test(String(detectRes?.error || ''))) {
           await new Promise(r => setTimeout(r, 250));
-          try { await chrome.runtime.sendMessage({ type: 'getAuthStatus' }); } catch {}
+          try { await chrome.runtime.sendMessage({ type: 'getAuthStatus' }); } catch (e) {}
           detectRes = await chrome.runtime.sendMessage({ type: 'detectLinkedInAccounts' });
         }
         if (detectRes?.success) { added = detectRes.added || 0; }
@@ -631,7 +633,7 @@ async function refreshAccounts() {
       let listRes = await chrome.runtime.sendMessage({ type: 'getAccounts' });
       if (!listRes?.success && /not authenticated/i.test(String(listRes?.error || ''))) {
         await new Promise(r => setTimeout(r, 250));
-        try { await chrome.runtime.sendMessage({ type: 'getAuthStatus' }); } catch {}
+        try { await chrome.runtime.sendMessage({ type: 'getAuthStatus' }); } catch (e) {}
         listRes = await chrome.runtime.sendMessage({ type: 'getAccounts' });
       }
       if (listRes?.success) {
@@ -728,12 +730,20 @@ function showNotification(message, type = 'info') {
         chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           if (message.action === 'authStatusChanged') {
             console.log('🔄 Auth status changed:', message);
-            // Keep UI active regardless of auth; refresh accounts opportunistically
-            isLoggedIn = true;
-            updateUI();
-            checkLinkedInStatus();
-            refreshAccounts();
-            loadAccounts();
+            // Re-check auth against backend and then refresh UI and accounts
+            try {
+              checkAuthStatus().then(async () => {
+                updateUI();
+                await checkLinkedInStatus();
+                await refreshAccounts();
+                await loadAccounts();
+              }).catch((err) => {
+                console.warn('Auth re-check failed:', err);
+                updateUI();
+              });
+            } catch (e) {
+              console.warn('Auth re-check error:', e);
+            }
           }
         });
       } else {
@@ -753,6 +763,31 @@ function showNotification(message, type = 'info') {
   // Check authentication status with background script
   async function checkAuthStatus() {
     try {
+      // Guard: avoid repeatedly fetching stats during auth checks
+      if (!window.__popupAuthCheckedOnce) {
+        window.__popupAuthCheckedOnce = true;
+      }
+
+      // First, try asking background for auth status (it can refresh tokens)
+      const hasExtension = isExtensionContextAvailable();
+      if (hasExtension) {
+        try {
+          const bgResponse = await Promise.race([
+            sendMessage({ action: 'getAuthStatus' }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Background script timeout')), 5000))
+          ]);
+          if (bgResponse && bgResponse.isLoggedIn) {
+            isLoggedIn = true;
+            updateConnectionStatus('connected', 'Extension Ready', 'Authenticated via tool backend');
+            showMainSection();
+            return; // Background confirmed authentication
+          }
+        } catch (bgErr) {
+          console.warn('Background auth status check failed:', bgErr);
+        }
+      }
+
+      // Fallback: check stored token/base and verify directly with backend
       const { token, base } = await getTokenAndBase();
       API_BASE_URL = base || API_BASE_URL;
 
@@ -766,31 +801,27 @@ function showNotification(message, type = 'info') {
         return;
       }
 
-      // Verify token with backend and preload dashboard stats
-      const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      // Verify token with backend (align with background script)
+      const res = await apiFetch('/api/auth/verify');
       if (res.ok) {
         isLoggedIn = true;
         updateConnectionStatus('connected', 'Extension Ready', 'Authenticated via tool backend');
         showMainSection();
-
-        // Optionally fetch dashboard stats for UI (if needed)
-        try {
-          const statsRes = await fetch(`${API_BASE_URL}/api/dashboard/stats`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (!statsRes.ok) {
-            const errText = await statsRes.text().catch(() => '');
-            console.warn('Dashboard stats not available:', statsRes.status, errText);
-          }
-        } catch (statsErr) {
-          console.warn('Dashboard stats fetch error:', statsErr?.message || statsErr);
-        }
       } else {
+        // Treat server-side errors as transient; keep UI accessible
+        if (res.status >= 500) {
+          isLoggedIn = true;
+          updateConnectionStatus('warning', 'Extension Ready', 'Backend error; temporarily skipping verification');
+          showMainSection();
+          return;
+        }
         isLoggedIn = false;
         const data = await res.json().catch(() => ({}));
-        const msg = data?.error || data?.message || 'Authentication failed';
+        let rawMsg = data?.error || data?.message || res.statusText || 'Authentication failed';
+        if (rawMsg && typeof rawMsg === 'object') {
+          rawMsg = rawMsg?.message || rawMsg?.error || 'Authentication failed';
+        }
+        const msg = String(rawMsg || 'Authentication failed');
         updateConnectionStatus('warning', 'Please login to the tool', msg);
         elements.mainSection.classList.add('hidden');
         elements.loginSection.classList.add('active');
@@ -849,8 +880,52 @@ function showNotification(message, type = 'info') {
         }
       } catch (contentScriptError) {
         console.warn('Content script not available:', contentScriptError);
+        const msg = String(contentScriptError?.message || contentScriptError || '');
+        const isReceiverMissing = /Receiving end does not exist|Could not establish connection|No such	tab|disconnected/i.test(msg);
+
+        // Attempt to inject content script once per tab and retry
+        try {
+          window.__injectedLinkedInTabs = window.__injectedLinkedInTabs || new Set();
+          const alreadyInjected = window.__injectedLinkedInTabs.has(tab.id);
+          if (isReceiverMissing && !alreadyInjected) {
+            if (chrome?.scripting?.executeScript) {
+              await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                files: ['content_linkedin.js']
+              });
+            } else if (chrome?.tabs?.executeScript) {
+              await new Promise((resolve, reject) => {
+                try {
+                  chrome.tabs.executeScript(tab.id, { file: 'content_linkedin.js' }, () => {
+                    const err = chrome.runtime.lastError;
+                    if (err) return reject(err);
+                    resolve();
+                  });
+                } catch (e) {
+                  reject(e);
+                }
+              });
+            }
+            window.__injectedLinkedInTabs.add(tab.id);
+            // Retry once after injection
+            const retryResponse = await Promise.race([
+              chrome.tabs.sendMessage(tab.id, { action: 'getLoginStatus' }),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Content script timeout')), 5000))
+            ]);
+            if (retryResponse && retryResponse.isLoggedIn) {
+              currentAccount = retryResponse.user;
+              updateLinkedInStatus('connected', 'LinkedIn Logged In', `Detected: ${currentAccount?.name || 'LinkedIn User'}`);
+              showAccountInfo();
+              elements.collectBtn.disabled = false;
+              return;
+            }
+          }
+        } catch (injectErr) {
+          console.warn('Content script injection failed:', injectErr);
+        }
+
         // Fallback: assume LinkedIn is accessible and let user try
-        updateLinkedInStatus('warning', 'LinkedIn Detected', 'Content script not loaded - refresh page if needed');
+        updateLinkedInStatus('warning', 'LinkedIn Detected', 'Content script not loaded - refresh LinkedIn tab if needed');
         elements.collectBtn.disabled = false;
       }
     } catch (error) {
@@ -1029,6 +1104,23 @@ function showNotification(message, type = 'info') {
         
         // Update account info
         showAccountInfo();
+
+        // Auto-save the collected account to backend and refresh UI
+        try {
+          const saveRes = await sendMessage({
+            type: 'saveAccount',
+            cookies: collectedCookies,
+            accountName: currentAccount?.name || 'LinkedIn Account'
+          });
+          if (saveRes && saveRes.success) {
+            savedAccountId = saveRes.accountId;
+            elements.scrapingBtn.disabled = false;
+            await loadAccounts();
+            showSuccess('Account collected and added successfully!');
+          }
+        } catch (autoErr) {
+          console.warn('Auto-save after collection failed:', autoErr);
+        }
       } else {
         throw new Error(response?.error || 'Failed to collect cookies');
       }
@@ -1083,6 +1175,11 @@ function showNotification(message, type = 'info') {
           
           // Update UI to show multiple accounts
           showMultipleAccountsInfo(successful);
+
+          // Refresh accounts list to reflect auto-added accounts from background
+          try { await loadAccounts(); } catch (_) {}
+          // Enable scraping if at least one account exists
+          elements.scrapingBtn.disabled = false;
         } else {
           throw new Error('Failed to collect cookies from any account');
         }
@@ -1366,6 +1463,21 @@ function showNotification(message, type = 'info') {
   function showMainSection() {
     elements.loginSection.classList.remove('active');
     elements.mainSection.classList.remove('hidden');
+  }
+  
+  // Unified UI updater used after auth status changes
+  function updateUI() {
+    try {
+      if (isLoggedIn) {
+        showMainSection();
+        updateConnectionStatus('connected', 'Extension Ready', 'Authenticated via tool backend');
+      } else {
+        showLoginSection();
+        updateConnectionStatus('warning', 'Please login to the tool', 'Click Dashboard to open and login.');
+      }
+    } catch (e) {
+      console.warn('updateUI failed:', e);
+    }
   }
   
   function showAccountInfo() {

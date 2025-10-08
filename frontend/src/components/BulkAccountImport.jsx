@@ -10,7 +10,7 @@ const API_BASE_URL =
   process.env.REACT_APP_API_URL ||
   (typeof window !== 'undefined' ? window.__API_BASE_URL__ : null) ||
   (typeof window !== 'undefined' ? localStorage.getItem('API_BASE_URL') : null) ||
-  'http://localhost:5002';
+  'http://localhost:5001';
 
 // Progress indicator component
 const ProgressBar = ({ current, total, label }) => {

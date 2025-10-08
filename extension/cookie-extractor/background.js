@@ -5,7 +5,7 @@
 
 // Configuration
 const CONFIG = {
-  BACKEND_URL: 'http://localhost:5000',
+  BACKEND_URL: 'http://localhost:5001',
   VALIDATION_INTERVAL: 2 * 60 * 60 * 1000, // 2 hours in milliseconds
   LINKEDIN_COOKIES: ['li_at', 'JSESSIONID', 'bcookie', 'bscookie', 'li_gc', 'liap', 'lang'],
   VALIDATION_ALARM: 'linkedin_validation_alarm'
@@ -236,10 +236,18 @@ class LinkedInMultiAccountBackground {
       const token = await new Promise((resolve) => {
         try {
           chrome.storage.local.get(['authToken'], (items) => resolve(items?.authToken || null));
-        } catch { resolve(null); }
+        } catch (e) { resolve(null); }
       });
 
-      let response = await fetch(`${CONFIG.BACKEND_URL}/api/accounts`, {
+      const base = await (async () => {
+        try {
+          const items = await chrome.storage.local.get(['apiBaseUrl']);
+          return items?.apiBaseUrl || CONFIG.BACKEND_URL;
+        } catch (e) {
+          return CONFIG.BACKEND_URL;
+        }
+      })();
+      let response = await fetch(`${base}/api/accounts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -263,9 +271,9 @@ class LinkedInMultiAccountBackground {
             const token = await new Promise((resolve) => {
               try {
                 chrome.storage.local.get(['authToken'], (items) => resolve(items?.authToken || null));
-              } catch { resolve(null); }
+              } catch (e) { resolve(null); }
             });
-            response = await fetch(`${CONFIG.BACKEND_URL}/api/extension/accounts`, {
+            response = await fetch(`${base}/api/extension/accounts`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

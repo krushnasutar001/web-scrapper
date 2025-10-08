@@ -61,7 +61,6 @@ export const AuthProvider = ({ children }) => {
   // Auto-load user + token on app start
   // =============================
   useEffect(() => {
-    localStorage.clear();
     const loadUser = async () => {
       try {
         const token = localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -100,6 +99,25 @@ export const AuthProvider = ({ children }) => {
       }
     };
     loadUser();
+  }, []);
+
+  // Re-emit login signal on startup when tokens are present to aid extension detection
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const refreshToken = localStorage.getItem('refreshToken') || localStorage.getItem('refresh_token') || null;
+        const userStr = localStorage.getItem('user');
+        const user = userStr ? JSON.parse(userStr) : null;
+        const apiBase = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : undefined;
+        if (token && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('scralytics:loginSuccess', {
+            detail: { authToken: token, refreshToken, user, apiBaseUrl: apiBase }
+          }));
+        }
+      } catch (_) {}
+    }, 1500);
+    return () => clearTimeout(timer);
   }, []);
 
   // =============================
@@ -142,6 +160,40 @@ export const AuthProvider = ({ children }) => {
           type: AUTH_ACTIONS.LOGIN_SUCCESS,
           payload: { user, token },
         });
+
+        // Best-effort: notify extension of login with token and API base
+        try {
+          const extId = process.env.REACT_APP_EXTENSION_ID || localStorage.getItem('EXTENSION_ID');
+          const apiBase = window.__API_BASE_URL__
+            || localStorage.getItem('API_BASE_URL')
+            || (typeof window !== 'undefined' ? window.location.origin : undefined);
+          // Dispatch a window event so the content script can react without polling
+          try {
+            window.dispatchEvent(new CustomEvent('scralytics:loginSuccess', {
+              detail: { authToken: token, user, apiBaseUrl: apiBase }
+            }));
+          } catch (_) {}
+
+          // Also notify extension directly
+          if (extId && window?.chrome?.runtime?.sendMessage) {
+            const payload = {
+              type: 'SCRALYTICS_LOGIN_STATUS',
+              source: 'web_app',
+              data: {
+                isLoggedIn: true,
+                authToken: token,
+                apiBaseUrl: apiBase,
+                userEmail: user?.email,
+                userName: user?.name || user?.fullName || user?.username,
+                userId: user?.id || user?._id
+              }
+            };
+            window.chrome.runtime.sendMessage(extId, payload, () => {});
+            console.log('✅ Token sent to extension');
+          }
+        } catch (err) {
+          console.warn('⚠️ Failed to send token to extension:', err?.message || err);
+        }
 
         toast.success('Login successful!');
         console.log('✅ Token saved and applied');
@@ -227,7 +279,32 @@ export const AuthProvider = ({ children }) => {
     try {
       await authAPI.logout().catch(() => {});
     } finally {
-      localStorage.clear();
+      // Fire explicit logout event for content script listeners
+      try {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('scralytics:logout', {
+            detail: { explicitLogout: true, ts: Date.now() }
+          }));
+        }
+      } catch (_) {}
+      // Notify extension of logout
+      try {
+        const extId = process.env.REACT_APP_EXTENSION_ID || localStorage.getItem('EXTENSION_ID');
+        if (extId && window?.chrome?.runtime?.sendMessage) {
+          window.chrome.runtime.sendMessage(
+            extId,
+            { type: 'SCRALYTICS_LOGIN_STATUS', source: 'web_app', data: { isLoggedIn: false, explicitLogout: true } },
+            () => {}
+          );
+        }
+      } catch (_) {}
+      // Remove only auth-related keys to avoid wiping unrelated app state
+      try {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+      } catch (_) {}
       // Clear extension token sync
       try {
         if (typeof window !== 'undefined' && window.chrome?.storage?.local) {

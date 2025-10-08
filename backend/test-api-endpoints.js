@@ -30,7 +30,7 @@ async function testAPI() {
     
     // Test login
     console.log('2. Testing login...');
-    const loginResponse = await axios.post('http://localhost:5002/api/auth/login', {
+const loginResponse = await axios.post('http://localhost:5001/api/auth/login', {
       email: 'test@example.com',
       password: 'password123'
     });
@@ -43,7 +43,7 @@ async function testAPI() {
       
       // Test dashboard stats
       console.log('3. Testing dashboard stats...');
-      const dashboardResponse = await axios.get('http://localhost:5002/api/dashboard/stats', {
+const dashboardResponse = await axios.get('http://localhost:5001/api/dashboard/stats', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -51,7 +51,7 @@ async function testAPI() {
       
       // Test accounts endpoint
       console.log('4. Testing accounts endpoint...');
-      const accountsResponse = await axios.get('http://localhost:5002/api/linkedin-accounts', {
+const accountsResponse = await axios.get('http://localhost:5001/api/linkedin-accounts', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -59,7 +59,7 @@ async function testAPI() {
       
       // Test account creation
       console.log('5. Testing account creation...');
-      const createAccountResponse = await axios.post('http://localhost:5002/api/linkedin-accounts', {
+const createAccountResponse = await axios.post('http://localhost:5001/api/linkedin-accounts', {
         account_name: 'Test Account',
         cookies: 'li_at=test_cookie_value; JSESSIONID=test_session',
         proxyUrl: ''

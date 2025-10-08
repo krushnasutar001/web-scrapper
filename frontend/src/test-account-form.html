@@ -45,7 +45,7 @@
 
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch('http://localhost:5002/api/linkedin-accounts', {
+  const response = await fetch('http://localhost:5001/api/linkedin-accounts', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

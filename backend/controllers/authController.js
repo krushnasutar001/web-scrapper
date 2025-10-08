@@ -119,6 +119,30 @@ const login = async (req, res) => {
     const tokens = generateTokens(user);
     
     console.log(`✅ User logged in successfully: ${email}`);
+
+    // Set token cookie for extension/frontend access
+    // Note: Cookie settings intentionally allow client-side access for extension compatibility
+    try {
+      if (tokens && tokens.accessToken) {
+        res.cookie('token', tokens.accessToken, {
+          httpOnly: false,
+          secure: false,
+          sameSite: 'Lax',
+          path: '/',
+        });
+      }
+      if (tokens && tokens.refreshToken) {
+        // Provide refreshToken as a cookie as well (optional; keep httpOnly true for safety)
+        res.cookie('refreshToken', tokens.refreshToken, {
+          httpOnly: true,
+          secure: false,
+          sameSite: 'Lax',
+          path: '/',
+        });
+      }
+    } catch (cookieErr) {
+      console.warn('⚠️ Failed to set auth cookies:', cookieErr.message);
+    }
     
     res.json({
       success: true,

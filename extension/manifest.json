@@ -10,7 +10,8 @@
     "tabs",
     "activeTab",
     "scripting",
-    "alarms"
+    "alarms",
+    "notifications"
   ],
 
   "host_permissions": [
@@ -18,17 +19,19 @@
     "*://*.scralytics.com/*",
     "http://localhost:3000/*",
     "http://localhost:3001/*",
+    "http://localhost:3021/*",
     "http://localhost:3022/*",
-    "http://localhost:5000/*",
     "http://localhost:5001/*",
-    "*://*.linkedin.com/*"
+    "*://*.linkedin.com/*",
+    "https://www.linkedin.com/*"
   ],
 
   "externally_connectable": {
     "matches": [
       "http://localhost:3000/*",
+      "http://localhost:3021/*",
       "http://localhost:3022/*",
-      "http://localhost:5002/*",
+      "http://localhost:5001/*",
       "https://scralytics.com/*",
       "*://*.scralytics.com/*"
     ]
@@ -47,14 +50,14 @@
 
   "content_scripts": [
     {
-      "matches": ["https://scralytics.com/*", "*://*.scralytics.com/*", "http://localhost:3000/*", "http://localhost:3001/*", "http://localhost:3022/*", "http://localhost:5000/*", "http://localhost:5001/*"],
+      "matches": ["https://scralytics.com/*", "*://*.scralytics.com/*", "http://localhost:3000/*", "http://localhost:3001/*", "http://localhost:3021/*", "http://localhost:3022/*", "http://localhost:5001/*"],
       "js": ["content_scralytics.js"],
       "run_at": "document_end"
     },
     {
       "matches": ["*://*.linkedin.com/*"],
       "js": ["content_linkedin.js"],
-      "run_at": "document_end"
+      "run_at": "document_idle"
     }
   ],
 

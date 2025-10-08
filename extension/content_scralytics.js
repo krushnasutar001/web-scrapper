@@ -51,7 +51,7 @@
       // Use safeSendMessage to avoid throwing if extension context is invalidated
       safeSendMessage({ type: 'PING', source: 'content_scralytics', url: window.location.href })
         .catch(() => {});
-    } catch {}
+    } catch (e) {}
     
     // Start monitoring for login changes
     startLoginMonitoring();
@@ -89,8 +89,61 @@
       console.warn('Failed to attach window message listener:', err);
     }
     
-    // Initial login check
-    checkLoginStatus();
+    // Initial login check (delay to avoid reading before app sets token)
+    setTimeout(checkLoginStatus, 1200);
+
+    // Listen for explicit login success from the web app to avoid false negatives
+  try {
+    window.addEventListener('scralytics:loginSuccess', async (event) => {
+      const detail = (event && event.detail) || {};
+      const token = detail.authToken || detail.token;
+      const refresh = detail.refreshToken || detail.refresh || null;
+      if (!token) return;
+
+      const loginData = {
+        isLoggedIn: true,
+        authToken: token,
+        refreshToken: refresh,
+        userId: detail.user?.id || detail.user?._id || detail.userId || null,
+        userEmail: detail.user?.email || detail.userEmail || null,
+        userName: detail.user?.name || detail.user?.fullName || detail.user?.username || detail.userName || null,
+        apiBaseUrl: detail.apiBaseUrl || undefined
+      };
+
+      // Persist immediately
+      try {
+        await chrome.storage.local.set({
+          authToken: loginData.authToken,
+          toolToken: loginData.authToken,
+          refreshToken: loginData.refreshToken || null,
+          toolRefreshToken: loginData.refreshToken || null,
+          apiBaseUrl: loginData.apiBaseUrl || 'http://localhost:3001',
+          isLoggedIn: true,
+          userInfo: {
+            userId: loginData.userId,
+            userEmail: loginData.userEmail,
+            userName: loginData.userName
+          },
+          scralyticsSession: loginData
+        });
+      } catch (_) {}
+
+        // Notify background once, with explicit source
+        try {
+          await safeSendMessage({
+            type: 'SCRALYTICS_LOGIN_STATUS',
+            data: loginData,
+            source: 'web_app',
+            url: window.location.href,
+            timestamp: Date.now()
+          });
+          lastLoginState = loginData;
+          console.log('✅ Received web-app login event; extension state updated');
+        } catch (_) {}
+      });
+    } catch (e) {
+      // ignore
+    }
   }
   
   // Start monitoring for login status changes
@@ -100,6 +153,7 @@
     }
     
     checkInterval = setInterval(() => {
+      // Fire and forget; async check handles storage fallback
       checkLoginStatus();
     }, CONFIG.CHECK_INTERVAL);
     
@@ -108,8 +162,24 @@
   }
   
   // Check current login status
-  function checkLoginStatus() {
+  async function checkLoginStatus() {
     const loginData = detectLoginStatus();
+
+    // Fallback: if no token was detected yet, try extension storage
+    try {
+      if (chrome?.storage?.local) {
+        const stored = await chrome.storage.local.get(['authToken', 'toolToken', 'refreshToken', 'toolRefreshToken']);
+        const storedToken = stored?.authToken || stored?.toolToken || null;
+        const storedRefresh = stored?.refreshToken || stored?.toolRefreshToken || null;
+        if (storedToken) {
+          console.debug('🧩 Fallback token from chrome.storage.local');
+          loginData.authToken = storedToken;
+        }
+        if (storedRefresh) {
+          loginData.refreshToken = storedRefresh;
+        }
+      }
+    } catch (_) {}
 
     // Derive API base URL from page context or stored hints
     try {
@@ -122,34 +192,61 @@
 
         const origin = window.location.origin || '';
         // Common dev mappings
-        if (origin.includes('localhost:3001')) return 'http://localhost:5002';
-        if (origin.includes('localhost:3000')) return 'http://localhost:5001';
+        if (origin.includes('localhost:3001')) return 'http://localhost:3001';
+        if (origin.includes('localhost:3000')) return 'http://localhost:3001';
         if (/scralytics\.com$/.test(new URL(origin).hostname)) {
           // In production, default to same-origin backend unless overridden
           return origin;
         }
-        // Fallback to legacy default
-        return 'http://localhost:5001';
+        // Fallback to consistent default
+        return 'http://localhost:3001';
       })();
       loginData.apiBaseUrl = derivedBase;
     } catch (e) {
       // Non-fatal; background will keep existing base
     }
+
+    // Persist token and base URL directly to extension storage as a robustness fallback
+    try {
+      if (loginData && loginData.authToken) {
+        chrome.storage.local.set({
+          authToken: loginData.authToken,
+          toolToken: loginData.authToken,
+          refreshToken: loginData.refreshToken || null,
+          toolRefreshToken: loginData.refreshToken || null,
+          apiBaseUrl: loginData.apiBaseUrl || 'http://localhost:3001',
+          isLoggedIn: true,
+          userInfo: {
+            userId: loginData.userId || null,
+            userEmail: loginData.userEmail || null,
+            userName: loginData.userName || null
+          },
+          scralyticsSession: loginData
+        }).catch(() => {});
+      }
+    } catch (_) {
+      // ignore storage errors; background messaging will still handle updates
+    }
     
-    // Only notify if login state changed
+    // Only notify background when we have a confirmed login with a token.
+    // Avoid broadcasting false logouts that can wipe extension auth state.
     if (JSON.stringify(loginData) !== JSON.stringify(lastLoginState)) {
       console.log('🔄 Login state changed:', loginData);
       lastLoginState = loginData;
-      
-      // Notify background script
-      try {
-        safeSendMessage({
-          type: 'SCRALYTICS_LOGIN_STATUS',
-          data: loginData,
-          url: window.location.href,
-          timestamp: Date.now()
-        }).catch(() => {});
-      } catch {}
+
+      if (loginData && loginData.isLoggedIn && loginData.authToken) {
+        try {
+          safeSendMessage({
+            type: 'SCRALYTICS_LOGIN_STATUS',
+            data: loginData,
+            source: 'content_scralytics',
+            url: window.location.href,
+            timestamp: Date.now()
+          }).catch(() => {});
+        } catch (e) {}
+      } else {
+        // Do not send explicit logout messages from content script; rely on web app events
+      }
     }
   }
   
@@ -167,24 +264,29 @@
     try {
       // Method 1: Check for authentication tokens in meta tags
       const authToken = extractAuthToken();
+      console.debug('🔎 extractAuthToken ->', authToken ? '[FOUND]' : '[none]');
       if (authToken) {
         loginData.authToken = authToken;
       }
       
       // Method 2: Check for user data in DOM
       const userData = extractUserData();
+      console.debug('🔎 extractUserData ->', userData);
       Object.assign(loginData, userData);
       
       // Method 3: Check localStorage/sessionStorage for auth data
       const storageData = extractStorageData();
+      console.debug('🔎 extractStorageData ->', storageData);
       Object.assign(loginData, storageData);
       
       // Method 4: Check for cookies (accessible ones)
       const cookieData = extractCookieData();
+      console.debug('🔎 extractCookieData ->', cookieData);
       Object.assign(loginData, cookieData);
       
       // Method 5: Check for specific UI elements that indicate logged-in state
       const uiIndicators = checkUIIndicators();
+      console.debug('🔎 checkUIIndicators ->', uiIndicators);
       Object.assign(loginData, uiIndicators);
       
     } catch (error) {
@@ -277,13 +379,15 @@
   function extractStorageData() {
     const storageData = {
       authToken: null,
+      refreshToken: null,
       userId: null,
       sessionData: null
     };
     
     try {
       // Common storage keys for auth data
-      const authKeys = ['authToken', 'accessToken', 'token', 'jwt', 'auth', 'user_token'];
+      const authKeys = ['authToken', 'accessToken', 'token', 'jwt', 'auth', 'user_token', 'auth_token', 'access_token', 'jwtToken'];
+      const refreshKeys = ['refreshToken', 'refresh_token'];
       const userKeys = ['userId', 'user_id', 'currentUser', 'user', 'userData'];
       
       // Check localStorage
@@ -291,6 +395,13 @@
         const value = localStorage.getItem(key);
         if (value && value.length > 10) {
           storageData.authToken = value;
+          break;
+        }
+      }
+      for (const key of refreshKeys) {
+        const value = localStorage.getItem(key);
+        if (value && value.length > 10) {
+          storageData.refreshToken = value;
           break;
         }
       }
@@ -317,6 +428,13 @@
         const value = sessionStorage.getItem(key);
         if (value && value.length > 10 && !storageData.authToken) {
           storageData.authToken = value;
+          break;
+        }
+      }
+      for (const key of refreshKeys) {
+        const value = sessionStorage.getItem(key);
+        if (value && value.length > 10 && !storageData.refreshToken) {
+          storageData.refreshToken = value;
           break;
         }
       }

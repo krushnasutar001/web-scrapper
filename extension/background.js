@@ -5,7 +5,101 @@
 
 // Global variables
 let detectedAccounts = [];
-const API_BASE_URL = 'http://localhost:5001';
+// Default API base URL; will be overridden by stored value when available
+const API_BASE_URL = 'http://localhost:3001';
+// Coordinate token refresh to avoid parallel storms
+let isRefreshingExtensionToken = false;
+
+// Resolve API base URL from storage with safe fallback
+async function getApiBaseUrl() {
+  try {
+    const { apiBaseUrl } = await chrome.storage.local.get(['apiBaseUrl']);
+    if (apiBaseUrl && typeof apiBaseUrl === 'string' && apiBaseUrl.startsWith('http')) {
+      return apiBaseUrl;
+    }
+  } catch (_) { /* ignore */ }
+  return API_BASE_URL;
+}
+
+// Get refresh token from extension storage with safe fallbacks
+async function getRefreshToken() {
+  try {
+    const stored = await chrome.storage.local.get(['refreshToken', 'toolRefreshToken', 'refresh_token']);
+    return stored?.refreshToken || stored?.toolRefreshToken || stored?.refresh_token || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Attempt to refresh access token using stored refresh token
+async function refreshAccessToken() {
+  if (isRefreshingExtensionToken) {
+    // Another refresh in progress; wait briefly and re-check
+    await new Promise(r => setTimeout(r, 500));
+    const tokenAfter = await (async () => {
+      const res = await chrome.storage.local.get(['authToken']);
+      return res?.authToken || null;
+    })();
+    return Boolean(tokenAfter);
+  }
+
+  const refreshToken = await getRefreshToken();
+  if (!refreshToken) {
+    console.warn('🔒 No refreshToken available for extension refresh');
+    return false;
+  }
+
+  isRefreshingExtensionToken = true;
+  try {
+    const base = await getApiBaseUrl();
+    const resp = await fetch(`${base}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    });
+
+    if (!resp.ok) {
+      console.warn('❌ Refresh request failed:', resp.status, resp.statusText);
+      return false;
+    }
+
+    const root = await resp.json();
+    const payload = root && root.data ? root.data : root;
+    const newToken = (
+      payload?.accessToken || payload?.token || payload?.authToken || null
+    );
+    const newRefresh = payload?.refreshToken || null;
+
+    if (!newToken) {
+      console.warn('❌ Refresh response missing new access token');
+      return false;
+    }
+
+    // Persist new tokens and update globals
+    await chrome.storage.local.set({
+      authToken: newToken,
+      toolToken: newToken,
+      refreshToken: newRefresh || refreshToken,
+      toolRefreshToken: newRefresh || refreshToken,
+      isLoggedIn: true
+    });
+    authToken = newToken;
+    isLoggedIn = true;
+
+    // Best-effort notify popup/UI
+    try {
+      chrome.runtime.sendMessage({ action: 'authStatusChanged', isLoggedIn: true }).catch(() => {});
+    } catch (_) {}
+
+    console.log('✅ Extension token refreshed successfully');
+    return true;
+  } catch (err) {
+    console.error('❌ Extension token refresh error:', err);
+    return false;
+  } finally {
+    isRefreshingExtensionToken = false;
+  }
+}
 
 // Load crypto utilities using importScripts
 try {
@@ -250,9 +344,9 @@ class JobPoller {
         return;
       }
 
-      console.log('🔍 Polling for assigned jobs...');
-
-      const response = await fetch(`${API_BASE_URL}/api/extension/jobs/assigned`, {
+      console.log('🔍 Polling for pending jobs...');
+      const base = await getApiBaseUrl();
+      let response = await fetch(`${base}/api/jobs/pending`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -261,19 +355,42 @@ class JobPoller {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Attempt token refresh on auth errors, then retry once
+        if (response.status === 401 || response.status === 403) {
+          console.warn('🔄 Auth error during job poll; attempting token refresh');
+          const refreshed = await refreshAccessToken();
+          if (refreshed) {
+            const stored = await chrome.storage.local.get(['authToken']);
+            const retryToken = stored?.authToken || authToken;
+            response = await fetch(`${base}/api/jobs/pending`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${retryToken}`,
+                'Content-Type': 'application/json'
+              }
+            });
+          }
+        }
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
       }
 
       const data = await response.json();
       
       if (data.success && data.jobs && data.jobs.length > 0) {
-        console.log(`📋 Found ${data.jobs.length} assigned jobs`);
-        
+        console.log(`📋 Found ${data.jobs.length} pending jobs`);
+
         for (const job of data.jobs) {
-          await this.processJob(job);
+          const normalized = {
+            ...job,
+            type: job.type || job.job_type,
+            query: job.query || job.job_name,
+          };
+          await this.processJob(normalized);
         }
       } else {
-        console.log('📭 No jobs assigned');
+        console.log('📭 No pending jobs');
       }
 
     } catch (error) {
@@ -425,7 +542,8 @@ async function handleGetAuthStatus() {
     if (stored.authToken && stored.isLoggedIn) {
       // Verify token with backend
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+        const base = await getApiBaseUrl();
+        const response = await fetch(`${base}/api/auth/verify`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${stored.authToken}`,
@@ -449,9 +567,40 @@ async function handleGetAuthStatus() {
             token: stored.authToken
           };
         } else {
-          // Token is invalid, clear it
-          console.warn('⚠️ Token verification failed, clearing auth state');
+          // Preserve session on server-side errors (5xx)
+          if (response.status >= 500) {
+            console.warn('🚧 Server error during token verification; preserving auth state.');
+            authToken = stored.authToken;
+            isLoggedIn = true;
+            return {
+              success: true,
+              isLoggedIn: true,
+              userInfo: stored.userInfo || null,
+              token: stored.authToken,
+              warning: `Server error: ${response.status} ${response.statusText}`
+            };
+          }
+          // Attempt refresh on verification failure
+          if (response.status === 401 || response.status === 403) {
+            console.warn('🔄 Token verification failed; attempting refresh');
+            const refreshed = await refreshAccessToken();
+            if (refreshed) {
+              const latest = await chrome.storage.local.get(['authToken', 'userInfo']);
+              console.log('✅ Authentication restored after refresh');
+              return {
+                success: true,
+                isLoggedIn: true,
+                userInfo: latest.userInfo || stored.userInfo || null,
+                token: latest.authToken || null
+              };
+            }
+          }
+          console.warn('⚠️ Token verification failed and refresh unsuccessful, clearing auth state');
           await clearAuthState();
+          // Notify UI that auth has been cleared so it can prompt re-login
+          try {
+            chrome.runtime.sendMessage({ action: 'authStatusChanged', isLoggedIn: false }).catch(() => {});
+          } catch (_) {}
           return { success: true, isLoggedIn: false };
         }
       } catch (error) {
@@ -489,7 +638,12 @@ async function clearAuthState() {
     
     // Clear managed accounts
     managedAccounts.clear();
-    
+
+    // Best-effort notify popup/UI
+    try {
+      chrome.runtime.sendMessage({ action: 'authStatusChanged', isLoggedIn: false }).catch(() => {});
+    } catch (_) {}
+
     console.log('🧹 Auth state cleared');
   } catch (error) {
     console.error('❌ Failed to clear auth state:', error);
@@ -504,7 +658,8 @@ async function handleLogin(credentials) {
       throw new Error('Email and password are required');
     }
     
-    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    const base = await getApiBaseUrl();
+    const response = await fetch(`${base}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -743,6 +898,13 @@ async function syncCookiesWithBackend(cookieData) {
       throw new Error('Not authenticated with backend');
     }
     
+    console.log('Sending to tool:', `${API_BASE_URL}/api/extension/accounts`);
+    console.log('Payload:', {
+      accountName: cookieData.accountName,
+      cookiesCount: Array.isArray(cookieData.cookies) ? cookieData.cookies.length : 0,
+      domain: cookieData.domain,
+      source: 'extension_auto_sync'
+    });
     const response = await fetch(`${API_BASE_URL}/api/extension/accounts`, {
       method: 'POST',
       headers: {
@@ -842,6 +1004,7 @@ async function handleGetAccounts() {
     // If authenticated, also fetch from backend
     if (authToken && isLoggedIn) {
       try {
+        console.log('Fetching from tool:', `${API_BASE_URL}/api/extension/accounts`);
         const response = await fetch(`${API_BASE_URL}/api/extension/accounts`, {
           method: 'GET',
           headers: {
@@ -998,29 +1161,99 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Ensure all message types are handled here or in a dedicated handler.
 });
 
-// Helper function to safely send messages to tabs, with retry logic
-async function sendMessageToTab(tabId, message, options = { retries: 1, wait: 500 }) {
-    for (let i = 0; i < options.retries; i++) {
-        try {
-            const response = await new Promise((resolve, reject) => {
-                chrome.tabs.sendMessage(tabId, message, response => {
-                    if (chrome.runtime.lastError) {
-                        reject(new Error(chrome.runtime.lastError.message));
-                    } else {
-                        resolve(response);
-                    }
-                });
-            });
-            return response;
-        } catch (error) {
-            console.warn(`Attempt ${i + 1} to send message to tab ${tabId} failed. Retrying...`);
-            if (i < options.retries - 1) {
-                await new Promise(resolve => setTimeout(resolve, options.wait));
-            } else {
-                throw error;
-            }
-        }
+// Track tabs where we've attempted content script injection
+const __bgInjectedLinkedInTabs = new Set();
+
+async function injectLinkedInContentScript(tabId) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Prefer MV3 scripting API when available
+      if (chrome?.scripting?.executeScript) {
+        await chrome.scripting.executeScript({ target: { tabId }, files: ['content_linkedin.js'] });
+        resolve();
+      } else if (chrome?.tabs?.executeScript) {
+        // MV2 fallback
+        chrome.tabs.executeScript(tabId, { file: 'content_linkedin.js' }, () => {
+          const err = chrome.runtime.lastError && chrome.runtime.lastError.message;
+          if (err) reject(new Error(err)); else resolve();
+        });
+      } else {
+        reject(new Error('No suitable script injection API available'));
+      }
+    } catch (e) {
+      reject(e);
     }
+  });
+}
+
+// Helper function to safely send messages to tabs, with retry logic and injection fallback
+async function sendMessageToTab(tabId, message, options = { retries: 1, wait: 500 }) {
+  for (let i = 0; i < options.retries; i++) {
+    try {
+      // Verify tab exists before sending
+      const tabInfo = await new Promise((resolve) => {
+        try {
+          chrome.tabs.get(tabId, t => {
+            if (chrome.runtime.lastError || !t) resolve(null);
+            else resolve(t);
+          });
+        } catch (_) { resolve(null); }
+      });
+      if (!tabInfo) {
+        throw new Error(`Tab ${tabId} not found or closed`);
+      }
+
+      // If on LinkedIn and not yet injected by background, inject once
+      const isLinkedIn = !!(tabInfo.url && tabInfo.url.includes('linkedin.com'));
+      if (isLinkedIn && !__bgInjectedLinkedInTabs.has(tabId)) {
+        try {
+          await injectLinkedInContentScript(tabId);
+          __bgInjectedLinkedInTabs.add(tabId);
+          // Small delay to allow content script to initialize
+          await new Promise(r => setTimeout(r, 200));
+        } catch (injectErr) {
+          console.warn('⚠️ Background injection failed:', injectErr?.message || injectErr);
+        }
+      }
+
+      const response = await new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tabId, message, response => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response);
+          }
+        });
+      });
+      return response;
+    } catch (error) {
+      const msg = String(error?.message || error || '');
+      const isReceiverMissing = /Receiving end does not exist|Could not establish connection|disconnected|No such tab/i.test(msg);
+      console.warn(`Attempt ${i + 1} to send message to tab ${tabId} failed. Retrying...`, msg);
+
+      // If receiver missing and on LinkedIn, try reinjecting before retrying
+      try {
+        const tabInfo = await new Promise((resolve) => {
+          try {
+            chrome.tabs.get(tabId, t => {
+              if (chrome.runtime.lastError || !t) resolve(null);
+              else resolve(t);
+            });
+          } catch (_) { resolve(null); }
+        });
+        const isLinkedIn = !!(tabInfo && tabInfo.url && tabInfo.url.includes('linkedin.com'));
+        if (isReceiverMissing && isLinkedIn) {
+          await injectLinkedInContentScript(tabId).catch(() => {});
+        }
+      } catch (_) {}
+
+      if (i < options.retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, options.wait));
+      } else {
+        throw error;
+      }
+    }
+  }
 }
 
 // Call initialize when the script is first loaded
@@ -1054,11 +1287,17 @@ async function handleSyncAccounts() {
 }
 
 // Extension installation
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('🚀 LinkedIn Automation Extension installed');
-  initializeExtension().catch(error => {
+chrome.runtime.onInstalled.addListener(async (details) => {
+  try {
+    if (details && details.reason === 'install') {
+      console.log('🎉 LinkedIn Automation Extension installed');
+    } else if (details && details.reason === 'update') {
+      console.log(`🔄 Extension updated to version ${chrome.runtime.getManifest().version}`);
+    }
+    await initializeExtension();
+  } catch (error) {
     console.error('❌ Error during extension initialization:', error);
-  });
+  }
 });
 
 // Initialize extension on startup
@@ -1483,6 +1722,8 @@ function getUniqueProfilesCount() {
 // Enhanced sync with backend including profile context
 async function syncDetectedAccountWithBackendEnhanced(accountData) {
   try {
+    console.log('Sending to tool:', `${API_BASE_URL}/api/linkedin-accounts/sync`);
+    console.log('Payload:', { accountInfo: accountData && accountData.accountName ? accountData.accountName : '(unknown)', source: accountData && accountData.source });
     const response = await fetch(`${API_BASE_URL}/api/linkedin-accounts/sync`, {
       method: 'POST',
       headers: {
@@ -1566,7 +1807,8 @@ async function handleScralyticsLoginStatus(loginData) {
     const payload = (loginData && typeof loginData === 'object')
       ? (loginData.data && typeof loginData.data === 'object' ? loginData.data : loginData)
       : {};
-    console.log('🔐 Scralytics login status update:', payload);
+    const source = (loginData && loginData.source) || 'unknown';
+    console.log('🔐 Scralytics login status update:', { source, payload });
     
     if (payload.isLoggedIn && payload.authToken) {
       // User is logged into Scralytics
@@ -1604,25 +1846,36 @@ async function handleScralyticsLoginStatus(loginData) {
       
       return { success: true, message: 'Authentication updated' };
       
-    } else if (payload.isLoggedIn === false && isLoggedIn) {
-      // User logged out of Scralytics
-      console.log('🚪 Scralytics logout detected');
-      
-      authToken = null;
-      isLoggedIn = false;
-      
-      // Clear storage
-      await chrome.storage.local.clear();
-      
-      // Notify popup if open
-      chrome.runtime.sendMessage({
-        action: 'authStatusChanged',
-        isLoggedIn: false
-      }).catch(() => {
-        // Popup might not be open, ignore error
-      });
-      
-      return { success: true, message: 'Logged out' };
+    } else if (payload.isLoggedIn === false) {
+      // Only honor explicit logout from the web app; ignore content-script false negatives
+      const explicitLogout = payload.explicitLogout === true;
+      if (source === 'web_app' && explicitLogout) {
+        console.log('🚪 Scralytics explicit logout received from web app');
+
+        authToken = null;
+        isLoggedIn = false;
+
+        // Remove only auth-related keys; preserve other extension data
+        await chrome.storage.local.remove([
+          'authToken',
+          'toolToken',
+          'isLoggedIn',
+          'userInfo',
+          'scralyticsSession'
+        ]);
+
+        // Notify popup if open
+        chrome.runtime.sendMessage({
+          action: 'authStatusChanged',
+          isLoggedIn: false
+        }).catch(() => {
+          // Popup might not be open, ignore error
+        });
+
+        return { success: true, message: 'Logged out' };
+      } else {
+        console.log('ℹ️ Ignoring non-explicit logout (source:', source, ')');
+      }
     }
     
     return { success: true, message: 'Status unchanged' };
@@ -1685,8 +1938,8 @@ async function handleLogout() {
     authToken = null;
     isLoggedIn = false;
     
-    // Clear storage
-    await chrome.storage.local.clear();
+    // Clear ONLY auth-related storage to avoid nuking other persisted data
+    await chrome.storage.local.remove(['authToken', 'userInfo', 'isLoggedIn', 'loginTime', 'apiBaseUrl']);
     
     console.log('✅ Logout successful');
     return { success: true };
@@ -2299,13 +2552,30 @@ chrome.runtime.onStartup.addListener(async () => {
 });
 
 chrome.runtime.onInstalled.addListener(async (details) => {
+  // ✅ FIX: Preserve authentication on extension updates
   console.log('📦 Extension installed/updated:', details.reason);
+
+  // Initialize service worker as before
   await initializeServiceWorker();
-  
-  // Clear any stale data on install/update
-  if (details.reason === 'install' || details.reason === 'update') {
-    console.log('🧹 Clearing stale extension data');
+
+  if (details.reason === 'install') {
+    console.log('🧹 First-time install detected — clearing old/stale data...');
     await chrome.storage.local.clear();
+  } else if (details.reason === 'update') {
+    console.log('🔄 Extension updated — preserving user session data');
+    // Optional: verify that authToken still exists after update
+    const stored = await chrome.storage.local.get(['authToken', 'isLoggedIn']);
+    if (stored.authToken && stored.isLoggedIn) {
+      console.log('✅ Existing authentication found and preserved');
+    } else {
+      console.info('ℹ️ No authentication found post-update; prompting re-login once.');
+      // Proactively notify popup/UI to prompt re-login
+      try {
+        chrome.runtime.sendMessage({ action: 'authStatusChanged', isLoggedIn: false }).catch(() => {});
+      } catch (_) {}
+    }
+  } else {
+    console.log('🧩 Other install reason:', details.reason);
   }
 });
 
@@ -2329,6 +2599,9 @@ async function initializeServiceWorker() {
       
       // Start auto-refresh for LinkedIn accounts
       startAutoRefresh();
+
+      // Notify popup/UI of current login state
+      try { chrome.runtime.sendMessage({ action: 'authStatusChanged', isLoggedIn: true }).catch(() => {}); } catch (_) {}
     }
     
     // Restore managed accounts
@@ -2397,7 +2670,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   // Handle different message types
   const messageType = message?.type || message?.action || message?.messageType || message?.msgType || 'UNKNOWN';
-  
+
   try {
     switch (messageType) {
       case 'PING':
@@ -2426,6 +2699,46 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         collectLinkedInCookies(message.tabId)
           .then(result => sendResponse(result))
           .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+
+      // Support popup.js action alias and auto-save flow
+      case 'collectMultipleCookies':
+        collectMultipleLinkedInCookies(Array.isArray(message.accounts) ? message.accounts : [])
+          .then(async (result) => {
+            try {
+              // Respond to caller first in expected schema
+              sendResponse({ success: true, ...(result || {}) });
+
+              // Auto-add each successful account to managed storage/backend
+              const successful = (result && result.data && Array.isArray(result.data.successful))
+                ? result.data.successful
+                : (Array.isArray(result.successful) ? result.successful : []);
+
+              let savedCount = 0;
+              for (const entry of successful) {
+                const cookies = entry.cookies || (entry.data && entry.data.cookies) || [];
+                const name = entry.accountName || entry.name || (entry.originalAccount && entry.originalAccount.name) || 'LinkedIn Account';
+
+                try {
+                  // Validate then save account; ignore validation failure and attempt save anyway
+                  try { await handleValidateAccount(cookies); } catch (_) {}
+                  await handleSaveAccount(cookies, name);
+                  savedCount++;
+                } catch (saveErr) {
+                  console.warn('⚠️ Auto-save failed for account:', name, saveErr && (saveErr.message || saveErr));
+                }
+              }
+
+              // Persist current state for UI, then notify popup to refresh
+              try { await persistServiceWorkerState(); } catch (_) {}
+              try {
+                chrome.runtime.sendMessage({ type: 'ACCOUNTS_UPDATED', savedCount }).catch(() => {});
+              } catch (_) {}
+            } catch (innerErr) {
+              console.warn('⚠️ Post-collection auto-add flow encountered an error:', innerErr && (innerErr.message || innerErr));
+            }
+          })
+          .catch(err => sendResponse({ success: false, error: String(err.message || err) }));
         return true;
         
       case 'getAccounts':
@@ -2539,12 +2852,21 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     // Auto-detect LinkedIn account if logged in
     if (isLoggedIn) {
       try {
-        // Inject content script if not already present
-        await chrome.scripting.executeScript({
-          target: { tabId: tabId },
-          files: ['content_linkedin.js']
-        });
-        
+        // Inject content script if not already present (MV3)
+        if (chrome?.scripting?.executeScript) {
+          await chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            files: ['content_linkedin.js']
+          });
+        } else if (chrome?.tabs?.executeScript) {
+          // Fallback for MV2
+          await new Promise((resolve, reject) => {
+            chrome.tabs.executeScript(tabId, { file: 'content_linkedin.js' }, () => {
+              const err = chrome.runtime.lastError && chrome.runtime.lastError.message;
+              if (err) reject(new Error(err)); else resolve();
+            });
+          });
+        }
         console.log('✅ Content script injected into LinkedIn tab');
       } catch (error) {
         console.warn('⚠️ Failed to inject content script:', error.message);

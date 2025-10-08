@@ -58,7 +58,7 @@ const BulkCompanyUpload = ({ onUploadComplete, onClose }) => {
     }
   };
 
-  const previewFile = async () => {
+  const previewFile = React.useCallback(async () => {
     if (!file) return;
 
     try {
@@ -68,7 +68,7 @@ const BulkCompanyUpload = ({ onUploadComplete, onClose }) => {
       console.error('Error previewing file:', error);
       return [];
     }
-  };
+  }, [file]);
 
   const parseFile = (file) => {
     return new Promise((resolve, reject) => {
@@ -201,7 +201,7 @@ const BulkCompanyUpload = ({ onUploadComplete, onClose }) => {
     if (file) {
       previewFile().then(setPreview);
     }
-  }, [file]);
+  }, [file, previewFile]);
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">

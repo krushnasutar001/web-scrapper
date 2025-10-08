@@ -10,7 +10,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [stats, setStats] = useState([
     {
       name: 'Total Jobs',
@@ -210,7 +210,7 @@ const Dashboard = () => {
       </div>
 
       <div className="md:flex md:items-center md:justify-between">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 user-menu">
           <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
             Welcome back, {user?.firstName || 'User'}!
           </h2>
@@ -224,6 +224,13 @@ const Dashboard = () => {
             className="btn btn-secondary ml-2"
           >
             Refresh
+          </button>
+          <button
+            onClick={logout}
+            className="btn btn-outline ml-2 logout-btn"
+            title="Sign out"
+          >
+            Logout
           </button>
           <Link
             to="/jobs"

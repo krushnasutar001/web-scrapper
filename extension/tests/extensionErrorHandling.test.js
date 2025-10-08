@@ -129,7 +129,8 @@ describe('Extension Error Handling Tests', () => {
 
       const { sendMessageToTab } = require('../background.js');
       
-      const result = await sendMessageToTab(123, { action: 'test' });
+// Updated to reflect injection fallback added to background sender
+const result = await sendMessageToTab(123, { action: 'test' }, { retries: 2, wait: 200 });
       
       expect(result.success).toBe(false);
       expect(result.error).toContain('connection');

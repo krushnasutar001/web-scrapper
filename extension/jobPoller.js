@@ -5,6 +5,16 @@
 
 export const API_BASE_URL = 'http://localhost:5001';
 
+async function getApiBaseUrl() {
+  try {
+    const { apiBaseUrl } = await chrome.storage.local.get(['apiBaseUrl']);
+    if (apiBaseUrl && typeof apiBaseUrl === 'string' && apiBaseUrl.startsWith('http')) {
+      return apiBaseUrl;
+    }
+  } catch (_) {}
+  return API_BASE_URL;
+}
+
 class JobPoller {
   constructor() {
     this.isPolling = false;
@@ -50,9 +60,10 @@ class JobPoller {
         return;
       }
 
-      console.log('🔍 Polling for assigned jobs...');
+      console.log('🔍 Polling for pending jobs...');
 
-      const response = await fetch(`${API_BASE_URL}/api/extension/jobs/assigned`, {
+      const base = await getApiBaseUrl();
+      const response = await fetch(`${base}/api/jobs/pending`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -67,14 +78,19 @@ class JobPoller {
       const data = await response.json();
       
       if (data.success && data.jobs && data.jobs.length > 0) {
-        console.log(`📋 Found ${data.jobs.length} assigned jobs`);
-        
-        // Process each job
+        console.log(`📋 Found ${data.jobs.length} pending jobs`);
+
+        // Normalize and process each job
         for (const job of data.jobs) {
-          await this.processJob(job);
+          const normalized = {
+            ...job,
+            type: job.type || job.job_type,
+            query: job.query || job.job_name,
+          };
+          await this.processJob(normalized);
         }
       } else {
-        console.log('📭 No jobs assigned');
+        console.log('📭 No pending jobs');
       }
 
     } catch (error) {
@@ -130,7 +146,8 @@ class JobPoller {
     try {
       const authToken = await this.getAuthToken();
       
-      const response = await fetch(`${API_BASE_URL}/api/extension/jobs/${jobId}/complete`, {
+      const base = await getApiBaseUrl();
+      const response = await fetch(`${base}/api/extension/jobs/${jobId}/complete`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -155,7 +172,8 @@ class JobPoller {
     try {
       const authToken = await this.getAuthToken();
       
-      const response = await fetch(`${API_BASE_URL}/api/extension/jobs/${jobId}/fail`, {
+      const base = await getApiBaseUrl();
+      const response = await fetch(`${base}/api/extension/jobs/${jobId}/fail`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,

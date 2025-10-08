@@ -20,7 +20,7 @@ const loginAliasRoutes = require('./routes/loginAlias');
 const { errorHandler, notFoundHandler } = require('./utils/errorHandler');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 const isDev = (process.env.NODE_ENV !== 'production');
 
 // Trust proxy for accurate IP addresses
@@ -52,12 +52,26 @@ const corsOptions = {
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:3000',
       'http://localhost:3001',
+      'http://localhost:3021',
+      'http://localhost:3022',
       'http://localhost:8081',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:3001',
+      'http://127.0.0.1:3021',
+      'http://127.0.0.1:3022',
       'http://127.0.0.1:8081',
-      'https://localhost:3000'
+      'https://localhost:3000',
+      'https://localhost:3021',
+      'https://localhost:3022'
     ];
+
+    // Add env-driven extension origin if provided
+    try {
+      const extId = process.env.EXTENSION_ID || process.env.REACT_APP_EXTENSION_ID;
+      if (extId && typeof extId === 'string' && extId.length > 10) {
+        allowedOrigins.push(`chrome-extension://${extId}`);
+      }
+    } catch (_) {}
 
     const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
     const isExtension = /^chrome-extension:\/\//i.test(origin);

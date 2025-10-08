@@ -51,21 +51,8 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
     }
   ];
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchAvailableAccounts();
-      
-      // Set up interval to refresh accounts every 30 seconds when modal is open
-      const interval = setInterval(() => {
-        fetchAvailableAccounts();
-      }, 30000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [isOpen]);
-
   // Ask the extension (via content script bridge) for local accounts
-  const fetchExtensionLocalAccounts = () => {
+  const fetchExtensionLocalAccounts = React.useCallback(() => {
     return new Promise((resolve, reject) => {
       try {
         const handler = (event) => {
@@ -89,21 +76,9 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
         reject(e);
       }
     });
-  };
+  }, []);
 
-  // Listen for account updates from other parts of the app
-  useEffect(() => {
-    const handleAccountUpdate = () => {
-      if (isOpen) {
-        fetchAvailableAccounts();
-      }
-    };
-    
-    window.addEventListener('linkedin-accounts-updated', handleAccountUpdate);
-    return () => window.removeEventListener('linkedin-accounts-updated', handleAccountUpdate);
-  }, [isOpen]);
-
-  const fetchAvailableAccounts = async () => {
+  const fetchAvailableAccounts = React.useCallback(async () => {
     try {
       console.log('🔍 Fetching available accounts...');
       
@@ -126,7 +101,7 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
       let accounts = [];
       
       if (result && result.success && Array.isArray(result.data)) {
-        // Standard API response: {success: true, data: [...]}
+        // Standard API response: {success: true, data: [...]} 
         accounts = result.data;
         console.log('✅ Using result.data format');
       } else if (Array.isArray(result)) {
@@ -134,7 +109,7 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
         accounts = result;
         console.log('✅ Using direct array format');
       } else if (result && Array.isArray(result.accounts)) {
-        // Object with accounts property: {accounts: [...]}
+        // Object with accounts property: {accounts: [...]} 
         accounts = result.accounts;
         console.log('✅ Using result.accounts format');
       } else {
@@ -191,7 +166,36 @@ const NewJobModal = ({ isOpen, onClose, onSubmit }) => {
         accounts: 'Failed to load LinkedIn accounts. Please try refreshing the page.'
       }));
     }
-  };
+  }, [fetchExtensionLocalAccounts]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchAvailableAccounts();
+      
+      // Set up interval to refresh accounts every 30 seconds when modal is open
+      const interval = setInterval(() => {
+        fetchAvailableAccounts();
+      }, 30000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isOpen, fetchAvailableAccounts]);
+
+  
+
+  // Listen for account updates from other parts of the app
+  useEffect(() => {
+    const handleAccountUpdate = () => {
+      if (isOpen) {
+        fetchAvailableAccounts();
+      }
+    };
+    
+    window.addEventListener('linkedin-accounts-updated', handleAccountUpdate);
+    return () => window.removeEventListener('linkedin-accounts-updated', handleAccountUpdate);
+  }, [isOpen, fetchAvailableAccounts]);
+
+
 
   const resetForm = () => {
     setStep(1);

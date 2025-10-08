@@ -165,7 +165,7 @@ class AuthEndpointDebugger {
       console.log('\n🔗 Step 5: HTTP Request to Auth Endpoint');
       
       try {
-        const response = await fetch('http://localhost:5000/api/auth/me', {
+const response = await fetch('http://localhost:5001/api/auth/me', {
           method: 'GET',
           headers: {
             'Authorization': 'Bearer test-token', // You'd need a real JWT token

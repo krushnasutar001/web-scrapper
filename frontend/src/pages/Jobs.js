@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { PlusIcon, EyeIcon, ArrowDownTrayIcon, FunnelIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, EyeIcon, ArrowDownTrayIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline';
 import NewJobModal from '../components/Jobs/NewJobModal';
 import BulkSearchUpload from '../components/ExcelUpload/BulkSearchUpload';
 import BulkCompanyUpload from '../components/ExcelUpload/BulkCompanyUpload';
-import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
 const Jobs = () => {
@@ -14,7 +13,6 @@ const Jobs = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [notification, setNotification] = useState(null);
-  const { user } = useAuth();
 
   const jobTypeColors = {
     profile: 'bg-blue-100 text-blue-800',
@@ -318,12 +316,7 @@ const Jobs = () => {
     });
   };
 
-  const getQueryDisplay = (job) => {
-    if (job.type === 'search') {
-      return job.query || job.searchQuery || 'Search query';
-    }
-    return job.fileName || 'Uploaded file';
-  };
+  
 
   return (
     <div className="p-6">

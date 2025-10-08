@@ -54,6 +54,12 @@ async function createUser() {
         email: 'test@test.com',
         password: 'test123',
         name: 'Test User'
+      },
+      {
+        id: uuidv4(),
+        email: 'test@example.com',
+        password: 'password123',
+        name: 'Example Test User'
       }
     ];
     

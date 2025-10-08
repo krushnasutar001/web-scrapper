@@ -266,6 +266,8 @@ const createJobTransactional = async (req, res) => {
  * @access  Private
  */
 router.get('/', authenticateToken, jobController.getJobs);
+// Specific route for pending jobs must come before parameterized routes
+router.get('/pending', authenticateToken, jobRateLimit, jobController.getPendingJobs);
 
 /**
  * @route   GET /api/jobs/:jobId

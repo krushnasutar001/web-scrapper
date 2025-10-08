@@ -7,11 +7,22 @@ class LinkedInMultiAccountManager {
   constructor() {
     this.accounts = [];
     this.currentExtractedCookies = null;
-    this.backendUrl = 'http://localhost:5000';
+    this.backendUrl = 'http://localhost:5001';
     this.init();
   }
 
   async init() {
+    // Resolve backend URL from storage if available
+    try {
+      const items = await new Promise((resolve) => {
+        try { chrome.storage.local.get(['apiBaseUrl'], (res) => resolve(res || {})); } catch (e) { resolve({}); }
+      });
+      if (items && items.apiBaseUrl) {
+        this.backendUrl = items.apiBaseUrl;
+      }
+    } catch (e) {
+      // Keep default backendUrl
+    }
     this.setupEventListeners();
     await this.loadAccounts();
     this.updateUI();
@@ -347,24 +358,62 @@ class LinkedInMultiAccountManager {
       let token = null;
       try {
         token = await new Promise((resolve) => {
-          try { chrome.storage.local.get(['authToken'], (items) => resolve(items?.authToken || null)); } catch { resolve(null); }
+          try { chrome.storage.local.get(['authToken'], (items) => resolve(items?.authToken || null)); } catch (e) { resolve(null); }
         });
-      } catch { token = null; }
+      } catch (e) { token = null; }
 
-      const response = await fetch(`${this.backendUrl}/api/accounts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          accountName: account.name,
-          email: account.email,
-          cookies: account.cookies.string,
-          source: 'chrome_extension',
-          extensionAccountId: account.id
-        })
-      });
+      let response;
+      let base = this.backendUrl || 'http://localhost:5001';
+      try {
+        response = await fetch(`${base}/api/accounts`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            accountName: account.name,
+            email: account.email,
+            cookies: account.cookies.string,
+            source: 'chrome_extension',
+            extensionAccountId: account.id
+          })
+        });
+      } catch (primaryErr) {
+        console.warn('Primary backend fetch failed:', primaryErr);
+        const looksNetwork = /failed to fetch|TypeError|NetworkError/i.test(String(primaryErr?.message || primaryErr));
+        if (looksNetwork) {
+          const candidateBases = Array.from(new Set([base, 'http://localhost:5001', 'http://localhost:3001', 'http://127.0.0.1:5001', 'http://127.0.0.1:3001']));
+          for (const alt of candidateBases) {
+            if (alt === base) continue;
+            try {
+              response = await fetch(`${alt}/api/accounts`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                  accountName: account.name,
+                  email: account.email,
+                  cookies: account.cookies.string,
+                  source: 'chrome_extension',
+                  extensionAccountId: account.id
+                })
+              });
+              if (response) {
+                this.backendUrl = alt; // Persist working base for future calls
+                break;
+              }
+            } catch (altErr) {
+              console.warn('Fallback backend fetch failed:', altErr);
+            }
+          }
+          if (!response) throw primaryErr;
+        } else {
+          throw primaryErr;
+        }
+      }
 
       if (!response.ok) {
         throw new Error(`Backend sync failed: ${response.status}`);

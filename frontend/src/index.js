@@ -35,12 +35,12 @@ import reportWebVitals from './reportWebVitals';
       if (first instanceof Error) return method + ':Error:' + (first.message || '');
       if (first && typeof first === 'object') {
         const asString = (() => {
-          try { return JSON.stringify(first); } catch { return first?.toString?.() || '[object]'; }
+          try { return JSON.stringify(first); } catch (e) { return first?.toString?.() || '[object]'; }
         })();
         return method + ':' + asString;
       }
       return method + ':' + String(first);
-    } catch {
+    } catch (e) {
       return method + ':unknown';
     }
   };
@@ -60,12 +60,12 @@ import reportWebVitals from './reportWebVitals';
         const safeArgs = args.map((a) => {
           if (a instanceof Error) return `${a.name}: ${a.message}`;
           if (typeof a === 'object') {
-            try { return JSON.stringify(a); } catch { return '[object]'; }
+            try { return JSON.stringify(a); } catch (e) { return '[object]'; }
           }
           return a;
         });
         originalFn('[log-gate] Original args:', ...safeArgs);
-      } catch {
+      } catch (e) {
         originalFn('[log-gate] Logging failed; original args not printable');
       }
     }

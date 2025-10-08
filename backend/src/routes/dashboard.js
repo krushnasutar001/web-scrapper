@@ -1,14 +1,15 @@
 const express = require('express');
 const router = express.Router();
 
-// Use src auth middleware
-const { authenticate } = require('../middleware/auth');
+// Use src auth middleware and user rate limit
+const { authenticate, userRateLimit } = require('../middleware/auth');
 
 // Reuse existing dashboard controller implemented in backend/controllers
 const dashboardController = require('../../controllers/dashboardController');
 
 // GET /api/dashboard/stats - Dashboard statistics
-router.get('/stats', authenticate, dashboardController.getDashboardStats);
+// Loosened rate limit: 60 requests per 60 seconds per user
+router.get('/stats', authenticate, userRateLimit(60, 60 * 1000), dashboardController.getDashboardStats);
 
 // GET /api/dashboard/analytics/jobs - Job performance analytics
 router.get('/analytics/jobs', authenticate, dashboardController.getJobAnalytics);
